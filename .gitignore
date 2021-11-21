@@ -1,2 +1,4 @@
 /.idea
 *.pyc
+/scripts/build
+/scripts/dist
