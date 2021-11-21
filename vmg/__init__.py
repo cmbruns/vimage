@@ -29,6 +29,22 @@ class VimageMainWindow(Ui_MainWindow, MainWindowBase):
         self.recent_files.add_file(file_name)
 
     @QtCore.Slot()
+    def on_actionSave_As_triggered(self):
+        file_path, file_filter = QtWidgets.QFileDialog.getSaveFileName(
+            parent=self,
+            caption="Save Image to File",
+            filter="All files (*)",
+        )
+        if len(file_path) < 1:
+            return
+        self.image.save(file_path)
+        # TODO: message about save
+
+    @QtCore.Slot()
+    def on_actionExit_triggered(self):
+        QtWidgets.QApplication.quit()
+
+    @QtCore.Slot()
     def on_actionOpen_triggered(self):
         file_name, filter_used = QtWidgets.QFileDialog.getOpenFileName(
             parent=self,
@@ -38,10 +54,6 @@ class VimageMainWindow(Ui_MainWindow, MainWindowBase):
         if len(file_name) < 1:
             return
         self.load_image(file_name)
-
-    @QtCore.Slot()
-    def on_actionExit_triggered(self):
-        QtWidgets.QApplication.quit()
 
 
 class VimageApp(object):

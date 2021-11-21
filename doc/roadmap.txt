@@ -1,0 +1,8 @@
+Features:
+  Crop (rectangle select)
+  Set icon in title bar and taskbar
+  Executable and installer
+
+Bugs:
+  Does not remember recent files
+  Update title bar after "save as"
