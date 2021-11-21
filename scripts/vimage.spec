@@ -5,9 +5,9 @@ block_cipher = None
 
 
 a = Analysis(['vimage.py'],
-             pathex=[],
-             binaries=[],
-             datas=[],
+             pathex=["..", ],
+             binaries=[("C:/Program Files/Python39/Scripts/pyside6-uic.exe", "."), ],
+             datas=[("../vmg/*.ui", "vmg"), ],
              hiddenimports=[],
              hookspath=[],
              hooksconfig={},

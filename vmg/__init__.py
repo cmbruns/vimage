@@ -59,6 +59,8 @@ class VimageMainWindow(Ui_MainWindow, MainWindowBase):
 class VimageApp(object):
     def __init__(self):
         app = QtWidgets.QApplication(sys.argv)
+        app.setOrganizationName("rotatingpenguin.com")
+        app.setApplicationName("vimage")
         app.setApplicationDisplayName("vimage")
         window = VimageMainWindow()
         args = app.arguments()
