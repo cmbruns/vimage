@@ -2,16 +2,13 @@ import pkg_resources
 import sys
 
 from PIL import Image, ImageQt
-from PySide6 import QtCore, QtGui, QtUiTools, QtWidgets
+from PySide6 import QtCore, QtGui, QtWidgets
 
 from vmg.recent_file import RecentFileList
-
-Ui_MainWindow, MainWindowBase = QtUiTools.loadUiType(
-    pkg_resources.resource_filename("vmg", "vimage.ui")
-)
+from vmg.ui_vimage import Ui_MainWindow
 
 
-class VimageMainWindow(Ui_MainWindow, MainWindowBase):
+class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.setupUi(self)
@@ -21,6 +18,10 @@ class VimageMainWindow(Ui_MainWindow, MainWindowBase):
             settings_key="recent_files",
             menu=self.menuOpen_Recent,
         )
+        self.actionSave_As.setIcon(QtGui.QIcon(
+            pkg_resources.resource_filename("vmg", "ftfilesaveas2.png")))
+        self.actionOpen.setIcon(QtGui.QIcon(
+            pkg_resources.resource_filename("vmg", "folder-g43b5a9bf3_640.png")))
 
     def load_image(self, file_name: str) -> None:
         self.image = Image.open(file_name)
