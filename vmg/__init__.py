@@ -1,4 +1,3 @@
-import pkg_resources
 import sys
 
 from PIL import Image, ImageQt
@@ -18,10 +17,14 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
             settings_key="recent_files",
             menu=self.menuOpen_Recent,
         )
-        self.actionSave_As.setIcon(QtGui.QIcon(
-            pkg_resources.resource_filename("vmg", "ftfilesaveas2.png")))
-        self.actionOpen.setIcon(QtGui.QIcon(
-            pkg_resources.resource_filename("vmg", "folder-g43b5a9bf3_640.png")))
+        self.actionSave_As.setIcon(self.style().standardIcon(
+            QtWidgets.QStyle.SP_DialogSaveButton))
+        self.actionOpen.setIcon(self.style().standardIcon(
+            QtWidgets.QStyle.SP_DialogOpenButton))
+        self.actionPrevious.setIcon(self.style().standardIcon(
+            QtWidgets.QStyle.SP_ArrowBack))
+        self.actionNext.setIcon(self.style().standardIcon(
+            QtWidgets.QStyle.SP_ArrowForward))
 
     def load_image(self, file_name: str) -> None:
         self.image = Image.open(file_name)
