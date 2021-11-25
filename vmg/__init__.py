@@ -29,8 +29,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
     def load_image(self, file_name: str) -> None:
         self.image = Image.open(file_name)
         self.imageLabel.setPixmap(QtGui.QPixmap.fromImage(ImageQt.ImageQt(self.image)))
-        self.setWindowFilePath(file_name)
-        self.recent_files.add_file(file_name)
+        self.set_current_image_path(file_name)
 
     @QtCore.Slot()
     def on_actionSave_As_triggered(self):
@@ -42,7 +41,8 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         if len(file_path) < 1:
             return
         self.image.save(file_path)
-        # TODO: message about save
+        self.set_current_image_path(file_path)
+        self.statusbar.showMessage(f"Saved image {file_path}", 5000)
 
     @QtCore.Slot()
     def on_actionExit_triggered(self):
@@ -58,6 +58,10 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         if len(file_name) < 1:
             return
         self.load_image(file_name)
+
+    def set_current_image_path(self, path: str):
+        self.setWindowFilePath(path)
+        self.recent_files.add_file(path)
 
 
 class VimageApp(object):
