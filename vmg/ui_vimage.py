@@ -16,15 +16,17 @@ from PySide6.QtGui import (QAction, QBrush, QColor, QConicalGradient,
     QIcon, QImage, QKeySequence, QLinearGradient,
     QPainter, QPalette, QPixmap, QRadialGradient,
     QTransform)
-from PySide6.QtWidgets import (QApplication, QHBoxLayout, QLabel, QMainWindow,
-    QMenu, QMenuBar, QScrollArea, QSizePolicy,
-    QStatusBar, QToolBar, QWidget)
+from PySide6.QtWidgets import (QApplication, QMainWindow, QMenu, QMenuBar,
+    QSizePolicy, QStatusBar, QToolBar, QVBoxLayout,
+    QWidget)
+
+from vmg.image_widget import ImageWidget
 
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         if not MainWindow.objectName():
             MainWindow.setObjectName(u"MainWindow")
-        MainWindow.resize(324, 286)
+        MainWindow.resize(640, 549)
         MainWindow.setUnifiedTitleAndToolBarOnMac(False)
         self.actionOpen = QAction(MainWindow)
         self.actionOpen.setObjectName(u"actionOpen")
@@ -41,33 +43,25 @@ class Ui_MainWindow(object):
         self.actionPrevious.setEnabled(False)
         self.centralwidget = QWidget(MainWindow)
         self.centralwidget.setObjectName(u"centralwidget")
-        self.horizontalLayout = QHBoxLayout(self.centralwidget)
-        self.horizontalLayout.setObjectName(u"horizontalLayout")
-        self.horizontalLayout.setContentsMargins(0, 0, 0, 0)
-        self.scrollArea = QScrollArea(self.centralwidget)
-        self.scrollArea.setObjectName(u"scrollArea")
-        self.scrollArea.setLineWidth(0)
-        self.scrollArea.setWidgetResizable(True)
-        self.scrollAreaWidgetContents = QWidget()
-        self.scrollAreaWidgetContents.setObjectName(u"scrollAreaWidgetContents")
-        self.scrollAreaWidgetContents.setGeometry(QRect(0, 0, 322, 215))
-        self.horizontalLayout_2 = QHBoxLayout(self.scrollAreaWidgetContents)
-        self.horizontalLayout_2.setObjectName(u"horizontalLayout_2")
-        self.horizontalLayout_2.setContentsMargins(0, 0, 0, 0)
-        self.imageLabel = QLabel(self.scrollAreaWidgetContents)
-        self.imageLabel.setObjectName(u"imageLabel")
-        self.imageLabel.setAlignment(Qt.AlignCenter)
+        self.verticalLayout = QVBoxLayout(self.centralwidget)
+        self.verticalLayout.setObjectName(u"verticalLayout")
+        self.verticalLayout.setContentsMargins(0, 0, 0, 0)
+        self.imageWidget = ImageWidget(self.centralwidget)
+        self.imageWidget.setObjectName(u"imageWidget")
+        sizePolicy = QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
+        sizePolicy.setHorizontalStretch(0)
+        sizePolicy.setVerticalStretch(0)
+        sizePolicy.setHeightForWidth(self.imageWidget.sizePolicy().hasHeightForWidth())
+        self.imageWidget.setSizePolicy(sizePolicy)
+        self.imageWidget.setScaledContents(True)
+        self.imageWidget.setAlignment(Qt.AlignCenter)
 
-        self.horizontalLayout_2.addWidget(self.imageLabel)
-
-        self.scrollArea.setWidget(self.scrollAreaWidgetContents)
-
-        self.horizontalLayout.addWidget(self.scrollArea)
+        self.verticalLayout.addWidget(self.imageWidget)
 
         MainWindow.setCentralWidget(self.centralwidget)
         self.menubar = QMenuBar(MainWindow)
         self.menubar.setObjectName(u"menubar")
-        self.menubar.setGeometry(QRect(0, 0, 324, 22))
+        self.menubar.setGeometry(QRect(0, 0, 640, 22))
         self.menuFile = QMenu(self.menubar)
         self.menuFile.setObjectName(u"menuFile")
         self.menuOpen_Recent = QMenu(self.menuFile)
@@ -113,7 +107,7 @@ class Ui_MainWindow(object):
 #if QT_CONFIG(shortcut)
         self.actionPrevious.setShortcut(QCoreApplication.translate("MainWindow", u"Left", None))
 #endif // QT_CONFIG(shortcut)
-        self.imageLabel.setText("")
+        self.imageWidget.setText("")
         self.menuFile.setTitle(QCoreApplication.translate("MainWindow", u"File", None))
         self.menuOpen_Recent.setTitle(QCoreApplication.translate("MainWindow", u"Open Recent", None))
         self.menuView.setTitle(QCoreApplication.translate("MainWindow", u"View", None))
