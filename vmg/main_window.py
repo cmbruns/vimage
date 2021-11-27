@@ -1,10 +1,24 @@
+import io
 import pathlib
 
+import PIL
 from PIL import Image
 from PySide6 import QtWidgets, QtCore
+from PySide6.QtCore import Qt
 
 from vmg.recent_file import RecentFileList
 from vmg.ui_vimage import Ui_MainWindow
+
+
+class ScopedWaitCursor(object):
+    def __init__(self):
+        QtWidgets.QApplication.setOverrideCursor(Qt.WaitCursor)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        QtWidgets.QApplication.restoreOverrideCursor()
 
 
 class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
@@ -30,10 +44,11 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
 
     def load_image(self, file_name: str) -> None:
         f = str(file_name)
-        self.image = Image.open(f)
-        self.imageWidget.set_image(self.image)
-        self.set_current_image_path(f)
-        self.statusbar.showMessage(f"Loaded image {file_name}", 5000)
+        with ScopedWaitCursor() as _:
+            self.image = Image.open(f)
+            self.imageWidget.set_image(self.image)
+            self.set_current_image_path(f)
+            self.statusbar.showMessage(f"Loaded image {file_name}", 5000)
 
     def load_main_image(self, file_name: str):
         path = pathlib.Path(file_name)
@@ -81,8 +96,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
             self.actionNext.setEnabled(False)
             return
         self.image_index += 1
-        self.load_image(self.image_list[self.image_index])
-        self.update_previous_next()
+        self.activate_indexed_image()
 
     @QtCore.Slot()
     def on_actionOpen_triggered(self):
@@ -101,8 +115,26 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
             self.actionPrevious.setEnabled(False)
             return
         self.image_index -= 1
-        self.load_image(self.image_list[self.image_index])
+        self.activate_indexed_image()
+
+    def activate_indexed_image(self):
+        try:
+            self.load_image(self.image_list[self.image_index])
+        except PIL.UnidentifiedImageError as uie:
+            self.statusbar.showMessage(str(uie), 5000)
         self.update_previous_next()
+
+    def save_image(self, file_path: str):
+        with ScopedWaitCursor() as swc:
+            # Avoid creating corrupt file by first writing to memory to check for writing errors
+            in_memory_image = io.BytesIO()
+            in_memory_image.name = file_path
+            self.image.save(in_memory_image)
+            with open(file_path, "wb") as out:
+                in_memory_image.seek(0)
+                out.write(in_memory_image.read())
+            self.set_current_image_path(file_path)
+            self.statusbar.showMessage(f"Saved image {file_path}", 5000)
 
     @QtCore.Slot()
     def on_actionSave_As_triggered(self):
@@ -115,9 +147,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         if len(file_path) < 1:
             return
         try:
-            self.image.save(file_path)
-            self.set_current_image_path(file_path)
-            self.statusbar.showMessage(f"Saved image {file_path}", 5000)
+            self.save_image(file_path)
         except ValueError as value_error:  # File without extension
             QtWidgets.QMessageBox.warning(
                 self,
