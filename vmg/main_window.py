@@ -109,11 +109,18 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         file_path, file_filter = QtWidgets.QFileDialog.getSaveFileName(
             parent=self,
             caption="Save Image to File",
-            filter="All files (*)",
+            filter="PNG Files (*.png);;JPEG Files(*.jpg);;All files (*.*)",
+            selectedFilter="PNG Files (*.png)",
         )
         if len(file_path) < 1:
             return
-        self.image.save(file_path)
-        self.set_current_image_path(file_path)
-        self.statusbar.showMessage(f"Saved image {file_path}", 5000)
-
+        try:
+            self.image.save(file_path)
+            self.set_current_image_path(file_path)
+            self.statusbar.showMessage(f"Saved image {file_path}", 5000)
+        except ValueError as value_error:
+            QtWidgets.QMessageBox.warning(
+                parent=self,
+                title="Error saving image with that name",
+                text=f"Error: {str(value_error)}",
+            )
