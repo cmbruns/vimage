@@ -12,8 +12,10 @@ class VimageApp(object):
         app.setApplicationName("vimage")
         app.setApplicationDisplayName("vimage")
         window = VimageMainWindow()
-        args = app.arguments()
-        if len(args) > 1:
-            window.load_image(args[1])
+        image_list = app.arguments()[1:]
+        if len(image_list) == 1:
+            window.load_main_image(image_list[0])
+        else:
+            window.set_image_list(app.arguments()[1:], 0)
         window.show()
         sys.exit(app.exec())
