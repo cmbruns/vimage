@@ -118,9 +118,21 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
             self.image.save(file_path)
             self.set_current_image_path(file_path)
             self.statusbar.showMessage(f"Saved image {file_path}", 5000)
-        except ValueError as value_error:
+        except ValueError as value_error:  # File without extension
             QtWidgets.QMessageBox.warning(
-                parent=self,
-                title="Error saving image with that name",
-                text=f"Error: {str(value_error)}",
+                self,
+                "Error saving image with that name",
+                f"Error: {str(value_error)}",
+            )
+        except OSError as os_error:  # cannot write mode RGBA as JPEG
+            QtWidgets.QMessageBox.warning(
+                self,
+                "Error saving image",
+                f"Error: {str(os_error)}",
+            )
+        except Exception as exception:
+            QtWidgets.QMessageBox.warning(
+                self,
+                "Error saving image",
+                f"Error: {str(exception)}",
             )
