@@ -6,6 +6,7 @@ from PIL import Image
 from PySide6 import QtWidgets, QtCore
 from PySide6.QtCore import Qt
 
+from vmg.natural_sort import natural_sort_key
 from vmg.recent_file import RecentFileList
 from vmg.ui_vimage import Ui_MainWindow
 
@@ -69,9 +70,14 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
     def set_image_list(self, image_list: list, current_index: int):
         if len(image_list) < 1:
             return
-        self.image_list[:] = image_list[:]
-        self.image_index = current_index
-        self.load_image(self.image_list[current_index])
+        current_item = image_list[current_index]
+        self.image_list = sorted(image_list, key=natural_sort_key)
+        self.image_index = None
+        for index, item in enumerate(self.image_list):
+            if item is current_item:
+                self.image_index = index
+        assert self.image_index is not None
+        self.load_image(self.image_list[self.image_index])
         self.update_previous_next()
 
     def update_previous_next(self):
@@ -134,6 +140,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
                 in_memory_image.seek(0)
                 out.write(in_memory_image.read())
             self.set_current_image_path(file_path)
+            self.load_main_image(file_path)
             self.statusbar.showMessage(f"Saved image {file_path}", 5000)
 
     @QtCore.Slot()

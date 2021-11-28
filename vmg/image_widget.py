@@ -1,5 +1,6 @@
 from PIL import Image, ImageQt
 from PySide6 import QtGui, QtWidgets
+from PySide6.QtCore import Qt
 
 
 class ImageWidget(QtWidgets.QLabel):
@@ -8,6 +9,7 @@ class ImageWidget(QtWidgets.QLabel):
         self.pixmap = None
         self.adjusted_to_size = (-1, -1)
         self.ratio = 1.0
+        self.setCursor(Qt.CrossCursor)
 
     def resizeEvent(self, event: QtGui.QResizeEvent) -> None:
         size = event.size()
