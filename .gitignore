@@ -2,3 +2,4 @@
 *.pyc
 /scripts/build
 /scripts/dist
+/build_cmake
