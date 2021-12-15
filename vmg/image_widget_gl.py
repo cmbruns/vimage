@@ -23,6 +23,9 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         # Use native-like background color
         bg_color = self.palette().color(self.backgroundRole()).getRgbF()
         GL.glClearColor(*bg_color)
+        # Make transparent images transparent
+        GL.glEnable(GL.GL_BLEND)
+        GL.glBlendFunc(GL.GL_ONE, GL.GL_ONE_MINUS_SRC_ALPHA)
         self.vao = GL.glGenVertexArrays(1)
         GL.glBindVertexArray(self.vao)
         self.shader = compileProgram(

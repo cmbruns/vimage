@@ -4,7 +4,7 @@ import pathlib
 import numpy
 import PIL
 from PIL import Image
-from PySide6 import QtWidgets, QtCore
+from PySide6 import QtCore, QtGui, QtWidgets
 from PySide6.QtCore import Qt
 
 from vmg.natural_sort import natural_sort_key
@@ -27,6 +27,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.setupUi(self)
+        self.setAcceptDrops(True)
         self.image_list = []
         self.image_index = 0
         self.image = None
@@ -43,6 +44,32 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
             QtWidgets.QStyle.SP_ArrowBack))
         self.actionNext.setIcon(self.style().standardIcon(
             QtWidgets.QStyle.SP_ArrowForward))
+
+    def dragEnterEvent(self, event: QtGui.QDragEnterEvent) -> None:
+        mime_data = event.mimeData()
+        if mime_data.hasUrls():
+            for url in mime_data.urls():
+                file = url.toLocalFile()
+                if pathlib.Path(file).is_file():
+                    event.acceptProposedAction()
+                    return
+
+    def dropEvent(self, event: QtGui.QDropEvent) -> None:
+        mime_data = event.mimeData()
+        files = []
+        if mime_data.hasUrls():
+            for url in mime_data.urls():
+                file = url.toLocalFile()
+                if pathlib.Path(file).is_file():
+                    files.append(file)
+        if len(files) < 1:
+            return
+        elif len(files) == 1:
+            self.load_main_image(files[0])
+        else:
+            self.set_image_list(files, 0)
+        event.acceptProposedAction()
+        self.activateWindow()  # Take focus immediately after successful drop
 
     def load_image(self, file_name: str) -> None:
         f = str(file_name)
