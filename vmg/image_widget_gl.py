@@ -3,6 +3,7 @@ import inspect
 import numpy
 from OpenGL import GL
 from OpenGL.GL.shaders import compileProgram, compileShader
+import PIL
 from PySide6 import QtOpenGLWidgets
 from PySide6.QtCore import Qt
 
@@ -25,7 +26,7 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         GL.glClearColor(*bg_color)
         # Make transparent images transparent
         GL.glEnable(GL.GL_BLEND)
-        GL.glBlendFunc(GL.GL_SRC_ALPHA, GL.GL_ONE_MINUS_SRC_ALPHA)
+        GL.glBlendFunc(GL.GL_ONE, GL.GL_ONE_MINUS_SRC_ALPHA)
         self.vao = GL.glGenVertexArrays(1)
         GL.glBindVertexArray(self.vao)
         self.shader = compileProgram(
@@ -57,7 +58,6 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
                 out vec4 color;
                 
                 void main() {
-                    color = vec4(0.5, 0.5, 0.5, 1);
                     color = texture(image, tex_coord);
                 }
             """), GL.GL_FRAGMENT_SHADER),
@@ -102,7 +102,7 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
                     GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_LINEAR
                 )
                 GL.glTexParameteri(
-                    GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_LINEAR_MIPMAP_LINEAR
+                    GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_LINEAR_MIPMAP_NEAREST
                 )
                 GL.glTexParameteri(
                     GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_S, GL.GL_CLAMP_TO_EDGE
@@ -120,8 +120,14 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         self.update_viewport()
         self.update()
 
-    def set_image(self, image: numpy.ndarray):
-        self.image = image
+    def set_image(self, image: PIL.Image.Image):
+        self.image = numpy.array(image)
+        # Use premultiplied alpha for better filtering
+        if image.mode == "RGBA":
+            a = self.image
+            alpha_layer = a[:, :, 3] / 255.0
+            for rgb in range(3):
+                a[:, :, rgb] = (a[:, :, rgb] * alpha_layer).astype(a.dtype)
         self.image_needs_upload = True
         self.update_viewport()
         self.update()

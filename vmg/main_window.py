@@ -75,7 +75,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         f = str(file_name)
         with ScopedWaitCursor() as _:
             self.image = Image.open(f)
-            self.imageWidgetGL.set_image(numpy.array(self.image))
+            self.imageWidgetGL.set_image(self.image)
             self.set_current_image_path(f)
             self.statusbar.showMessage(f"Loaded image {file_name}", 5000)
 
