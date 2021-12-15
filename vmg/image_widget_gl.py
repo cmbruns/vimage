@@ -25,7 +25,7 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         GL.glClearColor(*bg_color)
         # Make transparent images transparent
         GL.glEnable(GL.GL_BLEND)
-        GL.glBlendFunc(GL.GL_ONE, GL.GL_ONE_MINUS_SRC_ALPHA)
+        GL.glBlendFunc(GL.GL_SRC_ALPHA, GL.GL_ONE_MINUS_SRC_ALPHA)
         self.vao = GL.glGenVertexArrays(1)
         GL.glBindVertexArray(self.vao)
         self.shader = compileProgram(
