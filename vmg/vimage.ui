@@ -28,23 +28,7 @@
      <number>0</number>
     </property>
     <item>
-     <widget class="ImageWidget" name="imageWidget">
-      <property name="sizePolicy">
-       <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-        <horstretch>0</horstretch>
-        <verstretch>0</verstretch>
-       </sizepolicy>
-      </property>
-      <property name="text">
-       <string/>
-      </property>
-      <property name="scaledContents">
-       <bool>true</bool>
-      </property>
-      <property name="alignment">
-       <set>Qt::AlignCenter</set>
-      </property>
-     </widget>
+     <widget class="ImageWidgetGL" name="imageWidgetGL"/>
     </item>
    </layout>
   </widget>
@@ -141,9 +125,9 @@
  </widget>
  <customwidgets>
   <customwidget>
-   <class>ImageWidget</class>
-   <extends>QLabel</extends>
-   <header location="global">vmg/image_widget.h</header>
+   <class>ImageWidgetGL</class>
+   <extends>QOpenGLWidget</extends>
+   <header>vmg/image_widget_gl.h</header>
   </customwidget>
  </customwidgets>
  <resources/>

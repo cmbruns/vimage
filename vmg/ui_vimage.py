@@ -3,7 +3,7 @@
 ################################################################################
 ## Form generated from reading UI file 'vimage.ui'
 ##
-## Created by: Qt User Interface Compiler version 6.2.1
+## Created by: Qt User Interface Compiler version 6.2.0
 ##
 ## WARNING! All changes made in this file will be lost when recompiling UI file!
 ################################################################################
@@ -20,7 +20,7 @@ from PySide6.QtWidgets import (QApplication, QMainWindow, QMenu, QMenuBar,
     QSizePolicy, QStatusBar, QToolBar, QVBoxLayout,
     QWidget)
 
-from vmg.image_widget import ImageWidget
+from vmg.image_widget_gl import ImageWidgetGL
 
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
@@ -46,17 +46,10 @@ class Ui_MainWindow(object):
         self.verticalLayout = QVBoxLayout(self.centralwidget)
         self.verticalLayout.setObjectName(u"verticalLayout")
         self.verticalLayout.setContentsMargins(0, 0, 0, 0)
-        self.imageWidget = ImageWidget(self.centralwidget)
-        self.imageWidget.setObjectName(u"imageWidget")
-        sizePolicy = QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.imageWidget.sizePolicy().hasHeightForWidth())
-        self.imageWidget.setSizePolicy(sizePolicy)
-        self.imageWidget.setScaledContents(True)
-        self.imageWidget.setAlignment(Qt.AlignCenter)
+        self.imageWidgetGL = ImageWidgetGL(self.centralwidget)
+        self.imageWidgetGL.setObjectName(u"imageWidgetGL")
 
-        self.verticalLayout.addWidget(self.imageWidget)
+        self.verticalLayout.addWidget(self.imageWidgetGL)
 
         MainWindow.setCentralWidget(self.centralwidget)
         self.menubar = QMenuBar(MainWindow)
@@ -107,7 +100,6 @@ class Ui_MainWindow(object):
 #if QT_CONFIG(shortcut)
         self.actionPrevious.setShortcut(QCoreApplication.translate("MainWindow", u"Left", None))
 #endif // QT_CONFIG(shortcut)
-        self.imageWidget.setText("")
         self.menuFile.setTitle(QCoreApplication.translate("MainWindow", u"File", None))
         self.menuOpen_Recent.setTitle(QCoreApplication.translate("MainWindow", u"Open Recent", None))
         self.menuView.setTitle(QCoreApplication.translate("MainWindow", u"View", None))
