@@ -1,5 +1,5 @@
 project(vimage NONE)
-cmake_minimum_required(VERSION 2.8.12)
+cmake_minimum_required(VERSION 3.3)
 
 find_program(UIC PySide6-uic)
 add_custom_command(
@@ -23,6 +23,10 @@ install(DIRECTORY "${CMAKE_BINARY_DIR}/dist/vimage/"
     DESTINATION "."
 )
 
+set_property(INSTALL "vimage.exe"
+    PROPERTY CPACK_START_MENU_SHORTCUTS "vimage"
+)
+
 # set(CPACK_GENERATOR NSIS)
 
 set(CPACK_GENERATOR WIX)
@@ -31,6 +35,6 @@ set(CPACK_WIX_UPGRADE_GUID F1CA83FC-4F1B-42A3-B033-4D597CAD1A37)
 set(CPACK_PACKAGE_VERSION_MAJOR "0")
 set(CPACK_PACKAGE_VERSION_MINOR "5")
 set(CPACK_PACKAGE_VERSION_PATCH "0")
-set(CPACK_PACKAGE_EXECUTABLES vimage.exe vimage)
+set(CPACK_PACKAGE_EXECUTABLES "vimage;vimage")
 
 include(CPack)
