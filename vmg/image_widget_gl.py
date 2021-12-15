@@ -67,17 +67,31 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         if self.image is not None:
             GL.glBindTexture(GL.GL_TEXTURE_2D, self.texture)
             if self.image_needs_upload:
-                GL.glPixelStorei(GL.GL_UNPACK_ALIGNMENT, 1)
-                h, w = self.image.shape[:2]
+                # Number of channels
+                formats = {
+                    1: GL.GL_RED,
+                    3: GL.GL_RGB,
+                    4: GL.GL_RGBA,
+                }
+                channel_count = 1
+                if len(self.image.shape) > 2:
+                    channel_count = self.image.shape[2]
+                # Bit depth
+                depths = {
+                    numpy.dtype("uint8"): GL.GL_UNSIGNED_BYTE,
+                    numpy.dtype("uint16"): GL.GL_UNSIGNED_SHORT,
+                }
+                h, w = self.image.shape[:2]  # Image dimensions
+                GL.glPixelStorei(GL.GL_UNPACK_ALIGNMENT, 1)  # In case width is odd
                 GL.glTexImage2D(
                     GL.GL_TEXTURE_2D,
                     0,
-                    GL.GL_RGB,  # TODO: depend on number of channels
+                    formats[channel_count],
                     w,
                     h,
                     0,
-                    GL.GL_RGB,
-                    GL.GL_UNSIGNED_BYTE,  # TODO: depend on dtype
+                    formats[channel_count],
+                    depths[self.image.dtype],
                     self.image,
                 )
                 # TODO: implement toggle between NEAREST, LINEAR, CUBIC...
