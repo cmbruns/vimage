@@ -86,6 +86,12 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
                 }
                 h, w = self.image.shape[:2]  # Image dimensions
                 GL.glPixelStorei(GL.GL_UNPACK_ALIGNMENT, 1)  # In case width is odd
+                if channel_count == 1:
+                    GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_SWIZZLE_G, GL.GL_RED)
+                    GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_SWIZZLE_B, GL.GL_RED)
+                else:
+                    GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_SWIZZLE_G, GL.GL_GREEN)
+                    GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_SWIZZLE_B, GL.GL_BLUE)
                 GL.glTexImage2D(
                     GL.GL_TEXTURE_2D,
                     0,
