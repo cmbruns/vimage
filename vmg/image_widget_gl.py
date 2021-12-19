@@ -64,10 +64,10 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         # Keep the center point on the actual image itself
         self.image_center[0] += dx / x_scale
         self.image_center[1] += dy / y_scale
-        self.image_center[0] = max(0, self.image_center[0])
-        self.image_center[1] = max(0, self.image_center[1])
-        self.image_center[0] = min(1, self.image_center[0])
-        self.image_center[1] = min(1, self.image_center[1])
+        self.image_center[0] = max(0.0, self.image_center[0])
+        self.image_center[1] = max(0.0, self.image_center[1])
+        self.image_center[0] = min(1.0, self.image_center[0])
+        self.image_center[1] = min(1.0, self.image_center[1])
         #
         self.previous_mouse_position = event.pos()
         self.update()
