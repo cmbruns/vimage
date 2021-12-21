@@ -39,7 +39,11 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
             "vmg", "image.vert", ), GL.GL_VERTEX_SHADER)
         fragment_shader = compileShader(pkg_resources.resource_string(
             "vmg", "image.frag", ), GL.GL_FRAGMENT_SHADER)
-        self.shader = compileProgram(vertex_shader, fragment_shader)
+        self.shader = GL.glCreateProgram()
+        GL.glAttachShader(self.shader, vertex_shader)
+        GL.glAttachShader(self.shader, fragment_shader)
+        GL.glLinkProgram(self.shader)
+        # self.shader = compileProgram(vertex_shader, fragment_shader)
         self.zoom_location = GL.glGetUniformLocation(self.shader, "window_zoom")
         self.window_size_location = GL.glGetUniformLocation(self.shader, "window_size")
         self.image_center_location = GL.glGetUniformLocation(self.shader, "image_center")

@@ -1,12 +1,17 @@
 import sys
 
-from PySide6 import QtWidgets
+from PySide6 import QtOpenGL, QtWidgets
+from PySide6.QtGui import QSurfaceFormat
 
 from vmg.main_window import VimageMainWindow
 
 
 class VimageApp(object):
     def __init__(self):
+        f = QSurfaceFormat()
+        f.setProfile(QSurfaceFormat.CoreProfile)
+        f.setVersion(4, 1)
+        QSurfaceFormat.setDefaultFormat(f)
         app = QtWidgets.QApplication(sys.argv)
         app.setOrganizationName("rotatingpenguin.com")
         app.setApplicationName("vimage")
