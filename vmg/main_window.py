@@ -28,6 +28,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         super().__init__(*args, **kwargs)
         self.setupUi(self)
         self.setAcceptDrops(True)
+        self.setAttribute(Qt.WA_AcceptTouchEvents, True)
         self.image_list = []
         self.image_index = 0
         self.image = None

@@ -2,17 +2,21 @@ import pkg_resources
 
 import numpy
 from OpenGL import GL
-from OpenGL.GL.shaders import compileProgram, compileShader
+from OpenGL.GL.shaders import compileShader
 import PIL
 from PySide6 import QtGui, QtOpenGLWidgets
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QEvent, Qt
 
 
 class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.image: numpy.ndarray = None
         self.setCursor(Qt.CrossCursor)
+        self.setAttribute(Qt.WA_AcceptTouchEvents, True)
+        self.grabGesture(Qt.PinchGesture)
+        # self.grabGesture(Qt.PanGesture)
+        self.grabGesture(Qt.SwipeGesture)
+        self.image: numpy.ndarray = None
         self.setMinimumSize(10, 10)
         self.vao = None
         self.shader = None
@@ -25,6 +29,21 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         self.image_center_location = None
         self.is_dragging = False
         self.previous_mouse_position = None
+
+    def event(self, event: QEvent):
+        # print(f"event: {event}")
+        if event.type() == QEvent.Gesture:
+            pinch = event.gesture(Qt.PinchGesture)
+            swipe = event.gesture(Qt.SwipeGesture)
+            if swipe is not None:
+                print(swipe)
+            elif pinch is not None:
+                zoom = pinch.scaleFactor()
+                self.zoom_relative(zoom)
+                self.update()
+                return True
+
+        return super().event(event)
 
     def initializeGL(self) -> None:
         # Use native-like background color
@@ -54,6 +73,8 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         if not self.is_dragging:
             return
         if self.image is None:
+            return
+        if event.source() != Qt.MouseEventNotSynthesized:
             return
         # Drag image around
         dx = event.pos().x() - self.previous_mouse_position.x()
@@ -90,9 +111,7 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         if d_scale == 0:
             return
         d_scale = 1.12 ** d_scale
-        self.window_zoom *= d_scale
-        # Limit zoom-out because you never need more than twice the image dimension to move around
-        self.window_zoom = max(0.5, self.window_zoom)
+        self.zoom_relative(d_scale)
         self.update()
 
     def paintGL(self) -> None:
@@ -173,3 +192,8 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         )
         GL.glGenerateMipmap(GL.GL_TEXTURE_2D)
         self.image_needs_upload = False
+
+    def zoom_relative(self, zoom_factor: float):
+        self.window_zoom *= zoom_factor
+        # Limit zoom-out because you never need more than twice the image dimension to move around
+        self.window_zoom = max(0.5, self.window_zoom)
