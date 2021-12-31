@@ -36,25 +36,17 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         self.image_center[1] = max(0.0, self.image_center[1])
         self.image_center[0] = min(1.0, self.image_center[0])
         self.image_center[1] = min(1.0, self.image_center[1])
-        x_scale = y_scale = self.window_zoom
-        ratio_ratio = self.width() * self.image.shape[0] / (self.height() * self.image.shape[1])
-        if ratio_ratio > 1:
-            x_scale /= ratio_ratio
-        else:
-            y_scale *= ratio_ratio
-        if x_scale <= 1:
+        z = self.window_zoom
+        if z <= 1:
             self.image_center[0] = 0.5
-        else:
-            self.image_center[0] = min(self.image_center[0], 1 - 0.5 / x_scale)
-            self.image_center[0] = max(self.image_center[0], 0.5 / x_scale)
-        if y_scale <= 1:
             self.image_center[1] = 0.5
         else:
-            self.image_center[1] = min(self.image_center[1], 1 - 0.5 / y_scale)
-            self.image_center[1] = max(self.image_center[1], 0.5 / y_scale)
+            self.image_center[0] = min(self.image_center[0], 1 - 0.5 / z)
+            self.image_center[0] = max(self.image_center[0], 0.5 / z)
+            self.image_center[1] = min(self.image_center[1], 1 - 0.5 / z)
+            self.image_center[1] = max(self.image_center[1], 0.5 / z)
 
     def event(self, event: QEvent):
-        # print(f"event: {event}")
         if event.type() == QEvent.Gesture:
             pinch = event.gesture(Qt.PinchGesture)
             swipe = event.gesture(Qt.SwipeGesture)
@@ -75,8 +67,8 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
             x_scale /= ratio_ratio
         else:
             y_scale *= ratio_ratio
-        wx = (wpos.x() - self.width() / 2) / self.width() / self.window_zoom
-        wy = (wpos.y() - self.height() / 2) / self.height() / self.window_zoom
+        wx = (wpos.x() - self.width() / 2) / self.width() / x_scale
+        wy = (wpos.y() - self.height() / 2) / self.height() / y_scale
         return wx, wy
 
     def initializeGL(self) -> None:
