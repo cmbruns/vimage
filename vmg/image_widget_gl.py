@@ -68,6 +68,17 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
 
         return super().event(event)
 
+    def image_for_window(self, wpos):
+        x_scale = y_scale = self.window_zoom
+        ratio_ratio = self.width() * self.image.shape[0] / (self.height() * self.image.shape[1])
+        if ratio_ratio > 1:
+            x_scale /= ratio_ratio
+        else:
+            y_scale *= ratio_ratio
+        wx = (wpos.x() - self.width() / 2) / self.width() / self.window_zoom
+        wy = (wpos.y() - self.height() / 2) / self.height() / self.window_zoom
+        return wx, wy
+
     def initializeGL(self) -> None:
         # Use native-like background color
         bg_color = self.palette().color(self.backgroundRole()).getRgbF()
@@ -130,7 +141,7 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         if d_scale == 0:
             return
         d_scale = 1.12 ** d_scale
-        self.zoom_relative(d_scale)
+        self.zoom_relative(d_scale, event.position())
         self.update()
 
     def paintGL(self) -> None:
@@ -212,8 +223,19 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         GL.glGenerateMipmap(GL.GL_TEXTURE_2D)
         self.image_needs_upload = False
 
-    def zoom_relative(self, zoom_factor: float):
-        self.window_zoom *= zoom_factor
+    def zoom_relative(self, zoom_factor: float, zoom_center=None):
+        new_zoom = self.window_zoom * zoom_factor
+        if new_zoom <= 1:
+            zoom_factor = 1 / self.window_zoom
+            new_zoom = 1
+        self.window_zoom = new_zoom
+        if zoom_center is not None:
+            z2 = self.image_for_window(zoom_center)  # After position
+            z1 = [x * zoom_factor for x in z2]  # Before position
+            dx = z2[0] - z1[0]
+            dy = z2[1] - z1[1]
+            self.image_center[0] -= dx
+            self.image_center[1] -= dy
         # Limit zoom-out because you never need more than twice the image dimension to move around
         self.window_zoom = max(1.0, self.window_zoom)
         self.clamp_center()
