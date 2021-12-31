@@ -30,6 +30,29 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         self.is_dragging = False
         self.previous_mouse_position = None
 
+    def clamp_center(self):
+        # Keep the center point on the actual image itself
+        self.image_center[0] = max(0.0, self.image_center[0])
+        self.image_center[1] = max(0.0, self.image_center[1])
+        self.image_center[0] = min(1.0, self.image_center[0])
+        self.image_center[1] = min(1.0, self.image_center[1])
+        x_scale = y_scale = self.window_zoom
+        ratio_ratio = self.width() * self.image.shape[0] / (self.height() * self.image.shape[1])
+        if ratio_ratio > 1:
+            x_scale /= ratio_ratio
+        else:
+            y_scale *= ratio_ratio
+        if x_scale <= 1:
+            self.image_center[0] = 0.5
+        else:
+            self.image_center[0] = min(self.image_center[0], 1 - 0.5 / x_scale)
+            self.image_center[0] = max(self.image_center[0], 0.5 / x_scale)
+        if y_scale <= 1:
+            self.image_center[1] = 0.5
+        else:
+            self.image_center[1] = min(self.image_center[1], 1 - 0.5 / y_scale)
+            self.image_center[1] = max(self.image_center[1], 0.5 / y_scale)
+
     def event(self, event: QEvent):
         # print(f"event: {event}")
         if event.type() == QEvent.Gesture:
@@ -86,13 +109,9 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
             x_scale /= ratio_ratio
         else:
             y_scale *= ratio_ratio
-        # Keep the center point on the actual image itself
         self.image_center[0] += dx / x_scale
         self.image_center[1] += dy / y_scale
-        self.image_center[0] = max(0.0, self.image_center[0])
-        self.image_center[1] = max(0.0, self.image_center[1])
-        self.image_center[0] = min(1.0, self.image_center[0])
-        self.image_center[1] = min(1.0, self.image_center[1])
+        self.clamp_center()
         #
         self.previous_mouse_position = event.pos()
         self.update()
@@ -196,4 +215,5 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
     def zoom_relative(self, zoom_factor: float):
         self.window_zoom *= zoom_factor
         # Limit zoom-out because you never need more than twice the image dimension to move around
-        self.window_zoom = max(0.5, self.window_zoom)
+        self.window_zoom = max(1.0, self.window_zoom)
+        self.clamp_center()
