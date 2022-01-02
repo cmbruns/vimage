@@ -2,6 +2,9 @@
 
 <?include "cpack_variables.wxi"?>
 
+<?define ProdName="$(var.CPACK_PACKAGE_NAME)" ?>
+<?define ExeName="$(var.ProdName).exe" ?>
+
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi" @CPACK_WIX_CUSTOM_XMLNS_EXPANDED@
     RequiredVersion="3.6.3303.0">
 
@@ -40,6 +43,19 @@
         <FeatureRef Id="ProductFeature"/>
 
         <UIRef Id="$(var.CPACK_WIX_UI_REF)" />
+
+        <!-- Add to checkbox to launch program after install ²-->
+        <UI>
+            <UIRef Id="$(var.CPACK_WIX_UI_REF)" />
+            <Publish Dialog="ExitDialog"
+                Control="Finish"
+                Event="DoAction"
+                Value="LaunchApplication">WIXUI_EXITDIALOGOPTIONALCHECKBOX = 1 and NOT Installed</Publish>
+        </UI>
+        <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT" Value="Launch vimage" />
+        <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOX" Value="1"/>
+        <Property Id="WixShellExecTarget" Value="[#vimage.exe]" />
+        <CustomAction Id="LaunchApplication" BinaryKey="WixCA" DllEntry="WixShellExec" Impersonate="yes"/>
 
         <?include "properties.wxi"?>
         <?include "product_fragment.wxi"?>
