@@ -7,7 +7,11 @@ block_cipher = None
 a = Analysis(['vimage.py'],
              pathex=["..", ],
              binaries=[],
-             datas=[("../vmg/*.vert", "vmg"), ("../vmg/*.frag", "vmg")],
+             datas=[
+                 ("../vmg/*.vert", "vmg"),
+                 ("../vmg/*.frag", "vmg"),
+                 ("../vmg/images/*", "vmg/images"),
+             ],
              hiddenimports=[],
              hookspath=[],
              hooksconfig={},
@@ -33,7 +37,9 @@ exe = EXE(pyz,
           disable_windowed_traceback=False,
           target_arch=None,
           codesign_identity=None,
-          entitlements_file=None )
+          entitlements_file=None,
+          icon="../vmg/images/cat_eye2.ico",
+          )
 coll = COLLECT(exe,
                a.binaries,
                a.zipfiles,

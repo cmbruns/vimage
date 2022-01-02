@@ -1,7 +1,8 @@
+import pkg_resources
 import sys
 
-from PySide6 import QtOpenGL, QtWidgets
-from PySide6.QtGui import QSurfaceFormat
+from PySide6 import QtWidgets
+from PySide6.QtGui import QIcon, QSurfaceFormat
 
 from vmg.main_window import VimageMainWindow
 
@@ -23,4 +24,8 @@ class VimageApp(object):
         else:
             window.set_image_list(app.arguments()[1:], 0)
         window.show()
+        icon_file = pkg_resources.resource_filename("vmg", "images/cat_eye2.ico")
+        icon = QIcon(icon_file)
+        app.setWindowIcon(icon)
+        window.setWindowIcon(icon)
         sys.exit(app.exec())
