@@ -3,7 +3,7 @@
 ################################################################################
 ## Form generated from reading UI file 'vimage.ui'
 ##
-## Created by: Qt User Interface Compiler version 6.2.0
+## Created by: Qt User Interface Compiler version 6.2.1
 ##
 ## WARNING! All changes made in this file will be lost when recompiling UI file!
 ################################################################################
@@ -41,6 +41,16 @@ class Ui_MainWindow(object):
         self.actionPrevious = QAction(MainWindow)
         self.actionPrevious.setObjectName(u"actionPrevious")
         self.actionPrevious.setEnabled(False)
+        self.actionSharp = QAction(MainWindow)
+        self.actionSharp.setObjectName(u"actionSharp")
+        self.actionSharp.setCheckable(True)
+        self.actionSharp.setChecked(True)
+        self.actionBilinear = QAction(MainWindow)
+        self.actionBilinear.setObjectName(u"actionBilinear")
+        self.actionBilinear.setCheckable(True)
+        self.actionSmooth = QAction(MainWindow)
+        self.actionSmooth.setObjectName(u"actionSmooth")
+        self.actionSmooth.setCheckable(True)
         self.centralwidget = QWidget(MainWindow)
         self.centralwidget.setObjectName(u"centralwidget")
         self.verticalLayout = QVBoxLayout(self.centralwidget)
@@ -61,6 +71,8 @@ class Ui_MainWindow(object):
         self.menuOpen_Recent.setObjectName(u"menuOpen_Recent")
         self.menuView = QMenu(self.menubar)
         self.menuView.setObjectName(u"menuView")
+        self.menuSharp_Pixels = QMenu(self.menuView)
+        self.menuSharp_Pixels.setObjectName(u"menuSharp_Pixels")
         MainWindow.setMenuBar(self.menubar)
         self.statusbar = QStatusBar(MainWindow)
         self.statusbar.setObjectName(u"statusbar")
@@ -78,6 +90,10 @@ class Ui_MainWindow(object):
         self.menuFile.addAction(self.actionExit)
         self.menuView.addAction(self.actionNext)
         self.menuView.addAction(self.actionPrevious)
+        self.menuView.addAction(self.menuSharp_Pixels.menuAction())
+        self.menuSharp_Pixels.addAction(self.actionSharp)
+        self.menuSharp_Pixels.addAction(self.actionBilinear)
+        self.menuSharp_Pixels.addAction(self.actionSmooth)
         self.toolBar.addAction(self.actionOpen)
         self.toolBar.addAction(self.actionSave_As)
         self.toolBar.addAction(self.actionPrevious)
@@ -100,9 +116,13 @@ class Ui_MainWindow(object):
 #if QT_CONFIG(shortcut)
         self.actionPrevious.setShortcut(QCoreApplication.translate("MainWindow", u"Left", None))
 #endif // QT_CONFIG(shortcut)
+        self.actionSharp.setText(QCoreApplication.translate("MainWindow", u"Sharp", None))
+        self.actionBilinear.setText(QCoreApplication.translate("MainWindow", u"Bilinear", None))
+        self.actionSmooth.setText(QCoreApplication.translate("MainWindow", u"Smooth", None))
         self.menuFile.setTitle(QCoreApplication.translate("MainWindow", u"File", None))
         self.menuOpen_Recent.setTitle(QCoreApplication.translate("MainWindow", u"Open Recent", None))
         self.menuView.setTitle(QCoreApplication.translate("MainWindow", u"View", None))
+        self.menuSharp_Pixels.setTitle(QCoreApplication.translate("MainWindow", u"Sharp Pixels", None))
         self.toolBar.setWindowTitle(QCoreApplication.translate("MainWindow", u"toolBar", None))
         pass
     # retranslateUi

@@ -1,12 +1,12 @@
 import io
 import pathlib
 
-import numpy
 import PIL
 from PIL import Image
 from PySide6 import QtCore, QtGui, QtWidgets
 from PySide6.QtCore import Qt
 
+from vmg.image_widget_gl import PixelFilter
 from vmg.natural_sort import natural_sort_key
 from vmg.recent_file import RecentFileList
 from vmg.ui_vimage import Ui_MainWindow
@@ -45,6 +45,21 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
             QtWidgets.QStyle.SP_ArrowBack))
         self.actionNext.setIcon(self.style().standardIcon(
             QtWidgets.QStyle.SP_ArrowForward))
+        #
+        self.sharpPixelsActionGroup = QtGui.QActionGroup(self)
+        self.sharpPixelsActionGroup.addAction(self.actionSharp)
+        self.sharpPixelsActionGroup.addAction(self.actionBilinear)
+        self.sharpPixelsActionGroup.addAction(self.actionSmooth)
+        self.sharpPixelsActionGroup.setExclusive(True)
+        self.imageWidgetGL.pixelFilter = PixelFilter.BILINEAR
+        self.actionBilinear.setChecked(True)
+
+    def activate_indexed_image(self):
+        try:
+            self.load_image(self.image_list[self.image_index])
+        except PIL.UnidentifiedImageError as uie:
+            self.statusbar.showMessage(str(uie), 5000)
+        self.update_previous_next()
 
     def dragEnterEvent(self, event: QtGui.QDragEnterEvent) -> None:
         mime_data = event.mimeData()
@@ -92,6 +107,19 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
                 paths_list.append(file)
         self.set_image_list(paths_list, 0)
 
+    def save_image(self, file_path: str):
+        with ScopedWaitCursor() as swc:
+            # Avoid creating corrupt file by first writing to memory to check for writing errors
+            in_memory_image = io.BytesIO()
+            in_memory_image.name = file_path
+            self.image.save(in_memory_image)
+            with open(file_path, "wb") as out:
+                in_memory_image.seek(0)
+                out.write(in_memory_image.read())
+            self.set_current_image_path(file_path)
+            self.load_main_image(file_path)
+            self.statusbar.showMessage(f"Saved image {file_path}", 5000)
+
     def set_current_image_path(self, path: str):
         self.setWindowFilePath(path)
         self.recent_files.add_file(path)
@@ -120,6 +148,14 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
             self.actionPrevious.setToolTip(str(self.image_list[self.image_index - 1]))
         else:
             self.actionPrevious.setEnabled(False)
+
+    @QtCore.Slot()
+    def on_actionBilinear_triggered(self):
+        if self.imageWidgetGL.pixelFilter == PixelFilter.BILINEAR:
+            return
+        self.imageWidgetGL.pixelFilter = PixelFilter.BILINEAR
+        print("Bilinear")
+        self.imageWidgetGL.update()
 
     @QtCore.Slot()
     def on_actionExit_triggered(self):
@@ -152,26 +188,6 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         self.image_index -= 1
         self.activate_indexed_image()
 
-    def activate_indexed_image(self):
-        try:
-            self.load_image(self.image_list[self.image_index])
-        except PIL.UnidentifiedImageError as uie:
-            self.statusbar.showMessage(str(uie), 5000)
-        self.update_previous_next()
-
-    def save_image(self, file_path: str):
-        with ScopedWaitCursor() as swc:
-            # Avoid creating corrupt file by first writing to memory to check for writing errors
-            in_memory_image = io.BytesIO()
-            in_memory_image.name = file_path
-            self.image.save(in_memory_image)
-            with open(file_path, "wb") as out:
-                in_memory_image.seek(0)
-                out.write(in_memory_image.read())
-            self.set_current_image_path(file_path)
-            self.load_main_image(file_path)
-            self.statusbar.showMessage(f"Saved image {file_path}", 5000)
-
     @QtCore.Slot()
     def on_actionSave_As_triggered(self):
         file_path, file_filter = QtWidgets.QFileDialog.getSaveFileName(
@@ -202,3 +218,19 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
                 "Error saving image",
                 f"Error: {str(exception)}",
             )
+
+    @QtCore.Slot()
+    def on_actionSharp_triggered(self):
+        if self.imageWidgetGL.pixelFilter == PixelFilter.SHARP:
+            return
+        self.imageWidgetGL.pixelFilter = PixelFilter.SHARP
+        print("Sharp")
+        self.imageWidgetGL.update()
+
+    @QtCore.Slot()
+    def on_actionSmooth_triggered(self):
+        if self.imageWidgetGL.pixelFilter == PixelFilter.SMOOTH:
+            return
+        self.imageWidgetGL.pixelFilter = PixelFilter.SMOOTH
+        print("Smooth")
+        self.imageWidgetGL.update()

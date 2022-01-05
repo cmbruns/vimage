@@ -60,8 +60,17 @@
     <property name="title">
      <string>View</string>
     </property>
+    <widget class="QMenu" name="menuSharp_Pixels">
+     <property name="title">
+      <string>Sharp Pixels</string>
+     </property>
+     <addaction name="actionSharp"/>
+     <addaction name="actionBilinear"/>
+     <addaction name="actionSmooth"/>
+    </widget>
     <addaction name="actionNext"/>
     <addaction name="actionPrevious"/>
+    <addaction name="menuSharp_Pixels"/>
    </widget>
    <addaction name="menuFile"/>
    <addaction name="menuView"/>
@@ -120,6 +129,33 @@
    </property>
    <property name="shortcut">
     <string>Left</string>
+   </property>
+  </action>
+  <action name="actionSharp">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Sharp</string>
+   </property>
+  </action>
+  <action name="actionBilinear">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Bilinear</string>
+   </property>
+  </action>
+  <action name="actionSmooth">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Smooth</string>
    </property>
   </action>
  </widget>
