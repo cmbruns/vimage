@@ -46,13 +46,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         self.actionNext.setIcon(self.style().standardIcon(
             QtWidgets.QStyle.SP_ArrowForward))
         #
-        self.sharpPixelsActionGroup = QtGui.QActionGroup(self)
-        self.sharpPixelsActionGroup.addAction(self.actionSharp)
-        self.sharpPixelsActionGroup.addAction(self.actionBilinear)
-        self.sharpPixelsActionGroup.addAction(self.actionSmooth)
-        self.sharpPixelsActionGroup.setExclusive(True)
-        self.imageWidgetGL.pixelFilter = PixelFilter.BILINEAR
-        self.actionBilinear.setChecked(True)
+        self.imageWidgetGL.pixelFilter = PixelFilter.CATMULL_ROM
 
     def activate_indexed_image(self):
         try:
@@ -150,14 +144,6 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
             self.actionPrevious.setEnabled(False)
 
     @QtCore.Slot()
-    def on_actionBilinear_triggered(self):
-        if self.imageWidgetGL.pixelFilter == PixelFilter.BILINEAR:
-            return
-        self.imageWidgetGL.pixelFilter = PixelFilter.BILINEAR
-        print("Bilinear")
-        self.imageWidgetGL.update()
-
-    @QtCore.Slot()
     def on_actionExit_triggered(self):
         QtWidgets.QApplication.quit()
 
@@ -219,18 +205,14 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
                 f"Error: {str(exception)}",
             )
 
-    @QtCore.Slot()
-    def on_actionSharp_triggered(self):
-        if self.imageWidgetGL.pixelFilter == PixelFilter.SHARP:
+    @QtCore.Slot(bool)
+    def on_actionSharp_toggled(self, is_checked: bool):
+        if is_checked and self.imageWidgetGL.pixelFilter == PixelFilter.SHARP:
             return
-        self.imageWidgetGL.pixelFilter = PixelFilter.SHARP
-        print("Sharp")
-        self.imageWidgetGL.update()
-
-    @QtCore.Slot()
-    def on_actionSmooth_triggered(self):
-        if self.imageWidgetGL.pixelFilter == PixelFilter.SMOOTH:
+        if not is_checked and self.imageWidgetGL.pixelFilter == PixelFilter.CATMULL_ROM:
             return
-        self.imageWidgetGL.pixelFilter = PixelFilter.SMOOTH
-        print("Smooth")
+        if is_checked:
+            self.imageWidgetGL.pixelFilter = PixelFilter.SHARP
+        else:
+            self.imageWidgetGL.pixelFilter = PixelFilter.CATMULL_ROM
         self.imageWidgetGL.update()

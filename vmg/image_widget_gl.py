@@ -1,3 +1,5 @@
+from enum import Enum
+
 import pkg_resources
 
 import numpy
@@ -29,6 +31,8 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         self.image_center_location = None
         self.is_dragging = False
         self.previous_mouse_position = None
+        self.pixelFilter = PixelFilter.CATMULL_ROM
+        self.pixelFilter_location = None
 
     def clamp_center(self):
         # Keep the center point on the actual image itself
@@ -94,6 +98,7 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         self.image_center_location = GL.glGetUniformLocation(self.shader, "image_center")
         #
         self.texture = GL.glGenTextures(1)
+        self.pixelFilter_location = GL.glGetUniformLocation(self.shader, "pixelFilter")
 
     def mouseMoveEvent(self, event):
         if not self.is_dragging:
@@ -141,20 +146,34 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         if self.image is None:
             return
         GL.glBindVertexArray(self.vao)
+        #
         GL.glBindTexture(GL.GL_TEXTURE_2D, self.texture)
         self.maybe_upload_image()
+        # both nearest and catrom use nearest at the moment.
+        GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_NEAREST)
         GL.glUseProgram(self.shader)
         GL.glUniform1f(self.zoom_location, self.window_zoom)
         GL.glUniform2i(self.window_size_location, self.width(), self.height())
         GL.glUniform2f(self.image_center_location, *self.image_center)
+        GL.glUniform1i(self.pixelFilter_location, self.pixelFilter.value)
         GL.glDrawArrays(GL.GL_TRIANGLE_STRIP, 0, 4)
 
     def set_image(self, image: PIL.Image.Image):
         self.image = numpy.array(image)
+        # Normalize values to maximum 1.0 and convert to float32
+        max_vals = {
+            numpy.dtype("uint8"): 255,
+            numpy.dtype("uint16"): 65535,
+            numpy.dtype("float32"): 1.0,
+        }
+        self.image = self.image.astype(numpy.float32) / max_vals[self.image.dtype]
+        # Convert srgb value scale to linear
+        for rgb in range(3):
+            self.image[:, :, rgb] = numpy.square(self.image[:, :, rgb])  # approximate srgb -> linear
         # Use premultiplied alpha for better filtering
         if image.mode == "RGBA":
             a = self.image
-            alpha_layer = a[:, :, 3] / 255.0
+            alpha_layer = a[:, :, 3]
             for rgb in range(3):
                 a[:, :, rgb] = (a[:, :, rgb] * alpha_layer).astype(a.dtype)
         self.image_needs_upload = True
@@ -179,6 +198,7 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         depths = {
             numpy.dtype("uint8"): GL.GL_UNSIGNED_BYTE,
             numpy.dtype("uint16"): GL.GL_UNSIGNED_SHORT,
+            numpy.dtype("float32"): GL.GL_FLOAT,
         }
         h, w = self.image.shape[:2]  # Image dimensions
         GL.glPixelStorei(GL.GL_UNPACK_ALIGNMENT, 1)  # In case width is odd
@@ -231,3 +251,10 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         # Limit zoom-out because you never need more than twice the image dimension to move around
         self.window_zoom = max(1.0, self.window_zoom)
         self.clamp_center()
+
+
+class PixelFilter(Enum):
+    SHARP = 1
+    BILINEAR = 2
+    HERMITE = 3
+    CATMULL_ROM = 4

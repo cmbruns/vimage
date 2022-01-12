@@ -60,17 +60,9 @@
     <property name="title">
      <string>View</string>
     </property>
-    <widget class="QMenu" name="menuSharp_Pixels">
-     <property name="title">
-      <string>Sharp Pixels</string>
-     </property>
-     <addaction name="actionSharp"/>
-     <addaction name="actionBilinear"/>
-     <addaction name="actionSmooth"/>
-    </widget>
     <addaction name="actionNext"/>
     <addaction name="actionPrevious"/>
-    <addaction name="menuSharp_Pixels"/>
+    <addaction name="actionSharp"/>
    </widget>
    <addaction name="menuFile"/>
    <addaction name="menuView"/>
@@ -136,26 +128,13 @@
     <bool>true</bool>
    </property>
    <property name="checked">
-    <bool>true</bool>
+    <bool>false</bool>
    </property>
    <property name="text">
-    <string>Sharp</string>
+    <string>Sharp Pixels</string>
    </property>
-  </action>
-  <action name="actionBilinear">
-   <property name="checkable">
-    <bool>true</bool>
-   </property>
-   <property name="text">
-    <string>Bilinear</string>
-   </property>
-  </action>
-  <action name="actionSmooth">
-   <property name="checkable">
-    <bool>true</bool>
-   </property>
-   <property name="text">
-    <string>Smooth</string>
+   <property name="shortcut">
+    <string>S</string>
    </property>
   </action>
  </widget>

@@ -1,7 +1,13 @@
 #version 410
 
+// Keep these values in sync with PixelFilter enum in image_widget_gl.py
+const int NEAREST = 1;
+const int BILINEAR = 2;
+const int HERMITE = 3;
+const int CATMULL_ROM = 4;
+
 uniform sampler2D image;
-uniform bool bHermite = true;
+uniform int pixelFilter = NEAREST;
 in vec3 tex_coord;
 out vec4 color;
 
@@ -9,18 +15,34 @@ vec4 bilinear(sampler2D image, vec2 textureCoordinate) {
     return texture(image, textureCoordinate);
 }
 
-float inverse_smoothstep( float x )
-{
-    return 0.5 - sin(asin(1.0-2.0*x)/3.0);
+vec4 catrom_weights(float t) {
+    return 0.5 * vec4(
+        -1*t*t*t + 2*t*t - 1*t,  // P0 weight
+        3*t*t*t - 5*t*t + 2,  // P1 weight
+        -3*t*t*t + 4*t*t + 1*t,  // P2 weight
+        1*t*t*t - 1*t*t);  // P3 weight
 }
 
-vec4 hermite(sampler2D image, vec2 textureCoordinate, float test) {
-    vec2 tcf1 = fract(textureCoordinate * textureSize(image, 0) + vec2(test));
-    vec2 tcf2 = smoothstep(vec2(0), vec2(1), tcf1);
-    // vec2 tcf2 = vec2(inverse_smoothstep(tcf1.x), inverse_smoothstep(tcf1.y));
-    // return vec4(tcf2, 0, 1);
-    vec2 delta = (tcf2 - tcf1) / textureSize(image, 0);
-    return texture(image, textureCoordinate + delta);
+vec4 catrom(sampler2D image, vec2 textureCoordinate) {
+    vec2 texel = textureCoordinate * textureSize(image, 0) - vec2(0.5);
+    ivec2 texel1 = ivec2(floor(texel));
+    vec2 param = texel - texel1;
+    // return vec4(param, 0, 1);  // interpolation parameter
+    vec4 weightsX = catrom_weights(param.x);
+    vec4 weightsY = catrom_weights(param.y);
+    // return vec4(-3 * weightsX[3], 0, 0, 1);  // point 1 x weight
+    vec4 combined = vec4(0);
+    for (int y = 0; y < 4; ++y) {
+        float wy = weightsY[y];
+        for (int x = 0; x < 4; ++x) {
+            float wx = weightsX[x];
+            vec2 texel2 = vec2(x , y) + texel1 - vec2(0.5);
+            vec2 tc = texel2 / textureSize(image, 0);
+            combined += wx * wy * texture(image, tc);
+        }
+    }
+    // TODO:
+    return combined;
 }
 
 void main() {
@@ -31,10 +53,16 @@ void main() {
         return;
     }
 
-    if (bHermite)
-        color = hermite(image, tc, 0.5);
-    else
+    switch(pixelFilter) {
+    case NEAREST:
+    case BILINEAR:
         color = bilinear(image, tc);
+        break;
+    case HERMITE:  // not implemented...
+    case CATMULL_ROM:
+        color = catrom(image, tc);
+        break;
+    }
 
-    color = sqrt(color);
+    color = sqrt(color);  // linear -> srgb
 }
