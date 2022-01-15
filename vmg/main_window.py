@@ -47,6 +47,12 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
             QtWidgets.QStyle.SP_ArrowForward))
         #
         self.imageWidgetGL.pixelFilter = PixelFilter.CATMULL_ROM
+        # Allow action shortcuts even when toolbar and menu bar are hidden
+        self.addAction(self.actionNext)
+        self.addAction(self.actionPrevious)
+        self.addAction(self.actionNormal_View)
+        self.addAction(self.actionFull_Screen)
+        self.addAction(self.actionSharp)
 
     def activate_indexed_image(self):
         try:
@@ -147,6 +153,19 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
     def on_actionExit_triggered(self):
         QtWidgets.QApplication.quit()
 
+    @QtCore.Slot(bool)
+    def on_actionFull_Screen_toggled(self, is_checked: bool):
+        if is_checked:
+            self.menubar.hide()
+            self.toolBar.hide()
+            self.statusbar.hide()
+            self.showFullScreen()
+        else:
+            self.menubar.show()
+            self.toolBar.show()
+            self.statusbar.show()
+            self.showNormal()
+
     @QtCore.Slot()
     def on_actionNext_triggered(self):
         if self.image_index >= len(self.image_list) - 1:
@@ -154,6 +173,10 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
             return
         self.image_index += 1
         self.activate_indexed_image()
+
+    @QtCore.Slot()
+    def on_actionNormal_View_triggered(self):
+        self.actionFull_Screen.setChecked(False)
 
     @QtCore.Slot()
     def on_actionOpen_triggered(self):

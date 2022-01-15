@@ -63,6 +63,7 @@
     <addaction name="actionNext"/>
     <addaction name="actionPrevious"/>
     <addaction name="actionSharp"/>
+    <addaction name="actionFull_Screen"/>
    </widget>
    <addaction name="menuFile"/>
    <addaction name="menuView"/>
@@ -135,6 +136,31 @@
    </property>
    <property name="shortcut">
     <string>S</string>
+   </property>
+  </action>
+  <action name="actionFull_Screen">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Full Screen</string>
+   </property>
+   <property name="shortcut">
+    <string>F</string>
+   </property>
+  </action>
+  <action name="actionNormal_View">
+   <property name="enabled">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Normal View</string>
+   </property>
+   <property name="shortcut">
+    <string>Esc</string>
+   </property>
+   <property name="visible">
+    <bool>true</bool>
    </property>
   </action>
  </widget>
