@@ -6,7 +6,7 @@ from PIL import Image
 from PySide6 import QtCore, QtGui, QtWidgets
 from PySide6.QtCore import Qt
 
-from vmg.image_widget_gl import PixelFilter
+from vmg.pixel_filter import PixelFilter
 from vmg.natural_sort import natural_sort_key
 from vmg.recent_file import RecentFileList
 from vmg.ui_vimage import Ui_MainWindow
