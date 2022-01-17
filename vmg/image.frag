@@ -2,16 +2,14 @@
 
 // Keep these values in sync with PixelFilter enum in image_widget_gl.py
 const int NEAREST = 1;
-const int BILINEAR = 2;
-const int HERMITE = 3;
-const int CATMULL_ROM = 4;
+const int CATMULL_ROM = 2;
 
 uniform sampler2D image;
 uniform int pixelFilter = NEAREST;
 in vec3 tex_coord;
 out vec4 color;
 
-vec4 bilinear(sampler2D image, vec2 textureCoordinate) {
+vec4 nearest(sampler2D image, vec2 textureCoordinate) {
     return texture(image, textureCoordinate);
 }
 
@@ -41,7 +39,6 @@ vec4 catrom(sampler2D image, vec2 textureCoordinate) {
             combined += wx * wy * texture(image, tc);
         }
     }
-    // TODO:
     return combined;
 }
 
@@ -55,10 +52,8 @@ void main() {
 
     switch(pixelFilter) {
     case NEAREST:
-    case BILINEAR:
-        color = bilinear(image, tc);
+        color = nearest(image, tc);
         break;
-    case HERMITE:  // not implemented...
     case CATMULL_ROM:
         color = catrom(image, tc);
         break;

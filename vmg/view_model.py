@@ -46,6 +46,17 @@ class RectangularViewModel(object):
         self.image_center[1] += dy / y_scale
         self.clamp_center()
 
+    def image_for_window(self, wpos, gl_widget):
+        x_scale = y_scale = self.window_zoom
+        ratio_ratio = gl_widget.width() * gl_widget.image.shape[0] / (gl_widget.height() * gl_widget.image.shape[1])
+        if ratio_ratio > 1:
+            x_scale /= ratio_ratio
+        else:
+            y_scale *= ratio_ratio
+        wx = (wpos.x() - gl_widget.width() / 2) / gl_widget.width() / x_scale
+        wy = (wpos.y() - gl_widget.height() / 2) / gl_widget.height() / y_scale
+        return wx, wy
+
     def initializeGL(self) -> None:
         vertex_shader = compileShader(pkg_resources.resource_string(
             "vmg", "image.vert", ), GL.GL_VERTEX_SHADER)
@@ -61,6 +72,11 @@ class RectangularViewModel(object):
         self.pixelFilter_location = GL.glGetUniformLocation(self.shader, "pixelFilter")
 
     def paintGL(self, glwidget) -> None:
+        # both nearest and catrom use nearest at the moment.
+        GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_NEAREST)
+        GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_LINEAR_MIPMAP_NEAREST)
+        GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_S, GL.GL_CLAMP_TO_EDGE)
+        GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_T, GL.GL_CLAMP_TO_EDGE)
         GL.glUseProgram(self.shader)
         GL.glUniform1f(self.zoom_location, self.window_zoom)
         GL.glUniform2i(self.window_size_location, glwidget.width(), glwidget.height())
@@ -79,7 +95,7 @@ class RectangularViewModel(object):
             new_zoom = 1
         self.window_zoom = new_zoom
         if zoom_center is not None:
-            z2 = gl_widget.image_for_window(zoom_center)  # After position
+            z2 = self.image_for_window(zoom_center, gl_widget)  # After position
             z1 = [x * zoom_factor for x in z2]  # Before position
             dx = z2[0] - z1[0]
             dy = z2[1] - z1[1]
@@ -145,6 +161,12 @@ class PanoSphereViewModel(object):
         self.pixelFilter_location = GL.glGetUniformLocation(self.shader, "pixelFilter")
 
     def paintGL(self, glwidget) -> None:
+        # both nearest and catrom use nearest at the moment.
+        GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_NEAREST)
+        GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_LINEAR_MIPMAP_NEAREST)
+        GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_S, GL.GL_REPEAT)
+        GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_T, GL.GL_MIRRORED_REPEAT)
+        #
         GL.glUseProgram(self.shader)
         GL.glUniform1f(self.zoom_location, self.window_zoom)
         GL.glUniform2i(self.window_size_location, glwidget.width(), glwidget.height())
@@ -163,7 +185,7 @@ class PanoSphereViewModel(object):
             new_zoom = 1
         self.window_zoom = new_zoom
         if zoom_center is not None:
-            z2 = gl_widget.image_for_window(zoom_center)  # After position
+            z2 = self.image_for_window(zoom_center, gl_widget)  # After position
             z1 = [x * zoom_factor for x in z2]  # Before position
             dx = z2[0] - z1[0]
             dy = z2[1] - z1[1]

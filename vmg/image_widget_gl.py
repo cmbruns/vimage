@@ -1,6 +1,7 @@
 import numpy
 from OpenGL import GL
 import PIL
+from PIL import ExifTags
 from PySide6 import QtGui, QtOpenGLWidgets
 from PySide6.QtCore import QEvent, Qt
 
@@ -40,24 +41,13 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
 
         return super().event(event)
 
-    def image_for_window(self, wpos):
-        x_scale = y_scale = self.view_model.window_zoom
-        ratio_ratio = self.width() * self.image.shape[0] / (self.height() * self.image.shape[1])
-        if ratio_ratio > 1:
-            x_scale /= ratio_ratio
-        else:
-            y_scale *= ratio_ratio
-        wx = (wpos.x() - self.width() / 2) / self.width() / x_scale
-        wy = (wpos.y() - self.height() / 2) / self.height() / y_scale
-        return wx, wy
-
     def initializeGL(self) -> None:
         # Use native-like background color
         bg_color = self.palette().color(self.backgroundRole()).getRgbF()
         GL.glClearColor(*bg_color)
         # Make transparent images transparent
         GL.glEnable(GL.GL_BLEND)
-        GL.glBlendFunc(GL.GL_ONE, GL.GL_ONE_MINUS_SRC_ALPHA)
+        GL.glBlendFunc(GL.GL_ONE, GL.GL_ONE_MINUS_SRC_ALPHA) # Using premultiplied alpha
         self.vao = GL.glGenVertexArrays(1)
         GL.glBindVertexArray(self.vao)
         self.view_model.initializeGL()
@@ -102,9 +92,6 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         #
         GL.glBindTexture(GL.GL_TEXTURE_2D, self.texture)
         self.maybe_upload_image()
-        # both nearest and catrom use nearest at the moment.
-        GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_NEAREST)
-        #
         self.view_model.pixel_filter = self.pixel_filter
         self.view_model.paintGL(self)
 
@@ -182,19 +169,6 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
             formats[channel_count],
             depths[self.image.dtype],
             self.image,
-        )
-        # TODO: implement toggle between NEAREST, LINEAR, CUBIC...
-        GL.glTexParameteri(
-            GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_LINEAR
-        )
-        GL.glTexParameteri(
-            GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_LINEAR_MIPMAP_NEAREST
-        )
-        GL.glTexParameteri(
-            GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_S, GL.GL_CLAMP_TO_EDGE
-        )
-        GL.glTexParameteri(
-            GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_T, GL.GL_CLAMP_TO_EDGE
         )
         GL.glGenerateMipmap(GL.GL_TEXTURE_2D)
         self.image_needs_upload = False
