@@ -46,7 +46,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         self.actionNext.setIcon(self.style().standardIcon(
             QtWidgets.QStyle.SP_ArrowForward))
         #
-        self.imageWidgetGL.pixelFilter = PixelFilter.CATMULL_ROM
+        self.imageWidgetGL.pixel_filter = PixelFilter.CATMULL_ROM
         # Allow action shortcuts even when toolbar and menu bar are hidden
         self.addAction(self.actionNext)
         self.addAction(self.actionPrevious)
@@ -230,12 +230,12 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
 
     @QtCore.Slot(bool)
     def on_actionSharp_toggled(self, is_checked: bool):
-        if is_checked and self.imageWidgetGL.pixelFilter == PixelFilter.SHARP:
+        if is_checked and self.imageWidgetGL.pixel_filter == PixelFilter.SHARP:
             return
-        if not is_checked and self.imageWidgetGL.pixelFilter == PixelFilter.CATMULL_ROM:
+        if not is_checked and self.imageWidgetGL.pixel_filter == PixelFilter.CATMULL_ROM:
             return
         if is_checked:
-            self.imageWidgetGL.pixelFilter = PixelFilter.SHARP
+            self.imageWidgetGL.pixel_filter = PixelFilter.SHARP
         else:
-            self.imageWidgetGL.pixelFilter = PixelFilter.CATMULL_ROM
+            self.imageWidgetGL.pixel_filter = PixelFilter.CATMULL_ROM
         self.imageWidgetGL.update()

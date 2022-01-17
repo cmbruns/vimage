@@ -23,7 +23,7 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         self.image_needs_upload = False
         self.is_dragging = False
         self.previous_mouse_position = None
-        self.pixelFilter = PixelFilter.CATMULL_ROM
+        self.pixel_filter = PixelFilter.CATMULL_ROM
         self.view_model = RectangularViewModel()
 
     def event(self, event: QEvent):
@@ -105,6 +105,7 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         # both nearest and catrom use nearest at the moment.
         GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_NEAREST)
         #
+        self.view_model.pixel_filter = self.pixel_filter
         self.view_model.paintGL(self)
 
     def set_image(self, image: PIL.Image.Image):
