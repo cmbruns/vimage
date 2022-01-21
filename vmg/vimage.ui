@@ -65,8 +65,15 @@
     <addaction name="actionSharp"/>
     <addaction name="actionFull_Screen"/>
    </widget>
+   <widget class="QMenu" name="menuTest">
+    <property name="title">
+     <string>Test</string>
+    </property>
+    <addaction name="actionRun_Test"/>
+   </widget>
    <addaction name="menuFile"/>
    <addaction name="menuView"/>
+   <addaction name="menuTest"/>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
   <widget class="QToolBar" name="toolBar">
@@ -161,6 +168,11 @@
    </property>
    <property name="visible">
     <bool>true</bool>
+   </property>
+  </action>
+  <action name="actionRun_Test">
+   <property name="text">
+    <string>Run Test</string>
    </property>
   </action>
  </widget>

@@ -6,7 +6,7 @@ from PySide6 import QtGui, QtOpenGLWidgets
 from PySide6.QtCore import QEvent, Qt
 
 from vmg.pixel_filter import PixelFilter
-from vmg.view_model import RectangularViewModel
+from vmg.view_model import RectangularViewState, RectangularShader, IViewState, IImageShader
 
 
 class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
@@ -25,7 +25,8 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         self.is_dragging = False
         self.previous_mouse_position = None
         self.pixel_filter = PixelFilter.CATMULL_ROM
-        self.view_model = RectangularViewModel()
+        self.program: IImageShader = RectangularShader()
+        self.view_state: IViewState = RectangularViewState()
 
     def event(self, event: QEvent):
         if event.type() == QEvent.Gesture:
@@ -35,7 +36,7 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
                 print(swipe)
             elif pinch is not None:
                 zoom = pinch.scaleFactor()
-                self.view_model.zoom_relative(zoom, None, self)
+                self.view_state.zoom_relative(zoom, None, self)
                 self.update()
                 return True
 
@@ -47,10 +48,10 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         GL.glClearColor(*bg_color)
         # Make transparent images transparent
         GL.glEnable(GL.GL_BLEND)
-        GL.glBlendFunc(GL.GL_ONE, GL.GL_ONE_MINUS_SRC_ALPHA) # Using premultiplied alpha
+        GL.glBlendFunc(GL.GL_ONE, GL.GL_ONE_MINUS_SRC_ALPHA)  # Using premultiplied alpha
         self.vao = GL.glGenVertexArrays(1)
         GL.glBindVertexArray(self.vao)
-        self.view_model.initializeGL()
+        self.program.initialize_gl()
         self.texture = GL.glGenTextures(1)
 
     def mouseMoveEvent(self, event):
@@ -63,7 +64,7 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         # Drag image around
         dx = event.pos().x() - self.previous_mouse_position.x()
         dy = event.pos().y() - self.previous_mouse_position.y()
-        self.view_model.drag_relative(dx, dy, self)
+        self.view_state.drag_relative(dx, dy, self)
         self.previous_mouse_position = event.pos()
         self.update()
 
@@ -81,7 +82,7 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         if d_scale == 0:
             return
         d_scale = 1.12 ** d_scale
-        self.view_model.zoom_relative(d_scale, event.position(), self)
+        self.view_state.zoom_relative(d_scale, event.position(), self)
         self.update()
 
     def paintGL(self) -> None:
@@ -92,8 +93,8 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         #
         GL.glBindTexture(GL.GL_TEXTURE_2D, self.texture)
         self.maybe_upload_image()
-        self.view_model.pixel_filter = self.pixel_filter
-        self.view_model.paintGL(self)
+        self.view_state.pixel_filter = self.pixel_filter
+        self.program.paint_gl(self.view_state, self)
 
     def set_image(self, image: PIL.Image.Image):
         # TODO: support 360 image view
@@ -114,12 +115,12 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         print(image.info)
         # Normalize values to maximum 1.0 and convert to float32
         # TODO: test performance
-        max_vals = {
+        max_values = {
             numpy.dtype("uint8"): 255,
             numpy.dtype("uint16"): 65535,
             numpy.dtype("float32"): 1.0,
         }
-        self.image = self.image.astype(numpy.float32) / max_vals[self.image.dtype]
+        self.image = self.image.astype(numpy.float32) / max_values[self.image.dtype]
         # Convert srgb value scale to linear
         for rgb in range(3):
             self.image[:, :, rgb] = numpy.square(self.image[:, :, rgb])  # approximate srgb -> linear
@@ -130,7 +131,7 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
             for rgb in range(3):
                 a[:, :, rgb] = (a[:, :, rgb] * alpha_layer).astype(a.dtype)
         self.image_needs_upload = True
-        self.view_model.reset()
+        self.view_state.reset()
         self.update()
 
     def maybe_upload_image(self):

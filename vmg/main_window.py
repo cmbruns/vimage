@@ -10,6 +10,7 @@ from vmg.pixel_filter import PixelFilter
 from vmg.natural_sort import natural_sort_key
 from vmg.recent_file import RecentFileList
 from vmg.ui_vimage import Ui_MainWindow
+from test.perf_test_1 import perf_test_1
 
 
 class ScopedWaitCursor(object):
@@ -196,6 +197,10 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
             return
         self.image_index -= 1
         self.activate_indexed_image()
+
+    @QtCore.Slot()
+    def on_actionRun_Test_triggered(self):
+        perf_test_1(self)
 
     @QtCore.Slot()
     def on_actionSave_As_triggered(self):
