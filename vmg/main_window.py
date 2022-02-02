@@ -1,16 +1,18 @@
-import io
-import pathlib
+
+# import epeg
 
 import PIL
+import io
+import pathlib
 from PIL import Image
 from PySide6 import QtCore, QtGui, QtWidgets
 from PySide6.QtCore import Qt
 
-from vmg.pixel_filter import PixelFilter
+from test.perf_test_1 import perf_test_1
 from vmg.natural_sort import natural_sort_key
+from vmg.pixel_filter import PixelFilter
 from vmg.recent_file import RecentFileList
 from vmg.ui_vimage import Ui_MainWindow
-from test.perf_test_1 import perf_test_1
 
 
 class ScopedWaitCursor(object):

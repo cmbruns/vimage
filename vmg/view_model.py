@@ -1,6 +1,8 @@
 import abc
+import math
 import pkg_resources
 
+import numpy
 from OpenGL import GL
 from OpenGL.GL.shaders import compileShader
 
@@ -98,6 +100,59 @@ class RectangularViewState(IViewState):
         self.clamp_center()
 
 
+class SphericalViewState(IViewState):
+    def __init__(self):
+        self.image_rotation = numpy.identity(3, dtype=numpy.float32)
+        self.window_zoom = 1.0
+        self.pixel_filter = PixelFilter.CATMULL_ROM
+
+    def drag_relative(self, dx, dy, gl_widget):
+        roty = dx / gl_widget.width() / self.window_zoom
+        c = math.cos(roty)
+        s = math.sin(roty)
+        m = numpy.array([
+            [c, 0, s],
+            [0, 1, 0],
+            [-s, 0, c],
+        ], dtype=numpy.float32)
+        self.image_rotation = self.image_rotation @ m
+        rotx = dy / gl_widget.height() / self.window_zoom
+        c = math.cos(rotx)
+        s = math.sin(rotx)
+        m = numpy.array([
+            [1, 0, 0],
+            [0, c, -s],
+            [0, s, c],
+        ], dtype=numpy.float32)
+        self.image_rotation = self.image_rotation @ m
+        # print(roty, m)
+
+    def image_for_window(self, wpos, gl_widget):
+        x_scale = y_scale = self.window_zoom
+        wx = (wpos.x() - gl_widget.width() / 2) / gl_widget.width() / x_scale
+        wy = (wpos.y() - gl_widget.height() / 2) / gl_widget.height() / y_scale
+        # https://en.wikipedia.org/wiki/Stereographic_projection
+        denom = 1 + wx * wx + wy * wy
+        x = 2 * wx / denom
+        y = 2 * wy / denom
+        z = (denom - 2) / denom
+        longitude = math.atan2(z, x)
+        latitude = math.asin(y)
+        c = 1.0 / math.pi
+        ix, iy = longitude * c / 2, latitude * c
+        print(ix, iy)
+        return ix, iy
+
+    def reset(self):
+        self.image_rotation = numpy.identity(3, dtype=numpy.float32)
+        self.window_zoom = 1.0
+
+    def zoom_relative(self, zoom_factor: float, zoom_center, gl_widget):
+        new_zoom = self.window_zoom * zoom_factor
+        self.window_zoom = new_zoom
+        # TODO: keep center
+
+
 class RectangularShader(IImageShader):
     def __init__(self):
         self.shader = None
@@ -131,4 +186,40 @@ class RectangularShader(IImageShader):
         GL.glUniform2i(self.window_size_location, gl_widget.width(), gl_widget.height())
         GL.glUniform2f(self.image_center_location, *state.image_center)
         GL.glUniform1i(self.pixelFilter_location, state.pixel_filter.value)
+        GL.glDrawArrays(GL.GL_TRIANGLE_STRIP, 0, 4)
+
+
+class SphericalShader(IImageShader):
+    def __init__(self):
+        self.shader = None
+        self.zoom_location = None
+        self.pixelFilter_location = None
+        self.rotation_location = None
+        self.window_size_location = None
+
+    def initialize_gl(self) -> None:
+        vertex_shader = compileShader(pkg_resources.resource_string(
+            "vmg", "sphere.vert", ), GL.GL_VERTEX_SHADER)
+        fragment_shader = compileShader(pkg_resources.resource_string(
+            "vmg", "sphere.frag", ), GL.GL_FRAGMENT_SHADER)
+        self.shader = GL.glCreateProgram()
+        GL.glAttachShader(self.shader, vertex_shader)
+        GL.glAttachShader(self.shader, fragment_shader)
+        GL.glLinkProgram(self.shader)
+        self.zoom_location = GL.glGetUniformLocation(self.shader, "window_zoom")
+        self.pixelFilter_location = GL.glGetUniformLocation(self.shader, "pixelFilter")
+        self.rotation_location = GL.glGetUniformLocation(self.shader, "rotation")
+        self.window_size_location = GL.glGetUniformLocation(self.shader, "window_size")
+
+    def paint_gl(self, state, gl_widget) -> None:
+        # both nearest and catrom use nearest at the moment.
+        GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_NEAREST)
+        GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_LINEAR_MIPMAP_NEAREST)
+        GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_S, GL.GL_REPEAT)
+        GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_T, GL.GL_MIRRORED_REPEAT)
+        GL.glUseProgram(self.shader)
+        GL.glUniform1f(self.zoom_location, state.window_zoom)
+        GL.glUniform1i(self.pixelFilter_location, state.pixel_filter.value)
+        GL.glUniformMatrix3fv(self.rotation_location, 1, False, state.image_rotation)
+        GL.glUniform2i(self.window_size_location, gl_widget.width(), gl_widget.height())
         GL.glDrawArrays(GL.GL_TRIANGLE_STRIP, 0, 4)

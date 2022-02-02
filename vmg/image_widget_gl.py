@@ -6,7 +6,8 @@ from PySide6 import QtGui, QtOpenGLWidgets
 from PySide6.QtCore import QEvent, Qt
 
 from vmg.pixel_filter import PixelFilter
-from vmg.view_model import RectangularViewState, RectangularShader, IViewState, IImageShader
+from vmg.view_model import RectangularViewState, RectangularShader, IViewState, IImageShader, SphericalViewState, \
+    SphericalShader
 
 
 class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
@@ -25,8 +26,13 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         self.is_dragging = False
         self.previous_mouse_position = None
         self.pixel_filter = PixelFilter.CATMULL_ROM
-        self.program: IImageShader = RectangularShader()
-        self.view_state: IViewState = RectangularViewState()
+        self.rect_shader = RectangularShader()
+        self.sphere_shader = SphericalShader()
+        self.program: IImageShader = self.rect_shader
+        self.rect_view_state: IViewState = RectangularViewState()
+        self.sphere_view_state: IViewState = SphericalViewState()
+        self.view_state = self.rect_view_state
+        self.is_360 = False
 
     def event(self, event: QEvent):
         if event.type() == QEvent.Gesture:
@@ -37,6 +43,7 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
             elif pinch is not None:
                 zoom = pinch.scaleFactor()
                 self.view_state.zoom_relative(zoom, None, self)
+                self.sphere_view_state.zoom_relative(zoom, None, self)
                 self.update()
                 return True
 
@@ -51,7 +58,8 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         GL.glBlendFunc(GL.GL_ONE, GL.GL_ONE_MINUS_SRC_ALPHA)  # Using premultiplied alpha
         self.vao = GL.glGenVertexArrays(1)
         GL.glBindVertexArray(self.vao)
-        self.program.initialize_gl()
+        self.rect_shader.initialize_gl()
+        self.sphere_shader.initialize_gl()
         self.texture = GL.glGenTextures(1)
 
     def mouseMoveEvent(self, event):
@@ -65,6 +73,7 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         dx = event.pos().x() - self.previous_mouse_position.x()
         dy = event.pos().y() - self.previous_mouse_position.y()
         self.view_state.drag_relative(dx, dy, self)
+        self.sphere_view_state.drag_relative(dx, dy, self)
         self.previous_mouse_position = event.pos()
         self.update()
 
@@ -82,6 +91,7 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         if d_scale == 0:
             return
         d_scale = 1.12 ** d_scale
+        self.sphere_view_state.zoom_relative(d_scale, event.position(), self)
         self.view_state.zoom_relative(d_scale, event.position(), self)
         self.update()
 
@@ -105,11 +115,18 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         }
         if image.width == 2 * image.height:
             try:
+                self.is_360 = True
+                self.view_state = self.sphere_view_state
+                self.program = self.sphere_shader
                 if exif["Model"].lower().startswith("ricoh theta"):
                     print("360")
                     pass  # TODO 360 image
             except KeyError:
                 pass
+        else:
+            self.is_360 = False
+            self.view_state = self.rect_view_state
+            self.program = self.rect_shader
         print(exif)
         self.image = numpy.array(image)
         print(image.info)
@@ -131,7 +148,8 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
             for rgb in range(3):
                 a[:, :, rgb] = (a[:, :, rgb] * alpha_layer).astype(a.dtype)
         self.image_needs_upload = True
-        self.view_state.reset()
+        self.sphere_view_state.reset()
+        self.rect_view_state.reset()
         self.update()
 
     def maybe_upload_image(self):
