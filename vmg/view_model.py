@@ -103,28 +103,31 @@ class RectangularViewState(IViewState):
 class SphericalViewState(IViewState):
     def __init__(self):
         self.image_rotation = numpy.identity(3, dtype=numpy.float32)
+        self.pitch = 0  # radians
+        self.yaw = 0  # radians
         self.window_zoom = 1.0
         self.pixel_filter = PixelFilter.CATMULL_ROM
 
     def drag_relative(self, dx, dy, gl_widget):
-        roty = dx / gl_widget.width() / self.window_zoom
-        c = math.cos(roty)
-        s = math.sin(roty)
-        m = numpy.array([
+        self.yaw += dx / gl_widget.width() / self.window_zoom
+        c = math.cos(self.yaw)
+        s = math.sin(self.yaw)
+        m1 = numpy.array([
             [c, 0, s],
             [0, 1, 0],
             [-s, 0, c],
         ], dtype=numpy.float32)
-        self.image_rotation = self.image_rotation @ m
-        rotx = dy / gl_widget.height() / self.window_zoom
-        c = math.cos(rotx)
-        s = math.sin(rotx)
-        m = numpy.array([
+        self.pitch += dy / gl_widget.height() / self.window_zoom
+        self.pitch = min(self.pitch, math.pi / 2)
+        self.pitch = max(self.pitch, -math.pi / 2)
+        c = math.cos(self.pitch)
+        s = math.sin(self.pitch)
+        m2 = numpy.array([
             [1, 0, 0],
             [0, c, -s],
             [0, s, c],
         ], dtype=numpy.float32)
-        self.image_rotation = self.image_rotation @ m
+        self.image_rotation = m1 @ m2
         # print(roty, m)
 
     def image_for_window(self, wpos, gl_widget):
