@@ -108,6 +108,11 @@ class SphericalViewState(IViewState):
         self.window_zoom = 1.0
         self.pixel_filter = PixelFilter.CATMULL_ROM
 
+    def clamp(self):
+        self.pitch = min(self.pitch, math.pi / 2)
+        self.pitch = max(self.pitch, -math.pi / 2)
+        self.window_zoom = max(self.window_zoom, 0.05)
+
     def drag_relative(self, dx, dy, gl_widget):
         self.yaw += dx / gl_widget.width() / self.window_zoom
         c = math.cos(self.yaw)
@@ -118,8 +123,7 @@ class SphericalViewState(IViewState):
             [-s, 0, c],
         ], dtype=numpy.float32)
         self.pitch += dy / gl_widget.height() / self.window_zoom
-        self.pitch = min(self.pitch, math.pi / 2)
-        self.pitch = max(self.pitch, -math.pi / 2)
+        self.clamp()
         c = math.cos(self.pitch)
         s = math.sin(self.pitch)
         m2 = numpy.array([
@@ -148,11 +152,14 @@ class SphericalViewState(IViewState):
 
     def reset(self):
         self.image_rotation = numpy.identity(3, dtype=numpy.float32)
+        self.pitch = 0
+        self.yaw = 0
         self.window_zoom = 1.0
 
     def zoom_relative(self, zoom_factor: float, zoom_center, gl_widget):
         new_zoom = self.window_zoom * zoom_factor
         self.window_zoom = new_zoom
+        self.clamp()
         # TODO: keep center
 
 
