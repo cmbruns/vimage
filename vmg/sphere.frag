@@ -11,8 +11,33 @@ uniform mat3 rotation = mat3(1);
 in vec3 tex_coord;
 out vec4 color;
 
-vec4 nearest(sampler2D image, vec2 textureCoordinate) {
-    return texture(image, textureCoordinate);
+vec2 equirect_tex_coord(vec3 dir)
+{
+    const float PI = 3.1415926535897932384626433832795;
+    float longitude = 0.5 * atan(dir.x, -dir.z) / PI + 0.5; // range [0-1]
+    float r = length(dir.xz);
+    float latitude = -atan(dir.y, r) / PI + 0.5; // range [0-1]
+    vec2 tex_coord = vec2(longitude, latitude);
+    return tex_coord;
+}
+
+vec4 equirect_color(sampler2D image, vec2 tex_coord)
+{
+    // Use explicit gradients, to preserve anisotropic filtering during mipmap lookup
+    vec2 dpdx = dFdx(tex_coord);
+    vec2 dpdy = dFdy(tex_coord);
+    if (true) {
+        if (dpdx.x > 0.5) dpdx.x -= 1; // use "repeat" wrapping on gradient
+        if (dpdx.x < -0.5) dpdx.x += 1;
+        if (dpdy.x > 0.5) dpdy.x -= 1; // use "repeat" wrapping on gradient
+        if (dpdy.x < -0.5) dpdy.x += 1;
+    }
+
+    return textureGrad(image, tex_coord, dpdx, dpdy);
+}
+
+vec4 nearest(sampler2D image, vec2 tex_coord) {
+    return equirect_color(image, tex_coord);
 }
 
 vec4 catrom_weights(float t) {
@@ -38,31 +63,10 @@ vec4 catrom(sampler2D image, vec2 textureCoordinate) {
             float wx = weightsX[x];
             vec2 texel2 = vec2(x , y) + texel1 - vec2(0.5);
             vec2 tc = texel2 / textureSize(image, 0);
-            combined += wx * wy * texture(image, tc);
+            combined += wx * wy * equirect_color(image, tc);
         }
     }
     return combined;
-}
-
-vec4 equirect_color(vec3 dir, sampler2D image)
-{
-    const float PI = 3.1415926535897932384626433832795;
-    float longitude = 0.5 * atan(dir.x, -dir.z) / PI + 0.5; // range [0-1]
-    float r = length(dir.xz);
-    float latitude = -atan(dir.y, r) / PI + 0.5; // range [0-1]
-    vec2 tex_coord = vec2(longitude, latitude);
-
-    // Use explicit gradients, to preserve anisotropic filtering during mipmap lookup
-    vec2 dpdx = dFdx(tex_coord);
-    vec2 dpdy = dFdy(tex_coord);
-    if (true) {
-        if (dpdx.x > 0.5) dpdx.x -= 1; // use "repeat" wrapping on gradient
-        if (dpdx.x < -0.5) dpdx.x += 1;
-        if (dpdy.x > 0.5) dpdy.x -= 1; // use "repeat" wrapping on gradient
-        if (dpdy.x < -0.5) dpdy.x += 1;
-    }
-
-    return textureGrad(image, tex_coord, dpdx, dpdy);
 }
 
 void main() {
@@ -72,7 +76,16 @@ void main() {
     xyz = xyz * rotation;
     // TODO: rotate
 
-    color = equirect_color(xyz, image);
+    vec2 tex_coord = equirect_tex_coord(xyz);
 
-    // color = vec4(tex_coord.xy, 0.8, 1);
+    switch(pixelFilter) {
+    case NEAREST:
+        color = nearest(image, tex_coord);
+        break;
+    case CATMULL_ROM:
+        color = catrom(image, tex_coord);
+        break;
+    }
+
+    color = sqrt(color);
 }
