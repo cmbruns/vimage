@@ -132,7 +132,6 @@ class SphericalViewState(IViewState):
             [0, s, c],
         ], dtype=numpy.float32)
         self.image_rotation = m1 @ m2
-        # print(roty, m)
 
     def image_for_window(self, wpos, gl_widget):
         x_scale = y_scale = self.window_zoom
@@ -147,7 +146,6 @@ class SphericalViewState(IViewState):
         latitude = math.asin(y)
         c = 1.0 / math.pi
         ix, iy = longitude * c / 2, latitude * c
-        print(ix, iy)
         return ix, iy
 
     def reset(self):

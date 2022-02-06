@@ -8,7 +8,6 @@ from PIL import Image
 from PySide6 import QtCore, QtGui, QtWidgets
 from PySide6.QtCore import Qt
 
-from test.perf_test_1 import perf_test_1
 from vmg.natural_sort import natural_sort_key
 from vmg.pixel_filter import PixelFilter
 from vmg.recent_file import RecentFileList
@@ -199,10 +198,6 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
             return
         self.image_index -= 1
         self.activate_indexed_image()
-
-    @QtCore.Slot()
-    def on_actionRun_Test_triggered(self):
-        perf_test_1(self)
 
     @QtCore.Slot()
     def on_actionSave_As_triggered(self):

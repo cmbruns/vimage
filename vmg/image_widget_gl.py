@@ -119,7 +119,7 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
                 self.view_state = self.sphere_view_state
                 self.program = self.sphere_shader
                 if exif["Model"].lower().startswith("ricoh theta"):
-                    print("360")
+                    # print("360")
                     pass  # TODO 360 image
             except KeyError:
                 pass
@@ -127,9 +127,7 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
             self.is_360 = False
             self.view_state = self.rect_view_state
             self.program = self.rect_shader
-        print(exif)
         self.image = numpy.array(image)
-        print(image.info)
         # Normalize values to maximum 1.0 and convert to float32
         # TODO: test performance
         max_values = {
