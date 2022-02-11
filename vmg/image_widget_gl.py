@@ -2,7 +2,7 @@ import numpy
 from OpenGL import GL
 import PIL
 from PIL import ExifTags
-from PySide6 import QtGui, QtOpenGLWidgets
+from PySide6 import QtCore, QtGui, QtOpenGLWidgets
 from PySide6.QtCore import QEvent, Qt
 
 from vmg.pixel_filter import PixelFilter
@@ -15,6 +15,7 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         super().__init__(*args, **kwargs)
         self.setCursor(Qt.CrossCursor)
         self.setAttribute(Qt.WA_AcceptTouchEvents, True)
+        self.setMouseTracking(True)
         self.grabGesture(Qt.PinchGesture)
         # self.grabGesture(Qt.PanGesture)
         self.grabGesture(Qt.SwipeGesture)
@@ -33,6 +34,8 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         self.sphere_view_state: IViewState = SphericalViewState()
         self.view_state = self.rect_view_state
         self.is_360 = False
+
+    request_message = QtCore.Signal(str, int)
 
     def event(self, event: QEvent):
         if event.type() == QEvent.Gesture:
@@ -63,11 +66,17 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         self.texture = GL.glGenTextures(1)
 
     def mouseMoveEvent(self, event):
-        if not self.is_dragging:
+        if event.pos() is None:
             return
         if self.image is None:
             return
         if event.source() != Qt.MouseEventNotSynthesized:
+            return
+        if not self.is_dragging:
+            xy = event.pos().x(), event.pos().y()
+            self.request_message.emit(f"window pixel = {xy}", 2000)
+            # TODO: put coordinates in status bar
+            # print(xy)
             return
         # Drag image around
         dx = event.pos().x() - self.previous_mouse_position.x()

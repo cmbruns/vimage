@@ -3,6 +3,7 @@ import sys
 
 from PySide6 import QtWidgets
 from PySide6.QtGui import QIcon, QSurfaceFormat
+from PySide6.QtCore import Qt
 
 from vmg.main_window import VimageMainWindow
 
@@ -14,6 +15,7 @@ class VimageApp(object):
         f.setVersion(4, 1)
         QSurfaceFormat.setDefaultFormat(f)
         app = QtWidgets.QApplication(sys.argv)
+        app.setAttribute(Qt.AA_EnableHighDpiScaling)  # No effect on custom cursor size
         app.setOrganizationName("rotatingpenguin.com")
         app.setApplicationName("vimage")
         app.setApplicationDisplayName("vimage")

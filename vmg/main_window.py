@@ -55,6 +55,8 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         self.addAction(self.actionNormal_View)
         self.addAction(self.actionFull_Screen)
         self.addAction(self.actionSharp)
+        #
+        self.imageWidgetGL.request_message.connect(self.statusbar.showMessage)
 
     def activate_indexed_image(self):
         try:
