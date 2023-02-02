@@ -35,6 +35,7 @@ class Ui_MainWindow(object):
         self.actionExit.setMenuRole(QAction.QuitRole)
         self.actionSave_As = QAction(MainWindow)
         self.actionSave_As.setObjectName(u"actionSave_As")
+        self.actionSave_As.setEnabled(False)
         self.actionNext = QAction(MainWindow)
         self.actionNext.setObjectName(u"actionNext")
         self.actionNext.setEnabled(False)

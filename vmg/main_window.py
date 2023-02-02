@@ -7,6 +7,7 @@ import pathlib
 from PIL import Image
 from PySide6 import QtCore, QtGui, QtWidgets
 from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QFileDialog, QMessageBox
 
 from vmg.natural_sort import natural_sort_key
 from vmg.pixel_filter import PixelFilter
@@ -93,11 +94,13 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
 
     def load_image(self, file_name: str) -> None:
         f = str(file_name)
+        # TODO: separate thread cancellable loading
         with ScopedWaitCursor() as _:
             self.image = Image.open(f)
             self.imageWidgetGL.set_image(self.image)
             self.set_current_image_path(f)
             self.statusbar.showMessage(f"Loaded image {file_name}", 5000)
+            self.actionSave_As.setEnabled(True)
 
     def load_main_image(self, file_name: str):
         path = pathlib.Path(file_name)
@@ -112,6 +115,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         self.set_image_list(paths_list, 0)
 
     def save_image(self, file_path: str):
+        # TODO: cancellable separate thread save? (at least after in-memory copy is made)
         with ScopedWaitCursor() as swc:
             # Avoid creating corrupt file by first writing to memory to check for writing errors
             in_memory_image = io.BytesIO()
@@ -184,7 +188,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
 
     @QtCore.Slot()
     def on_actionOpen_triggered(self):
-        file_name, filter_used = QtWidgets.QFileDialog.getOpenFileName(
+        file_name, filter_used = QFileDialog.getOpenFileName(
             parent=self,
             caption="Choose a file",
             filter="All files (*)",
@@ -203,12 +207,34 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
 
     @QtCore.Slot()
     def on_actionSave_As_triggered(self):
-        file_path, file_filter = QtWidgets.QFileDialog.getSaveFileName(
-            parent=self,
-            caption="Save Image to File",
-            filter="PNG Files (*.png);;JPEG Files(*.jpg);;All files (*.*)",
-            selectedFilter="PNG Files (*.png)",
-        )
+        if self.image is None:
+            QMessageBox.warning(
+                self,
+                "Unable to save image",
+                "There is no image to save",
+                QMessageBox.Ok,
+            )
+            self.actionSave_As.setEnabled(False)
+            return
+        use_native = False  # feature toggle
+        if use_native:
+            file_path, _file_filter = QFileDialog.getSaveFileName(
+                parent=self,
+                caption="Save Image to File",
+                filter="PNG Files (*.png);;JPEG Files(*.jpg);;All files (*.*)",
+                selectedFilter="PNG Files (*.png)",
+            )
+        else:  # TODO: custom dialog
+            fd = QFileDialog(self)
+            fd.setFileMode(QFileDialog.AnyFile)
+            fd.setAcceptMode(QFileDialog.AcceptSave)
+            fd.setNameFilter("PNG Format (*.png);;JPEG Format (*.jpg);;All files (*.*)")
+            file_count = fd.exec()
+            if file_count < 1:
+                return
+            print(file_count)
+            file_path = fd.selectedFiles()[0]
+            print(file_path)
         if len(file_path) < 1:
             return
         try:
