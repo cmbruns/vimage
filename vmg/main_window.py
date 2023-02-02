@@ -101,6 +101,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
             self.set_current_image_path(f)
             self.statusbar.showMessage(f"Loaded image {file_name}", 5000)
             self.actionSave_As.setEnabled(True)
+            self.actionSave_Current_View_As.setEnabled(True)
 
     def load_main_image(self, file_name: str):
         path = pathlib.Path(file_name)
@@ -114,18 +115,23 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
                 paths_list.append(file)
         self.set_image_list(paths_list, 0)
 
-    def save_image(self, file_path: str):
+    def save_image(self, file_path: str, image=None):
+        if image is None:
+            image = self.image
         # TODO: cancellable separate thread save? (at least after in-memory copy is made)
         with ScopedWaitCursor() as swc:
             # Avoid creating corrupt file by first writing to memory to check for writing errors
             in_memory_image = io.BytesIO()
             in_memory_image.name = file_path
-            self.image.save(in_memory_image)
+            self.statusbar.showMessage(f"Saving image {file_path}...", 5000)
+            QtCore.QCoreApplication.processEvents()  # Make sure the message is shown
+            image.save(in_memory_image)
             with open(file_path, "wb") as out:
                 in_memory_image.seek(0)
                 out.write(in_memory_image.read())
-            self.set_current_image_path(file_path)
-            self.load_main_image(file_path)
+            if image is self.image:
+                self.set_current_image_path(file_path)
+                self.load_main_image(file_path)
             self.statusbar.showMessage(f"Saved image {file_path}", 5000)
 
     def set_current_image_path(self, path: str):
@@ -205,40 +211,17 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         self.image_index -= 1
         self.activate_indexed_image()
 
-    @QtCore.Slot()
-    def on_actionSave_As_triggered(self):
-        if self.image is None:
-            QMessageBox.warning(
-                self,
-                "Unable to save image",
-                "There is no image to save",
-                QMessageBox.Ok,
-            )
-            self.actionSave_As.setEnabled(False)
-            return
-        use_native = False  # feature toggle
-        if use_native:
-            file_path, _file_filter = QFileDialog.getSaveFileName(
-                parent=self,
-                caption="Save Image to File",
-                filter="PNG Files (*.png);;JPEG Files(*.jpg);;All files (*.*)",
-                selectedFilter="PNG Files (*.png)",
-            )
-        else:  # TODO: custom dialog
-            fd = QFileDialog(self)
-            fd.setFileMode(QFileDialog.AnyFile)
-            fd.setAcceptMode(QFileDialog.AcceptSave)
-            fd.setNameFilter("PNG Format (*.png);;JPEG Format (*.jpg);;All files (*.*)")
-            file_count = fd.exec()
-            if file_count < 1:
-                return
-            print(file_count)
-            file_path = fd.selectedFiles()[0]
-            print(file_path)
+    def _dialog_and_save_image(self, image):
+        file_path, _file_filter = QFileDialog.getSaveFileName(
+            parent=self,
+            caption="Save Image to File",
+            filter="PNG Files (*.png);;JPEG Files(*.jpg);;All files (*.*)",
+            selectedFilter="PNG Files (*.png)",
+        )
         if len(file_path) < 1:
             return
         try:
-            self.save_image(file_path)
+            self.save_image(file_path, image)
         except ValueError as value_error:  # File without extension
             QtWidgets.QMessageBox.warning(
                 self,
@@ -257,6 +240,16 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
                 "Error saving image",
                 f"Error: {str(exception)}",
             )
+
+    @QtCore.Slot()
+    def on_actionSave_As_triggered(self):
+        self._dialog_and_save_image(self.image)
+
+    @QtCore.Slot()
+    def on_actionSave_Current_View_As_triggered(self):
+        pixmap = self.imageWidgetGL.grab()
+        view_image = Image.fromqpixmap(pixmap)
+        self._dialog_and_save_image(view_image)
 
     @QtCore.Slot(bool)
     def on_actionSharp_toggled(self, is_checked: bool):

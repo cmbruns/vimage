@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>640</width>
-    <height>549</height>
+    <width>719</width>
+    <height>577</height>
    </rect>
   </property>
   <property name="unifiedTitleAndToolBarOnMac">
@@ -37,7 +37,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>640</width>
+     <width>719</width>
      <height>22</height>
     </rect>
    </property>
@@ -53,6 +53,7 @@
     <addaction name="actionOpen"/>
     <addaction name="menuOpen_Recent"/>
     <addaction name="actionSave_As"/>
+    <addaction name="actionSave_Current_View_As"/>
     <addaction name="separator"/>
     <addaction name="actionExit"/>
    </widget>
@@ -119,7 +120,7 @@
     <bool>false</bool>
    </property>
    <property name="text">
-    <string>Save As...</string>
+    <string>Save Original Image As...</string>
    </property>
   </action>
   <action name="actionNext">
@@ -194,6 +195,14 @@
    </property>
    <property name="menuRole">
     <enum>QAction::AboutRole</enum>
+   </property>
+  </action>
+  <action name="actionSave_Current_View_As">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
+   <property name="text">
+    <string>Save Current View As...</string>
    </property>
   </action>
  </widget>
