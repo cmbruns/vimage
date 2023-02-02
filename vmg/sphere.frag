@@ -4,6 +4,12 @@
 const int NEAREST = 1;
 const int CATMULL_ROM = 2;
 
+const float PI = 3.1415926535897932384626433832795;
+
+const int STEREOGRAPHIC_PROJECTION = 1;
+const int AZ_EQ_PROJECTION = 2;
+uniform int projection = STEREOGRAPHIC_PROJECTION;
+
 uniform sampler2D image;
 uniform int pixelFilter = NEAREST;
 uniform mat3 rotation = mat3(1);
@@ -13,7 +19,6 @@ out vec4 color;
 
 vec2 equirect_tex_coord(vec3 dir)
 {
-    const float PI = 3.1415926535897932384626433832795;
     float longitude = 0.5 * atan(dir.x, -dir.z) / PI + 0.5; // range [0-1]
     float r = length(dir.xz);
     float latitude = -atan(dir.y, r) / PI + 0.5; // range [0-1]
@@ -69,12 +74,51 @@ vec4 catrom(sampler2D image, vec2 textureCoordinate) {
     return combined;
 }
 
+vec3 original_xyz(vec2 xy) {
+    // Original working implementation. What projection is this?
+    float d = 1 * dot(xy, xy);
+    return vec3(2 * xy.x, 2 * xy.y, d - 2) / d;
+}
+
+vec3 gnomonic_xyz(vec2 xy) {  // pinhole camera
+    float d = sqrt(dot(xy, xy) + 1);
+    return vec3(xy.x, xy.y, -1) / d;
+}
+
+vec3 stereographic_xyz(vec2 xy) {  // conformal
+    float d = dot(xy, xy) + 4;
+    return vec3(4 * xy.x, 4 * xy.y, dot(xy, xy) - 4) / d;
+}
+
+vec3 azimuthal_equidistant_xyz(vec2 xy) {  // finite distance to edges
+    float d = sqrt(dot(xy, xy));
+    float sdd = sin(d) / d;
+    float cd = cos(d);
+    return vec3(xy.x * sdd, xy.y * sdd, -cd);
+}
+
+bool azeqd_valid(vec2 xy) {
+
+    return dot(xy, xy) < PI * PI;
+}
+
 void main() {
-    vec2 xy = tex_coord.xy;
-    float denom = 1 * dot(xy, xy);
-    vec3 xyz = vec3(2 * xy.x, 2 * xy.y, denom - 2) / denom;
+    vec3 xyz;
+    if (projection == STEREOGRAPHIC_PROJECTION) {
+        xyz = stereographic_xyz(tex_coord.xy);
+    }
+    else if (projection == AZ_EQ_PROJECTION) {
+        if (! azeqd_valid(tex_coord.xy)) {
+            color = vec4(1, 0, 0, 0);
+            return;
+        }
+        xyz = stereographic_xyz(tex_coord.xy);
+    }
+    else {
+        xyz = original_xyz(tex_coord.xy);
+    }
+
     xyz = xyz * rotation;
-    // TODO: rotate
 
     vec2 tex_coord = equirect_tex_coord(xyz);
 
