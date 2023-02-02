@@ -114,7 +114,8 @@ class SphericalViewState(IViewState):
         self.window_zoom = max(self.window_zoom, 0.05)
 
     def drag_relative(self, dx, dy, gl_widget):
-        self.yaw += dx / gl_widget.width() / self.window_zoom
+        win_size = (gl_widget.width() + gl_widget.height()) / 2;
+        self.yaw += dx / win_size / self.window_zoom
         c = math.cos(self.yaw)
         s = math.sin(self.yaw)
         m1 = numpy.array([
@@ -122,7 +123,7 @@ class SphericalViewState(IViewState):
             [0, 1, 0],
             [-s, 0, c],
         ], dtype=numpy.float32)
-        self.pitch += dy / gl_widget.height() / self.window_zoom
+        self.pitch += dy / win_size / self.window_zoom
         self.clamp()
         c = math.cos(self.pitch)
         s = math.sin(self.pitch)
