@@ -145,8 +145,12 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         }
         self.image = self.image.astype(numpy.float32) / max_values[self.image.dtype]
         # Convert srgb value scale to linear
-        for rgb in range(3):
-            self.image[:, :, rgb] = numpy.square(self.image[:, :, rgb])  # approximate srgb -> linear
+        if len(self.image.shape) == 2:
+            # Monochrome image
+            self.image = numpy.square(self.image)  # approximate srgb -> linear
+        else:
+            for rgb in range(3):
+                self.image[:, :, rgb] = numpy.square(self.image[:, :, rgb])  # approximate srgb -> linear
         # Use premultiplied alpha for better filtering
         if image.mode == "RGBA":
             a = self.image
