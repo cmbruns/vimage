@@ -120,12 +120,16 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
             image = self.image
         # TODO: cancellable separate thread save? (at least after in-memory copy is made)
         with ScopedWaitCursor() as swc:
+            self.statusbar.showMessage(f"Saving image {file_path}...", 5000)
+            QtCore.QCoreApplication.processEvents()  # Make sure the message is shown
             # Avoid creating corrupt file by first writing to memory to check for writing errors
             in_memory_image = io.BytesIO()
             in_memory_image.name = file_path
-            self.statusbar.showMessage(f"Saving image {file_path}...", 5000)
-            QtCore.QCoreApplication.processEvents()  # Make sure the message is shown
-            image.save(in_memory_image)
+            try:
+                image.save(in_memory_image)
+            except OSError:
+                rgb_image = image.convert("RGB")  # TODO: choose bg color or warn or whatever
+                rgb_image.save(in_memory_image)
             with open(file_path, "wb") as out:
                 in_memory_image.seek(0)
                 out.write(in_memory_image.read())
