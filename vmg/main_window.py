@@ -11,6 +11,7 @@ from PySide6.QtWidgets import QFileDialog, QMessageBox
 
 from vmg.natural_sort import natural_sort_key
 from vmg.pixel_filter import PixelFilter
+from vmg.projection_360 import Projection360
 from vmg.recent_file import RecentFileList
 from vmg.ui_vimage import Ui_MainWindow
 
@@ -56,6 +57,10 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         self.addAction(self.actionNormal_View)
         self.addAction(self.actionFull_Screen)
         self.addAction(self.actionSharp)
+        # Make projections mutually exclusive
+        self.projection_group = QtGui.QActionGroup(self)
+        self.projection_group.addAction(self.actionStereographic)
+        self.projection_group.addAction(self.actionEquidistant)
         #
         self.imageWidgetGL.request_message.connect(self.statusbar.showMessage)
 
@@ -167,6 +172,15 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         else:
             self.actionPrevious.setEnabled(False)
 
+    @QtCore.Slot(bool)
+    def on_actionEquidistant_toggled(self, is_checked: bool):
+        if not is_checked:
+            return
+        if self.imageWidgetGL.sphere_view_state.projection == Projection360.EQUIDISTANT:
+            return
+        self.imageWidgetGL.sphere_view_state.projection = Projection360.EQUIDISTANT
+        self.imageWidgetGL.update()
+
     @QtCore.Slot()
     def on_actionExit_triggered(self):
         QtWidgets.QApplication.quit()
@@ -265,4 +279,13 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
             self.imageWidgetGL.pixel_filter = PixelFilter.SHARP
         else:
             self.imageWidgetGL.pixel_filter = PixelFilter.CATMULL_ROM
+        self.imageWidgetGL.update()
+
+    @QtCore.Slot(bool)
+    def on_actionStereographic_toggled(self, is_checked: bool):
+        if not is_checked:
+            return
+        if self.imageWidgetGL.sphere_view_state.projection == Projection360.STEREOGRAPHIC:
+            return
+        self.imageWidgetGL.sphere_view_state.projection = Projection360.STEREOGRAPHIC
         self.imageWidgetGL.update()

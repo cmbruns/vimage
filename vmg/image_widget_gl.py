@@ -116,7 +116,6 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         self.program.paint_gl(self.view_state, self)
 
     def set_image(self, image: PIL.Image.Image):
-        # TODO: support 360 image view
         exif = exif = {
             PIL.ExifTags.TAGS[k]: v
             for k, v in image.getexif().items()

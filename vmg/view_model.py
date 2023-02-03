@@ -7,6 +7,7 @@ from OpenGL import GL
 from OpenGL.GL.shaders import compileShader
 
 from vmg.pixel_filter import PixelFilter
+from vmg.projection_360 import Projection360
 
 
 class IViewState(abc.ABC):
@@ -107,6 +108,7 @@ class SphericalViewState(IViewState):
         self.yaw = 0  # radians
         self.window_zoom = 1.0
         self.pixel_filter = PixelFilter.CATMULL_ROM
+        self.projection = Projection360.STEREOGRAPHIC
 
     def clamp(self):
         self.pitch = min(self.pitch, math.pi / 2)
@@ -205,6 +207,7 @@ class SphericalShader(IImageShader):
         self.pixelFilter_location = None
         self.rotation_location = None
         self.window_size_location = None
+        self.projection_location = None
 
     def initialize_gl(self) -> None:
         vertex_shader = compileShader(pkg_resources.resource_string(
@@ -219,6 +222,7 @@ class SphericalShader(IImageShader):
         self.pixelFilter_location = GL.glGetUniformLocation(self.shader, "pixelFilter")
         self.rotation_location = GL.glGetUniformLocation(self.shader, "rotation")
         self.window_size_location = GL.glGetUniformLocation(self.shader, "window_size")
+        self.projection_location = GL.glGetUniformLocation(self.shader, "projection")
 
     def paint_gl(self, state, gl_widget) -> None:
         # both nearest and catrom use nearest at the moment.
@@ -231,4 +235,5 @@ class SphericalShader(IImageShader):
         GL.glUniform1i(self.pixelFilter_location, state.pixel_filter.value)
         GL.glUniformMatrix3fv(self.rotation_location, 1, False, state.image_rotation)
         GL.glUniform2i(self.window_size_location, gl_widget.width(), gl_widget.height())
+        GL.glUniform1i(self.projection_location, state.projection.value)
         GL.glDrawArrays(GL.GL_TRIANGLE_STRIP, 0, 4)

@@ -6,6 +6,7 @@ const int CATMULL_ROM = 2;
 
 const float PI = 3.1415926535897932384626433832795;
 
+// Keep these constants in sync with projection_360.py
 const int STEREOGRAPHIC_PROJECTION = 1;
 const int AZ_EQ_PROJECTION = 2;
 uniform int projection = STEREOGRAPHIC_PROJECTION;
@@ -112,7 +113,7 @@ void main() {
             color = vec4(1, 0, 0, 0);
             return;
         }
-        xyz = stereographic_xyz(tex_coord.xy);
+        xyz = azimuthal_equidistant_xyz(tex_coord.xy);
     }
     else {
         xyz = original_xyz(tex_coord.xy);

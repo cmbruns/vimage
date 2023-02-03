@@ -61,10 +61,18 @@
     <property name="title">
      <string>View</string>
     </property>
+    <widget class="QMenu" name="menu360_Projection">
+     <property name="title">
+      <string>360 Projection</string>
+     </property>
+     <addaction name="actionStereographic"/>
+     <addaction name="actionEquidistant"/>
+    </widget>
     <addaction name="actionNext"/>
     <addaction name="actionPrevious"/>
     <addaction name="actionSharp"/>
     <addaction name="actionFull_Screen"/>
+    <addaction name="menu360_Projection"/>
    </widget>
    <widget class="QMenu" name="menuTest">
     <property name="enabled">
@@ -203,6 +211,25 @@
    </property>
    <property name="text">
     <string>Save Current View As...</string>
+   </property>
+  </action>
+  <action name="actionStereographic">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Stereographic (Small World)</string>
+   </property>
+  </action>
+  <action name="actionEquidistant">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Equidistant (Circular)</string>
    </property>
   </action>
  </widget>
