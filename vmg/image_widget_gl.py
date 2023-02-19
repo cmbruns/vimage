@@ -1,3 +1,6 @@
+from typing import Tuple
+from numbers import Number
+
 import numpy
 from OpenGL import GL
 import PIL
@@ -5,6 +8,7 @@ from PIL import ExifTags
 from PySide6 import QtCore, QtGui, QtOpenGLWidgets
 from PySide6.QtCore import QEvent, Qt
 
+from vmg.coordinate import WindowPos, NdcPos
 from vmg.pixel_filter import PixelFilter
 from vmg.view_model import RectangularViewState, RectangularShader, IViewState, IImageShader, SphericalViewState, \
     SphericalShader
@@ -52,6 +56,21 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
 
         return super().event(event)
 
+    def _hover_pixel(self, win_xy: WindowPos) -> bool:
+        # TODO: draw square around pixel
+        ndc = NdcPos.from_window(win_xy, self.width(), self.height())
+        img_x, img_y = self.view_state.image_for_window(win_xy, self)
+        h, w = self.image.shape[:2]
+        pxl_x = (img_x + 0.5) * w
+        pxl_y = (img_y + 0.5) * h
+        self.request_message.emit(
+            f"{win_xy}; "
+            f"{ndc}; "
+            f"image = [{img_x:.4f}, {img_y:.4f}]; "
+            f"image pixel = [{pxl_x:.1f}, {pxl_y:.1f}]"
+            , 2000)
+        return False  # Nothing changed, so no update needed
+
     def initializeGL(self) -> None:
         # Use native-like background color
         bg_color = self.palette().color(self.backgroundRole()).getRgbF()
@@ -73,8 +92,11 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         if event.source() != Qt.MouseEventNotSynthesized:
             return
         if not self.is_dragging:
-            xy = event.pos().x(), event.pos().y()
-            self.request_message.emit(f"window pixel = {xy}", 2000)
+            update_needed = self._hover_pixel(WindowPos.from_qpoint(event.pos()))
+            if update_needed:
+                self.update()
+            # xy = event.pos().x(), event.pos().y()
+            # self.request_message.emit(f"window pixel = {xy}", 2000)
             # TODO: put coordinates in status bar
             # print(xy)
             return
@@ -100,8 +122,9 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         if d_scale == 0:
             return
         d_scale = 1.12 ** d_scale
-        self.sphere_view_state.zoom_relative(d_scale, event.position(), self)
-        self.view_state.zoom_relative(d_scale, event.position(), self)
+        win_xy = (event.position().x(), event.position().y())
+        self.sphere_view_state.zoom_relative(d_scale, win_xy, self)
+        self.view_state.zoom_relative(d_scale, win_xy, self)
         self.update()
 
     def paintGL(self) -> None:

@@ -1,18 +1,25 @@
 import abc
 import math
 import pkg_resources
+from typing import Tuple
+from numbers import Number
 
 import numpy
 from OpenGL import GL
 from OpenGL.GL.shaders import compileShader
 
+from vmg.coordinate import WindowPos
 from vmg.pixel_filter import PixelFilter
 from vmg.projection_360 import Projection360
 
 
 class IViewState(abc.ABC):
     @abc.abstractmethod
-    def drag_relative(self, dx, dy, gl_widget):
+    def drag_relative(self, dx: int, dy: int, gl_widget):
+        pass
+
+    @abc.abstractmethod
+    def image_for_window(self, wpos: WindowPos, gl_widget):
         pass
 
     @abc.abstractmethod
@@ -20,7 +27,7 @@ class IViewState(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def zoom_relative(self, zoom_factor: float, zoom_center, gl_widget):
+    def zoom_relative(self, zoom_factor: float, zoom_center: WindowPos, gl_widget):
         pass
 
 
@@ -68,22 +75,22 @@ class RectangularViewState(IViewState):
         self.image_center[1] += dy / y_scale
         self.clamp_center()
 
-    def image_for_window(self, wpos, gl_widget):
+    def image_for_window(self, wpos: WindowPos, gl_widget):
         x_scale = y_scale = self.window_zoom
         ratio_ratio = gl_widget.width() * gl_widget.image.shape[0] / (gl_widget.height() * gl_widget.image.shape[1])
         if ratio_ratio > 1:
             x_scale /= ratio_ratio
         else:
             y_scale *= ratio_ratio
-        wx = (wpos.x() - gl_widget.width() / 2) / gl_widget.width() / x_scale
-        wy = (wpos.y() - gl_widget.height() / 2) / gl_widget.height() / y_scale
+        wx = (wpos[0] - gl_widget.width() / 2) / gl_widget.width() / x_scale
+        wy = (wpos[1] - gl_widget.height() / 2) / gl_widget.height() / y_scale
         return wx, wy
 
     def reset(self):
         self.window_zoom = 1.0
         self.image_center = [0.5, 0.5]
 
-    def zoom_relative(self, zoom_factor: float, zoom_center, gl_widget):
+    def zoom_relative(self, zoom_factor: float, zoom_center: WindowPos, gl_widget):
         new_zoom = self.window_zoom * zoom_factor
         if new_zoom <= 1:
             zoom_factor = 1 / self.window_zoom
@@ -136,10 +143,10 @@ class SphericalViewState(IViewState):
         ], dtype=numpy.float32)
         self.image_rotation = m1 @ m2
 
-    def image_for_window(self, wpos, gl_widget):
+    def image_for_window(self, wpos: WindowPos, gl_widget) -> Tuple[Number, Number]:
         x_scale = y_scale = self.window_zoom
-        wx = (wpos.x() - gl_widget.width() / 2) / gl_widget.width() / x_scale
-        wy = (wpos.y() - gl_widget.height() / 2) / gl_widget.height() / y_scale
+        wx = (wpos[0] - gl_widget.width() / 2) / gl_widget.width() / x_scale
+        wy = (wpos[1] - gl_widget.height() / 2) / gl_widget.height() / y_scale
         # https://en.wikipedia.org/wiki/Stereographic_projection
         denom = 1 + wx * wx + wy * wy
         x = 2 * wx / denom
@@ -157,7 +164,7 @@ class SphericalViewState(IViewState):
         self.yaw = 0
         self.window_zoom = 1.0
 
-    def zoom_relative(self, zoom_factor: float, zoom_center, gl_widget):
+    def zoom_relative(self, zoom_factor: float, zoom_center: WindowPos, gl_widget):
         new_zoom = self.window_zoom * zoom_factor
         self.window_zoom = new_zoom
         self.clamp()

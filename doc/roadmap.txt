@@ -6,3 +6,18 @@ Features:
 Bugs:
   Does not remember recent files
   Update title bar after "save as"
+
+Pixel Editor:
+  User story: I have a few bad pixels in my DEM raster. I want to replace them with the neighborhood 8 median.
+  Possible work flow:
+    Edit->Pixel Editor
+      Raises dialog
+      Cursor changes
+      Pixel boundaries are shown
+      Detailed information about selected pixel is shown
+    Select a pixel in the image
+      Hover shows pixel boundary, even in cubic interpolation mode
+      Other pixel boundaries are shown more faintly
+      Pixel color information is show during hover
+    Select median 8 operation in the pixel editor dialog
+      Preview shown zoomed in and zoomed out
