@@ -1,5 +1,5 @@
 # -*- mode: python ; coding: utf-8 -*-
-
+from PyInstaller.building.build_main import Analysis, COLLECT, EXE, PYZ
 
 block_cipher = None
 
@@ -21,8 +21,9 @@ a = Analysis(['vimage.py'],
              win_private_assemblies=False,
              cipher=block_cipher,
              noarchive=False)
+
 pyz = PYZ(a.pure, a.zipped_data,
-             cipher=block_cipher)
+          cipher=block_cipher)
 
 exe = EXE(pyz,
           a.scripts, 

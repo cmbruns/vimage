@@ -16,6 +16,11 @@ from vmg.recent_file import RecentFileList
 from vmg.ui_vimage import Ui_MainWindow
 
 
+_max_image_pixels = 1789569700
+if Image.MAX_IMAGE_PIXELS is not None and Image.MAX_IMAGE_PIXELS < _max_image_pixels:
+    Image.MAX_IMAGE_PIXELS = _max_image_pixels
+
+
 class ScopedWaitCursor(object):
     def __init__(self):
         QtWidgets.QApplication.setOverrideCursor(Qt.WaitCursor)
