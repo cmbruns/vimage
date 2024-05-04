@@ -162,6 +162,7 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         # Normalize values to maximum 1.0 and convert to float32
         # TODO: test performance
         max_values = {
+            numpy.dtype("bool"): 1,
             numpy.dtype("uint8"): 255,
             numpy.dtype("uint16"): 65535,
             numpy.dtype("float32"): 1.0,
