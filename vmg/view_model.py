@@ -178,6 +178,7 @@ class RectangularShader(IImageShader):
         self.window_size_location = None
         self.image_center_location = None
         self.pixelFilter_location = None
+        self.tc_X_img_location = None
 
     def initialize_gl(self) -> None:
         vertex_shader = compileShader(pkg_resources.resource_string(
@@ -192,6 +193,7 @@ class RectangularShader(IImageShader):
         self.window_size_location = GL.glGetUniformLocation(self.shader, "window_size")
         self.image_center_location = GL.glGetUniformLocation(self.shader, "image_center")
         self.pixelFilter_location = GL.glGetUniformLocation(self.shader, "pixelFilter")
+        self.tc_X_img_location = GL.glGetUniformLocation(self.shader, "tc_X_img")
 
     def paint_gl(self, state, gl_widget) -> None:
         # both nearest and catrom use nearest at the moment.
@@ -204,6 +206,7 @@ class RectangularShader(IImageShader):
         GL.glUniform2i(self.window_size_location, gl_widget.width(), gl_widget.height())
         GL.glUniform2f(self.image_center_location, *state.image_center)
         GL.glUniform1i(self.pixelFilter_location, state.pixel_filter.value)
+        GL.glUniformMatrix3fv(self.tc_X_img_location, 1, True, gl_widget.tc_X_img)
         GL.glDrawArrays(GL.GL_TRIANGLE_STRIP, 0, 4)
 
 

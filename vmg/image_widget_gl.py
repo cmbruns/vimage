@@ -13,6 +13,17 @@ from vmg.pixel_filter import PixelFilter
 from vmg.view_model import RectangularViewState, RectangularShader, IViewState, IImageShader, SphericalViewState, \
     SphericalShader
 
+_exif_orientation_to_matrix = {
+    1: numpy.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]], dtype=numpy.float32),
+    2: numpy.array([[-1, 0, 0], [0, 1, 0], [0, 0, 1]], dtype=numpy.float32),
+    3: numpy.array([[-1, 0, 0], [0, -1, 0], [0, 0, 1]], dtype=numpy.float32),
+    4: numpy.array([[1, 0, 0], [0, -1, 0], [0, 0, 1]], dtype=numpy.float32),
+    5: numpy.array([[0, -1, 0], [-1, 0, 0], [0, 0, 1]], dtype=numpy.float32),
+    6: numpy.array([[0, 1, 0], [-1, 0, 0], [0, 0, 1]], dtype=numpy.float32),
+    7: numpy.array([[0, 1, 0], [1, 0, 0], [0, 0, 1]], dtype=numpy.float32),
+    8: numpy.array([[0, -1, 0], [1, 0, 0], [0, 0, 1]], dtype=numpy.float32),
+}
+
 
 class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
     def __init__(self, *args, **kwargs):
@@ -38,6 +49,7 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         self.sphere_view_state: IViewState = SphericalViewState()
         self.view_state = self.rect_view_state
         self.is_360 = False
+        self.tc_X_img = numpy.eye(2, dtype=numpy.float32)
 
     request_message = QtCore.Signal(str, int)
 
@@ -139,11 +151,15 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         self.program.paint_gl(self.view_state, self)
 
     def set_image(self, image: PIL.Image.Image):
-        exif = exif = {
+        exif = {
             PIL.ExifTags.TAGS[k]: v
             for k, v in image.getexif().items()
             if k in PIL.ExifTags.TAGS
         }
+        # Check for orientation metadata
+        orientation_code: int = exif.get("Orientation", 1)
+        self.tc_X_img = _exif_orientation_to_matrix.get(orientation_code, numpy.eye(2, dtype=numpy.float32))
+        # Check for 360 panorama image
         if image.width == 2 * image.height:
             try:
                 self.is_360 = True
