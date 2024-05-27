@@ -121,7 +121,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         for file in folder.glob("*.*"):
             if file.name == name:
                 continue  # Skip the triggering file
-            if file.suffix.lower() in (".png", ".jpg",):  # TODO: is_image
+            if file.suffix.lower() in (".png", ".jpg", ".jpeg"):  # TODO: is_image
                 paths_list.append(file)
         self.set_image_list(paths_list, 0)
 
@@ -238,7 +238,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         file_path, _file_filter = QFileDialog.getSaveFileName(
             parent=self,
             caption="Save Image to File",
-            filter="PNG Files (*.png);;JPEG Files(*.jpg);;All files (*.*)",
+            filter="PNG Files (*.png);;JPEG Files(*.jpg *.jpeg);;All files (*.*)",
             selectedFilter="PNG Files (*.png)",
         )
         if len(file_path) < 1:
