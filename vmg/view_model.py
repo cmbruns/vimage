@@ -64,6 +64,7 @@ class RectangularViewState(IViewState):
             self.image_center[1] = max(self.image_center[1], 0.5 / z)
 
     def drag_relative(self, dx, dy, gl_widget):
+        dx, dy = (gl_widget.tc_X_img @ [dx, dy, 1])[0:2]
         x_scale = -gl_widget.width() * self.window_zoom
         y_scale = -gl_widget.height() * self.window_zoom
         ratio_ratio = gl_widget.width() * gl_widget.image.shape[0] / (gl_widget.height() * gl_widget.image.shape[1])
@@ -101,6 +102,7 @@ class RectangularViewState(IViewState):
             z1 = [x * zoom_factor for x in z2]  # Before position
             dx = z2[0] - z1[0]
             dy = z2[1] - z1[1]
+            dx, dy = (gl_widget.tc_X_img.T @ [dx, dy, 1])[0:2]
             self.image_center[0] -= dx
             self.image_center[1] -= dy
         # Limit zoom-out because you never need more than twice the image dimension to move around
