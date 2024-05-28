@@ -43,37 +43,41 @@ class IImageShader(abc.ABC):
 
 class RectangularViewState(IViewState):
     def __init__(self):
-        self.image_center = [0.5, 0.5]
-        self.window_zoom = 1.0
+        self.image_center_tex = [0.5, 0.5]  # In GL-like oriented texture coordinates
+        self.window_zoom = 1.0  # in windows per image
         self.pixel_filter = PixelFilter.CATMULL_ROM
 
     def clamp_center(self):
         # Keep the center point on the actual image itself
-        self.image_center[0] = max(0.0, self.image_center[0])
-        self.image_center[1] = max(0.0, self.image_center[1])
-        self.image_center[0] = min(1.0, self.image_center[0])
-        self.image_center[1] = min(1.0, self.image_center[1])
+        self.image_center_tex[0] = max(0.0, self.image_center_tex[0])
+        self.image_center_tex[1] = max(0.0, self.image_center_tex[1])
+        self.image_center_tex[0] = min(1.0, self.image_center_tex[0])
+        self.image_center_tex[1] = min(1.0, self.image_center_tex[1])
         z = self.window_zoom
         if z <= 1:
-            self.image_center[0] = 0.5
-            self.image_center[1] = 0.5
+            self.image_center_tex[0] = 0.5
+            self.image_center_tex[1] = 0.5
         else:
-            self.image_center[0] = min(self.image_center[0], 1 - 0.5 / z)
-            self.image_center[0] = max(self.image_center[0], 0.5 / z)
-            self.image_center[1] = min(self.image_center[1], 1 - 0.5 / z)
-            self.image_center[1] = max(self.image_center[1], 0.5 / z)
+            self.image_center_tex[0] = min(self.image_center_tex[0], 1 - 0.5 / z)
+            self.image_center_tex[0] = max(self.image_center_tex[0], 0.5 / z)
+            self.image_center_tex[1] = min(self.image_center_tex[1], 1 - 0.5 / z)
+            self.image_center_tex[1] = max(self.image_center_tex[1], 0.5 / z)
 
     def drag_relative(self, dx, dy, gl_widget):
-        dx, dy = (gl_widget.tc_X_img @ [dx, dy, 1])[0:2]
+        # Compute scales for converting window pixels to ndc coordinates
         x_scale = -gl_widget.width() * self.window_zoom
         y_scale = -gl_widget.height() * self.window_zoom
-        ratio_ratio = gl_widget.width() * gl_widget.image.shape[0] / (gl_widget.height() * gl_widget.image.shape[1])
-        if ratio_ratio > 1:
+        img_height_raw, img_width_raw = gl_widget.image.shape[0:2]
+        img_width_ont, img_height_ont = [abs(x) for x in (gl_widget.raw_rot_ont @ [img_width_raw, img_height_raw])]
+        window_aspect = gl_widget.width() / gl_widget.height()
+        image_aspect_ont = img_width_ont / img_height_ont
+        ratio_ratio = window_aspect / image_aspect_ont
+        if window_aspect > image_aspect_ont:
             x_scale /= ratio_ratio
         else:
             y_scale *= ratio_ratio
-        self.image_center[0] += dx / x_scale
-        self.image_center[1] += dy / y_scale
+        self.image_center_tex[0] += dx / x_scale
+        self.image_center_tex[1] += dy / y_scale
         self.clamp_center()
 
     def image_for_window(self, wpos: WindowPos, gl_widget):
@@ -90,7 +94,7 @@ class RectangularViewState(IViewState):
 
     def reset(self):
         self.window_zoom = 1.0
-        self.image_center = [0.5, 0.5]
+        self.image_center_tex = [0.5, 0.5]
 
     def zoom_relative(self, zoom_factor: float, zoom_center: WindowPos, gl_widget):
         new_zoom = self.window_zoom * zoom_factor
@@ -103,9 +107,9 @@ class RectangularViewState(IViewState):
             z1 = [x * zoom_factor for x in z2]  # Before position
             dx = z2[0] - z1[0]
             dy = z2[1] - z1[1]
-            dx, dy = (gl_widget.tc_X_img @ [dx, dy, 1])[0:2]
-            self.image_center[0] -= dx
-            self.image_center[1] -= dy
+            dx, dy = (gl_widget.raw_rot_ont @ [dx, dy])
+            self.image_center_tex[0] -= dx
+            self.image_center_tex[1] -= dy
         # Limit zoom-out because you never need more than twice the image dimension to move around
         self.window_zoom = max(1.0, self.window_zoom)
         self.clamp_center()
@@ -179,9 +183,9 @@ class RectangularShader(IImageShader):
         self.shader = None
         self.zoom_location = None
         self.window_size_location = None
-        self.image_center_location = None
+        self.image_center_tex_location = None
         self.pixelFilter_location = None
-        self.tc_X_img_location = None
+        self.raw_rot_ont_location = None
 
     def initialize_gl(self) -> None:
         vertex_shader = compileShader(pkg_resources.resource_string(
@@ -194,9 +198,9 @@ class RectangularShader(IImageShader):
         GL.glLinkProgram(self.shader)
         self.zoom_location = GL.glGetUniformLocation(self.shader, "window_zoom")
         self.window_size_location = GL.glGetUniformLocation(self.shader, "window_size")
-        self.image_center_location = GL.glGetUniformLocation(self.shader, "image_center")
+        self.image_center_tex_location = GL.glGetUniformLocation(self.shader, "image_center_tex")
         self.pixelFilter_location = GL.glGetUniformLocation(self.shader, "pixelFilter")
-        self.tc_X_img_location = GL.glGetUniformLocation(self.shader, "tc_X_img")
+        self.raw_rot_ont_location = GL.glGetUniformLocation(self.shader, "raw_rot_ont")
 
     def paint_gl(self, state, gl_widget) -> None:
         # both nearest and catrom use nearest at the moment.
@@ -207,9 +211,9 @@ class RectangularShader(IImageShader):
         GL.glUseProgram(self.shader)
         GL.glUniform1f(self.zoom_location, state.window_zoom)
         GL.glUniform2i(self.window_size_location, gl_widget.width(), gl_widget.height())
-        GL.glUniform2f(self.image_center_location, *state.image_center)
+        GL.glUniform2f(self.image_center_tex_location, *state.image_center_tex)
         GL.glUniform1i(self.pixelFilter_location, state.pixel_filter.value)
-        GL.glUniformMatrix3fv(self.tc_X_img_location, 1, True, gl_widget.tc_X_img)
+        GL.glUniformMatrix2fv(self.raw_rot_ont_location, 1, True, gl_widget.raw_rot_ont)
         GL.glDrawArrays(GL.GL_TRIANGLE_STRIP, 0, 4)
 
 

@@ -10,61 +10,63 @@ const vec4 SCREEN_QUAD[4] = vec4[4](
     vec4(-1,  1, 0.5, 1)   // upper left
 );
 
-mat3 flip_y() {
-    return mat3(
-        1, 0, 0,
-        0, -1, 0,
-        0, 0, 1);
+mat2 flip_y() {
+    return mat2(
+        1, 0,
+        0, -1);
 }
 
-mat3 scale(float s) {
-    return mat3(
-        s, 0, 0,
-        0, s, 0,
-        0, 0, 1);
+mat2 scale(float s) {
+    return mat2(
+        s, 0,
+        0, s);
 }
 
-mat3 scale2(float sx, float sy) {
-    return mat3(
-        sx, 0, 0,
-        0, sy, 0,
-        0, 0, 1);
-}
-
-mat3 translate(vec2 t) {
-    return mat3(
-        1, 0, 0,
-        0, 1, 0,
-        t.x, t.y, 1);
+mat2 scale2(float sx, float sy) {
+    return mat2(
+        sx, 0,
+        0, sy);
 }
 
 uniform sampler2D image;
 uniform float window_zoom = 1.0;
-uniform vec2 image_center = vec2(0.0, 0.5);
+uniform vec2 image_center_tex = vec2(0.5, 0.5);
 uniform ivec2 window_size;
-uniform mat3 tc_X_img = mat3(1);
-out vec3 tex_coord;
+uniform mat2 raw_rot_ont = mat2(1);
+out vec2 p_tex;
+
+// coordinate systems:
+//  ndc - normalized device coordinates ; range -1,1 ; origin at center ; positive y up
+//  win - window ; origin at center ; units window pixels ; positive y up ; origin at center
+//  ont - oriented image coordinates ; units image pixels ; positive y down ; origin at center
+//  raw - raw image coordinates (before EXIF orientation correction) ; origin at center
+//  ulc - raw image with origin at upper left
+//  tex - texture coordinates ; range (0, 1)
 
 void main() {
     // set position for each corner vertex
-    vec4 ndc = SCREEN_QUAD[gl_VertexID];
-    gl_Position = ndc;
-    // begin building transform to convert from window ndc coordinates to image texture coordinates
-    mat3 img_X_ndc = scale(0.5) * flip_y();
-    // compare aspect ratios to figure how to fit image in window
-    ivec2 image_size = textureSize(image, 0);
+    gl_Position = SCREEN_QUAD[gl_VertexID];
+    vec2 p_ndc = gl_Position.xy / gl_Position.w;
+    ivec2 image_size_raw = textureSize(image, 0);
     // flip aspect if exif transform is 90 degrees
-    float image_aspect = image_size.x / float(image_size.y);
-    if (tc_X_img[0][0] == 0)
-        image_aspect = image_size.y / float(image_size.x);
+    float image_aspect_raw = image_size_raw.x / float(image_size_raw.y);
+    vec2 image_size_ont = image_size_raw;
+    float image_aspect_ont = image_aspect_raw;
+    if (raw_rot_ont[0][0] == 0) {  // EXIF orientation is rotated 90 degrees
+        image_aspect_ont = 1.0 / image_aspect_raw;
+        image_size_ont = image_size_raw.yx;
+    }
     float window_aspect = window_size.x / float(window_size.y);
-    if (window_aspect > image_aspect)  // fat window, skinny image, pad at left/right
-        img_X_ndc = scale2(window_aspect / image_aspect, 1.0) * img_X_ndc;
-    else
-        img_X_ndc = scale2(1.0, image_aspect / window_aspect) * img_X_ndc;
-    //
-    img_X_ndc = scale(1.0 / window_zoom) * img_X_ndc;
-    mat3 tc_X_ndc = tc_X_img * img_X_ndc;
-    tc_X_ndc = translate(image_center) * tc_X_ndc;
-    tex_coord = tc_X_ndc * ndc.xyw;
+    vec2 p_cwn = 0.5 * vec2(window_size) * p_ndc;  // centered window pixels
+    // zoom value depends on relative aspect ratio of window to image
+    float rc_scale = image_size_ont.y / window_size.y / window_zoom;
+    // compare aspect ratios to figure how to fit image in window
+    if (window_aspect < image_aspect_ont)
+        rc_scale = image_size_ont.x / window_size.x / window_zoom;
+    vec2 p_ont = vec2(rc_scale, -rc_scale) * p_cwn;  // oriented image pixels
+    vec2 p_raw = raw_rot_ont * p_ont;  // raw image pixels
+    vec2 p_ulc = p_raw + 0.5 * vec2(image_size_raw);  // move origin from center to upper left corner
+    // image_center is in oriented texture coordinates w/ ulc origin
+    vec2 d_center_tex = raw_rot_ont * (image_center_tex - vec2(0.5));
+    p_tex = (1.0 / image_size_raw) * p_ulc + d_center_tex;
 }

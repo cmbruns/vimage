@@ -6,7 +6,7 @@ const int CATMULL_ROM = 2;
 
 uniform sampler2D image;
 uniform int pixelFilter = NEAREST;
-in vec3 tex_coord;
+in vec2 p_tex;
 out vec4 color;
 
 vec4 nearest(sampler2D image, vec2 textureCoordinate) {
@@ -43,19 +43,17 @@ vec4 catrom(sampler2D image, vec2 textureCoordinate) {
 }
 
 void main() {
-    vec2 tc = tex_coord.xy / tex_coord.z;
-
-    if (tc.x < 0 || tc.y < 0 || tc.x > 1 || tc.y > 1) {
+    if (p_tex.x < 0 || p_tex.y < 0 || p_tex.x > 1 || p_tex.y > 1) {
         color = vec4(0);
         return;
     }
 
     switch(pixelFilter) {
     case NEAREST:
-        color = nearest(image, tc);
+        color = nearest(image, p_tex);
         break;
     case CATMULL_ROM:
-        color = catrom(image, tc);
+        color = catrom(image, p_tex);
         break;
     }
 

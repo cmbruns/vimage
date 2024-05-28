@@ -1,6 +1,3 @@
-from typing import Tuple
-from numbers import Number
-
 import numpy
 from OpenGL import GL
 import PIL
@@ -14,14 +11,14 @@ from vmg.view_model import RectangularViewState, RectangularShader, IViewState, 
     SphericalShader
 
 _exif_orientation_to_matrix = {
-    1: numpy.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]], dtype=numpy.float32),
-    2: numpy.array([[-1, 0, 0], [0, 1, 0], [0, 0, 1]], dtype=numpy.float32),
-    3: numpy.array([[-1, 0, 0], [0, -1, 0], [0, 0, 1]], dtype=numpy.float32),
-    4: numpy.array([[1, 0, 0], [0, -1, 0], [0, 0, 1]], dtype=numpy.float32),
-    5: numpy.array([[0, 1, 0], [1, 0, 0], [0, 0, 1]], dtype=numpy.float32),
-    6: numpy.array([[0, 1, 0], [-1, 0, 0], [0, 0, 1]], dtype=numpy.float32),
-    7: numpy.array([[0, -1, 0], [-1, 0, 0], [0, 0, 1]], dtype=numpy.float32),
-    8: numpy.array([[0, -1, 0], [1, 0, 0], [0, 0, 1]], dtype=numpy.float32),
+    1: numpy.array([[1, 0], [0, 1]], dtype=numpy.float32),
+    2: numpy.array([[-1, 0], [0, 1]], dtype=numpy.float32),
+    3: numpy.array([[-1, 0], [0, -1]], dtype=numpy.float32),
+    4: numpy.array([[1, 0], [0, -1]], dtype=numpy.float32),
+    5: numpy.array([[0, 1], [1, 0]], dtype=numpy.float32),
+    6: numpy.array([[0, 1], [-1, 0]], dtype=numpy.float32),
+    7: numpy.array([[0, -1], [-1, 0]], dtype=numpy.float32),
+    8: numpy.array([[0, -1], [1, 0]], dtype=numpy.float32),
 }
 
 
@@ -49,7 +46,7 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         self.sphere_view_state: IViewState = SphericalViewState()
         self.view_state = self.rect_view_state
         self.is_360 = False
-        self.tc_X_img = numpy.eye(2, dtype=numpy.float32)
+        self.raw_rot_ont = numpy.eye(2, dtype=numpy.float32)
 
     request_message = QtCore.Signal(str, int)
 
@@ -70,47 +67,55 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
 
     def _hover_pixel(self, win_xy: WindowPos) -> bool:
         # TODO: draw square around pixel
-        ndc = NdcPos.from_window(win_xy, self.width(), self.height())
+        p_ndc = NdcPos.from_window(win_xy, self.width(), self.height())
+
+        # coordinate systems:
+        #  ndc - normalized device coordinates ; range -1,1 ; origin at center ; positive y up
+        #  win - window ; origin at center ; units window pixels ; positive y up ; origin at center
+        #  ont - oriented image coordinates ; units image pixels ; positive y down ; origin at center
+        #  raw - raw image coordinates (before EXIF orientation correction) ; origin at center
+        #  ulc - raw image with origin at upper left
+        #  tex - texture coordinates ; range (0, 1)
 
         # TODO: use these transformations in shader
         # centered window pixel coordinates [changes with window size]
-        cwp_from_ndc = numpy.array([
+        cwn_from_ndc = numpy.array([
             [self.width()/2, 0],
             [0, self.height()/2],
         ], dtype=numpy.float32)
-        p_cwp = cwp_from_ndc @ ndc
+        p_cwn = cwn_from_ndc @ p_ndc
 
         # centered, rotation corrected image dimensions [changes with window size and image size]
-        uimg_height, uimg_width = self.image.shape[0:2]  # Unrotated dimension
-        rcimg_width, rcimg_height = [abs(x) for x in (self.tc_X_img @ [uimg_width, uimg_height, 1])[0:2]]
+        raw_height, raw_width = self.image.shape[0:2]  # Unrotated dimension
+        ont_width, ont_height = [abs(x) for x in (self.raw_rot_ont @ [raw_width, raw_height])]
         # zoom value depends on relative aspect ratio of window to image
-        if self.width() / self.height() > rcimg_width / rcimg_height:
+        if self.width() / self.height() > ont_width / ont_height:
             # window aspect is wider than image aspect, so zoom by height
-            rc_scale = rcimg_height / self.height() / self.view_state.window_zoom
+            rc_scale = ont_height / self.height() / self.view_state.window_zoom
         else:
-            rc_scale = rcimg_width / self.width() / self.view_state.window_zoom
-        rcimg_from_cwp = numpy.array([
+            rc_scale = ont_width / self.width() / self.view_state.window_zoom
+        ont_from_cwn = numpy.array([
             [rc_scale, 0],
             [0, -rc_scale],  # Flip Y when converting window coordinates to image coordinates
         ], dtype=numpy.float32)
-        p_rcimg = rcimg_from_cwp @ p_cwp
+        p_ont = ont_from_cwn @ p_cwn
 
         # raw unrotated centered image coordinates [changes with image metadata]
-        ucimg_from_rcimg = self.tc_X_img[0:2, 0:2]
-        p_ucimg = ucimg_from_rcimg @ p_rcimg
+        ucimg_from_ont = self.raw_rot_ont
+        p_ucimg = ucimg_from_ont @ p_ont
 
         # move origin from center to upper left corner [changes with image size]
         ulimg_from_ucimg = numpy.array([
-            [1, 0, uimg_width/2],
-            [0, 1, uimg_height/2],
+            [1, 0, raw_width/2],
+            [0, 1, raw_height/2],
             [0, 0, 1],
         ], dtype=numpy.float32)
         p_ulimg = (ulimg_from_ucimg @ [*p_ucimg, 1])[0:2]
 
         # convert to texture coordinates
         texc_from_ulimg = numpy.array([
-            [1 / uimg_width, 0],
-            [0, 1 / uimg_height],
+            [1 / raw_width, 0],
+            [0, 1 / raw_height],
         ], dtype=numpy.float32)
         p_texc = texc_from_ulimg @ p_ulimg
 
@@ -123,10 +128,10 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
             # f"{win_xy}; "
             # f"rc_scale = {rc_scale}; "
             # f"{ndc}; "
-            # f"cwp = {p_cwp}; "
-            # f"p_rcimg = {p_rcimg}"
+            # f"cwn = {p_cwn}; "
+            # f"p_ont = {p_ont}"
             # f"p_ulimg = {p_ulimg}"
-            # f"cimg dims = [{rcimg_width},{rcimg_height}]; "
+            # f"cimg dims = [{ont_width},{ont_height}]; "
             f"image = [{img_x:.4f}, {img_y:.4f}]; "
             # f"image pixel = [{pxl_x:.1f}, {pxl_y:.1f}]"
             , 2000)
@@ -156,10 +161,6 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
             update_needed = self._hover_pixel(WindowPos.from_qpoint(event.pos()))
             if update_needed:
                 self.update()
-            # xy = event.pos().x(), event.pos().y()
-            # self.request_message.emit(f"window pixel = {xy}", 2000)
-            # TODO: put coordinates in status bar
-            # print(xy)
             return
         # Drag image around
         dx = event.pos().x() - self.previous_mouse_position.x()
@@ -207,7 +208,7 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         }
         # Check for orientation metadata
         orientation_code: int = exif.get("Orientation", 1)
-        self.tc_X_img = _exif_orientation_to_matrix.get(orientation_code, numpy.eye(3, dtype=numpy.float32))
+        self.raw_rot_ont = _exif_orientation_to_matrix.get(orientation_code, numpy.eye(2, dtype=numpy.float32))
         # Check for 360 panorama image
         if image.width == 2 * image.height:
             try:
