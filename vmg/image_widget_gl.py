@@ -120,9 +120,8 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         p_texc = texc_from_ulimg @ p_ulimg
 
         img_x, img_y = self.view_state.image_for_window(win_xy, self)
-        h, w = self.image.shape[:2]
-        pxl_x = (img_x + 0.5) * w
-        pxl_y = (img_y + 0.5) * h
+        pxl_x = (img_x + 0.5) * ont_width
+        pxl_y = (img_y + 0.5) * ont_height
         self.request_message.emit(
             # f"p_texc = {p_texc}"
             # f"{win_xy}; "
