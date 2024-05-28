@@ -124,7 +124,7 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         pxl_x = (img_x + 0.5) * w
         pxl_y = (img_y + 0.5) * h
         self.request_message.emit(
-            f"p_texc = {p_texc}"
+            # f"p_texc = {p_texc}"
             # f"{win_xy}; "
             # f"rc_scale = {rc_scale}; "
             # f"{ndc}; "
@@ -132,8 +132,8 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
             # f"p_ont = {p_ont}"
             # f"p_ulimg = {p_ulimg}"
             # f"cimg dims = [{ont_width},{ont_height}]; "
-            f"image = [{img_x:.4f}, {img_y:.4f}]; "
-            # f"image pixel = [{pxl_x:.1f}, {pxl_y:.1f}]"
+            # f"image = [{img_x:.4f}, {img_y:.4f}]; "
+            f"image pixel = [{pxl_x:.1f}, {pxl_y:.1f}]"
             , 2000)
         return False  # Nothing changed, so no update needed
 
@@ -166,7 +166,7 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         dx = event.pos().x() - self.previous_mouse_position.x()
         dy = event.pos().y() - self.previous_mouse_position.y()
         self.view_state.drag_relative(dx, dy, self)
-        self.sphere_view_state.drag_relative(dx, dy, self)
+        self.sphere_view_state.drag_relative(dx, dy, self)  # TODO: redundant?
         self.previous_mouse_position = event.pos()
         self.update()
 

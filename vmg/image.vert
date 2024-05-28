@@ -30,18 +30,19 @@ mat2 scale2(float sx, float sy) {
 
 uniform sampler2D image;
 uniform float window_zoom = 1.0;
-uniform vec2 image_center_tex = vec2(0.5, 0.5);
+uniform vec2 image_center_img = vec2(0.5, 0.5);
 uniform ivec2 window_size;
 uniform mat2 raw_rot_ont = mat2(1);
 out vec2 p_tex;
 
 // coordinate systems:
 //  ndc - normalized device coordinates ; range -1,1 ; origin at center ; positive y up
-//  win - window ; origin at center ; units window pixels ; positive y up ; origin at center
+//  cwn - window ; origin at center ; units window pixels ; positive y up ; origin at center
 //  ont - oriented image coordinates ; units image pixels ; positive y down ; origin at center
 //  raw - raw image coordinates (before EXIF orientation correction) ; origin at center
 //  ulc - raw image with origin at upper left
 //  tex - texture coordinates ; range (0, 1)
+//  img - image texture coordinates, but with orientation correction
 
 void main() {
     // set position for each corner vertex
@@ -67,6 +68,6 @@ void main() {
     vec2 p_raw = raw_rot_ont * p_ont;  // raw image pixels
     vec2 p_ulc = p_raw + 0.5 * vec2(image_size_raw);  // move origin from center to upper left corner
     // image_center is in oriented texture coordinates w/ ulc origin
-    vec2 d_center_tex = raw_rot_ont * (image_center_tex - vec2(0.5));
+    vec2 d_center_tex = raw_rot_ont * (image_center_img - vec2(0.5));
     p_tex = (1.0 / image_size_raw) * p_ulc + d_center_tex;
 }
