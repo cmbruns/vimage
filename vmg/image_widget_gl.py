@@ -18,9 +18,9 @@ _exif_orientation_to_matrix = {
     2: numpy.array([[-1, 0, 0], [0, 1, 0], [0, 0, 1]], dtype=numpy.float32),
     3: numpy.array([[-1, 0, 0], [0, -1, 0], [0, 0, 1]], dtype=numpy.float32),
     4: numpy.array([[1, 0, 0], [0, -1, 0], [0, 0, 1]], dtype=numpy.float32),
-    5: numpy.array([[0, -1, 0], [-1, 0, 0], [0, 0, 1]], dtype=numpy.float32),
+    5: numpy.array([[0, 1, 0], [1, 0, 0], [0, 0, 1]], dtype=numpy.float32),
     6: numpy.array([[0, 1, 0], [-1, 0, 0], [0, 0, 1]], dtype=numpy.float32),
-    7: numpy.array([[0, 1, 0], [1, 0, 0], [0, 0, 1]], dtype=numpy.float32),
+    7: numpy.array([[0, -1, 0], [-1, 0, 0], [0, 0, 1]], dtype=numpy.float32),
     8: numpy.array([[0, -1, 0], [1, 0, 0], [0, 0, 1]], dtype=numpy.float32),
 }
 
@@ -71,15 +71,64 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
     def _hover_pixel(self, win_xy: WindowPos) -> bool:
         # TODO: draw square around pixel
         ndc = NdcPos.from_window(win_xy, self.width(), self.height())
+
+        # TODO: use these transformations in shader
+        # centered window pixel coordinates [changes with window size]
+        cwp_from_ndc = numpy.array([
+            [self.width()/2, 0],
+            [0, self.height()/2],
+        ], dtype=numpy.float32)
+        p_cwp = cwp_from_ndc @ ndc
+
+        # centered, rotation corrected image dimensions [changes with window size and image size]
+        uimg_height, uimg_width = self.image.shape[0:2]  # Unrotated dimension
+        rcimg_width, rcimg_height = [abs(x) for x in (self.tc_X_img @ [uimg_width, uimg_height, 1])[0:2]]
+        # zoom value depends on relative aspect ratio of window to image
+        if self.width() / self.height() > rcimg_width / rcimg_height:
+            # window aspect is wider than image aspect, so zoom by height
+            rc_scale = rcimg_height / self.height() / self.view_state.window_zoom
+        else:
+            rc_scale = rcimg_width / self.width() / self.view_state.window_zoom
+        rcimg_from_cwp = numpy.array([
+            [rc_scale, 0],
+            [0, -rc_scale],  # Flip Y when converting window coordinates to image coordinates
+        ], dtype=numpy.float32)
+        p_rcimg = rcimg_from_cwp @ p_cwp
+
+        # raw unrotated centered image coordinates [changes with image metadata]
+        ucimg_from_rcimg = self.tc_X_img[0:2, 0:2]
+        p_ucimg = ucimg_from_rcimg @ p_rcimg
+
+        # move origin from center to upper left corner [changes with image size]
+        ulimg_from_ucimg = numpy.array([
+            [1, 0, uimg_width/2],
+            [0, 1, uimg_height/2],
+            [0, 0, 1],
+        ], dtype=numpy.float32)
+        p_ulimg = (ulimg_from_ucimg @ [*p_ucimg, 1])[0:2]
+
+        # convert to texture coordinates
+        texc_from_ulimg = numpy.array([
+            [1 / uimg_width, 0],
+            [0, 1 / uimg_height],
+        ], dtype=numpy.float32)
+        p_texc = texc_from_ulimg @ p_ulimg
+
         img_x, img_y = self.view_state.image_for_window(win_xy, self)
         h, w = self.image.shape[:2]
         pxl_x = (img_x + 0.5) * w
         pxl_y = (img_y + 0.5) * h
         self.request_message.emit(
-            f"{win_xy}; "
-            f"{ndc}; "
+            f"p_texc = {p_texc}"
+            # f"{win_xy}; "
+            # f"rc_scale = {rc_scale}; "
+            # f"{ndc}; "
+            # f"cwp = {p_cwp}; "
+            # f"p_rcimg = {p_rcimg}"
+            # f"p_ulimg = {p_ulimg}"
+            # f"cimg dims = [{rcimg_width},{rcimg_height}]; "
             f"image = [{img_x:.4f}, {img_y:.4f}]; "
-            f"image pixel = [{pxl_x:.1f}, {pxl_y:.1f}]"
+            # f"image pixel = [{pxl_x:.1f}, {pxl_y:.1f}]"
             , 2000)
         return False  # Nothing changed, so no update needed
 
@@ -158,7 +207,7 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         }
         # Check for orientation metadata
         orientation_code: int = exif.get("Orientation", 1)
-        self.tc_X_img = _exif_orientation_to_matrix.get(orientation_code, numpy.eye(2, dtype=numpy.float32))
+        self.tc_X_img = _exif_orientation_to_matrix.get(orientation_code, numpy.eye(3, dtype=numpy.float32))
         # Check for 360 panorama image
         if image.width == 2 * image.height:
             try:

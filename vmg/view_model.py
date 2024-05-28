@@ -77,6 +77,7 @@ class RectangularViewState(IViewState):
         self.clamp_center()
 
     def image_for_window(self, wpos: WindowPos, gl_widget):
+        # TODO - not correct for 90 degree rotated images
         x_scale = y_scale = self.window_zoom
         ratio_ratio = gl_widget.width() * gl_widget.image.shape[0] / (gl_widget.height() * gl_widget.image.shape[1])
         if ratio_ratio > 1:
@@ -102,7 +103,7 @@ class RectangularViewState(IViewState):
             z1 = [x * zoom_factor for x in z2]  # Before position
             dx = z2[0] - z1[0]
             dy = z2[1] - z1[1]
-            dx, dy = (gl_widget.tc_X_img.T @ [dx, dy, 1])[0:2]
+            dx, dy = (gl_widget.tc_X_img @ [dx, dy, 1])[0:2]
             self.image_center[0] -= dx
             self.image_center[1] -= dy
         # Limit zoom-out because you never need more than twice the image dimension to move around

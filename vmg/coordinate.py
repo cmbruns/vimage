@@ -17,6 +17,9 @@ class BasicVec(object):
     def __getitem__(self, item):
         return self._v[item]
 
+    def __len__(self):
+        return len(self._v)
+
 
 class BasicVec2(BasicVec):
     """Base class for semantic 2D coordinate types"""
