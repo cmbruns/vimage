@@ -1,5 +1,5 @@
+cmake_minimum_required(VERSION 3.5)
 project(vimage NONE)
-cmake_minimum_required(VERSION 3.3)
 
 find_program(UIC PySide6-uic)
 add_custom_command(
