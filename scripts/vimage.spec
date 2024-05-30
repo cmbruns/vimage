@@ -36,7 +36,7 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon="../vmg/images/cat_eye2.ico",
+    icon="../vmg/images/vimage2.ico",
 )
 coll = COLLECT(
     exe,
@@ -50,7 +50,7 @@ coll = COLLECT(
 app = BUNDLE(
     coll,
     name="vimage.app",
-    icon="../vmg/images/cat_eye2.ico",
+    icon="../CMake/vimage2.icns",
     bundle_identifier=None,
     info_plist={
     	"CFBundleDisplayName": "vimage",

@@ -26,7 +26,7 @@ class VimageApp(object):
         else:
             window.set_image_list(app.arguments()[1:], 0)
         window.show()
-        icon_file = pkg_resources.resource_filename("vmg", "images/cat_eye2.ico")
+        icon_file = pkg_resources.resource_filename("vmg", "images/vimage2.ico")
         icon = QIcon(icon_file)
         app.setWindowIcon(icon)
         window.setWindowIcon(icon)
