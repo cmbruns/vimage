@@ -49,7 +49,37 @@ coll = COLLECT(
 )
 app = BUNDLE(
     coll,
-    name='vimage.app',
+    name="vimage.app",
     icon="../vmg/images/cat_eye2.ico",
     bundle_identifier=None,
+    info_plist={
+    	"CFBundleDisplayName": "vimage",
+	    "CFBundleExecutable": "vimage",
+	    "CFBundleIdentifier": "vimage",
+	    "CFBundleInfoDictionaryVersion": "6.0",
+	    "CFBundleName": "vimage",
+	    "CFBundlePackageType": "APPL",
+	    "CFBundleShortVersionString": "0.0.0",
+	    "NSHighResolutionCapable": True,
+	    'CFBundleDocumentTypes': [
+	        {
+                'CFBundleTypeName': 'GIF Image',
+                'CFBundleTypeRole': 'Viewer',
+                'LSItemContentTypes': ['com.compuserve.gif'],
+                'LSHandlerRank': 'Owner'
+            },
+            {
+                'CFBundleTypeName': 'public.jpeg',
+                'CFBundleTypeRole': 'Viewer',
+                'LSItemContentTypes': ['public.jpeg'],
+                'LSHandlerRank': 'Owner'
+            },
+            {
+                'CFBundleTypeName': 'public.png',
+                'CFBundleTypeRole': 'Viewer',
+                'LSItemContentTypes': ['public.png'],
+                'LSHandlerRank': 'Owner'
+            },
+        ]
+    }
 )

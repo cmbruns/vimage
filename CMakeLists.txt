@@ -51,6 +51,7 @@ if (WIN32)
   SET(CPACK_WIX_EXTENSIONS WixUtilExtension)
 elseif(APPLE)
   set(CPACK_GENERATOR DragNDrop)
+  set(CPACK_DMG_DS_STORE "${CMAKE_SOURCE_DIR}/CMake/DS_Store")
 endif()
 
 
