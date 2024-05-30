@@ -294,3 +294,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
             return
         self.imageWidgetGL.sphere_view_state.projection = Projection360.STEREOGRAPHIC
         self.imageWidgetGL.update()
+
+    @QtCore.Slot(str)
+    def file_open_event(self, file_: str):
+        self.load_main_image(file_)

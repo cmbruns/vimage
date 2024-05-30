@@ -1,11 +1,20 @@
 import pkg_resources
 import sys
 
-from PySide6 import QtWidgets
+from PySide6 import QtCore, QtGui, QtWidgets
 from PySide6.QtGui import QIcon, QSurfaceFormat
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QEvent, Qt
 
 from vmg.main_window import VimageMainWindow
+
+
+class VimageApplication(QtWidgets.QApplication):
+    def event(self, event):
+        if event.type() == QEvent.FileOpen:
+            self.on_file_open_event.emit(event.file())
+        return super().event(event)
+
+    on_file_open_event = QtCore.Signal(str)
 
 
 class VimageApp(object):
@@ -14,7 +23,7 @@ class VimageApp(object):
         f.setProfile(QSurfaceFormat.CoreProfile)
         f.setVersion(4, 1)
         QSurfaceFormat.setDefaultFormat(f)
-        app = QtWidgets.QApplication(sys.argv)
+        app = VimageApplication(sys.argv)
         app.setAttribute(Qt.AA_EnableHighDpiScaling)  # No effect on custom cursor size
         app.setOrganizationName("rotatingpenguin.com")
         app.setApplicationName("vimage")
@@ -30,4 +39,5 @@ class VimageApp(object):
         icon = QIcon(icon_file)
         app.setWindowIcon(icon)
         window.setWindowIcon(icon)
+        app.on_file_open_event.connect(window.file_open_event)
         sys.exit(app.exec())
