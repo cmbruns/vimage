@@ -7,6 +7,7 @@ from numbers import Number
 import numpy
 from OpenGL import GL
 from OpenGL.GL.shaders import compileShader
+from OpenGL.GL.EXT.texture_filter_anisotropic import GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, GL_TEXTURE_MAX_ANISOTROPY_EXT
 
 from vmg.coordinate import WindowPos
 from vmg.pixel_filter import PixelFilter
@@ -252,6 +253,9 @@ class SphericalShader(IImageShader):
         GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_LINEAR_MIPMAP_NEAREST)
         GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_S, GL.GL_REPEAT)
         GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_T, GL.GL_MIRRORED_REPEAT)
+        f_largest = GL.glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT)
+        GL.glTexParameterf(GL.GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, f_largest)
+
         GL.glUseProgram(self.shader)
         GL.glUniform1f(self.zoom_location, state.window_zoom)
         GL.glUniform1i(self.pixelFilter_location, state.pixel_filter.value)
