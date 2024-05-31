@@ -64,6 +64,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         self.addAction(self.actionSharp)
         # Make projections mutually exclusive
         self.projection_group = QtGui.QActionGroup(self)
+        self.projection_group.addAction(self.actionPerspective)
         self.projection_group.addAction(self.actionStereographic)
         self.projection_group.addAction(self.actionEquidistant)
         #
@@ -202,6 +203,15 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
             self.toolBar.show()
             self.statusbar.show()
             self.showNormal()
+
+    @QtCore.Slot(bool)
+    def on_actionPerspective_toggled(self, is_checked: bool):
+        if not is_checked:
+            return
+        if self.imageWidgetGL.sphere_view_state.projection == Projection360.GNOMONIC:
+            return
+        self.imageWidgetGL.sphere_view_state.projection = Projection360.GNOMONIC
+        self.imageWidgetGL.update()
 
     @QtCore.Slot()
     def on_actionNext_triggered(self):

@@ -65,6 +65,7 @@
      <property name="title">
       <string>360 Projection</string>
      </property>
+     <addaction name="actionPerspective"/>
      <addaction name="actionStereographic"/>
      <addaction name="actionEquidistant"/>
     </widget>
@@ -230,6 +231,14 @@
    </property>
    <property name="text">
     <string>Equidistant (Circular)</string>
+   </property>
+  </action>
+  <action name="actionPerspective">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Perspective (Straight Lines)</string>
    </property>
   </action>
  </widget>

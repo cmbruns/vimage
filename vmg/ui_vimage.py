@@ -3,7 +3,7 @@
 ################################################################################
 ## Form generated from reading UI file 'vimage.ui'
 ##
-## Created by: Qt User Interface Compiler version 6.2.2
+## Created by: Qt User Interface Compiler version 6.4.0
 ##
 ## WARNING! All changes made in this file will be lost when recompiling UI file!
 ################################################################################
@@ -68,6 +68,9 @@ class Ui_MainWindow(object):
         self.actionEquidistant = QAction(MainWindow)
         self.actionEquidistant.setObjectName(u"actionEquidistant")
         self.actionEquidistant.setCheckable(True)
+        self.actionPerspective = QAction(MainWindow)
+        self.actionPerspective.setObjectName(u"actionPerspective")
+        self.actionPerspective.setCheckable(True)
         self.centralwidget = QWidget(MainWindow)
         self.centralwidget.setObjectName(u"centralwidget")
         self.verticalLayout = QVBoxLayout(self.centralwidget)
@@ -118,6 +121,7 @@ class Ui_MainWindow(object):
         self.menuView.addAction(self.actionSharp)
         self.menuView.addAction(self.actionFull_Screen)
         self.menuView.addAction(self.menu360_Projection.menuAction())
+        self.menu360_Projection.addAction(self.actionPerspective)
         self.menu360_Projection.addAction(self.actionStereographic)
         self.menu360_Projection.addAction(self.actionEquidistant)
         self.menuTest.addAction(self.actionRun_Test)
@@ -161,6 +165,7 @@ class Ui_MainWindow(object):
         self.actionSave_Current_View_As.setText(QCoreApplication.translate("MainWindow", u"Save Current View As...", None))
         self.actionStereographic.setText(QCoreApplication.translate("MainWindow", u"Stereographic (Small World)", None))
         self.actionEquidistant.setText(QCoreApplication.translate("MainWindow", u"Equidistant (Circular)", None))
+        self.actionPerspective.setText(QCoreApplication.translate("MainWindow", u"Perspective (Straight Lines)", None))
         self.menuFile.setTitle(QCoreApplication.translate("MainWindow", u"File", None))
         self.menuOpen_Recent.setTitle(QCoreApplication.translate("MainWindow", u"Open Recent", None))
         self.menuView.setTitle(QCoreApplication.translate("MainWindow", u"View", None))

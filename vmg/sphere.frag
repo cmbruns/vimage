@@ -9,6 +9,7 @@ const float PI = 3.1415926535897932384626433832795;
 // Keep these constants in sync with projection_360.py
 const int STEREOGRAPHIC_PROJECTION = 1;
 const int AZ_EQ_PROJECTION = 2;
+const int GNOMONIC_PROJECTION = 3;
 uniform int projection = STEREOGRAPHIC_PROJECTION;
 
 uniform sampler2D image;
@@ -114,6 +115,9 @@ void main() {
             return;
         }
         xyz = azimuthal_equidistant_xyz(tex_coord.xy);
+    }
+    else if (projection == GNOMONIC_PROJECTION) {
+        xyz = gnomonic_xyz(tex_coord.xy);
     }
     else {
         xyz = original_xyz(tex_coord.xy);
