@@ -10,6 +10,7 @@ const float PI = 3.1415926535897932384626433832795;
 const int STEREOGRAPHIC_PROJECTION = 1;
 const int AZ_EQ_PROJECTION = 2;
 const int GNOMONIC_PROJECTION = 3;
+const int EQUIRECT_PROJECTION = 4;
 uniform int projection = STEREOGRAPHIC_PROJECTION;
 
 uniform sampler2D image;
@@ -82,6 +83,13 @@ vec3 original_xyz(vec2 xy) {
     return vec3(2 * xy.x, 2 * xy.y, d - 2) / d;
 }
 
+vec3 equirect_xyz(vec2 xy) {
+    float lat = xy.y;
+    float lon = xy.x;
+    float clat = cos(lat);
+    return vec3(clat * sin(lon), sin(lat), -clat * cos(lon));
+}
+
 vec3 gnomonic_xyz(vec2 xy) {  // pinhole camera
     float d = sqrt(dot(xy, xy) + 1);
     return vec3(xy.x, xy.y, -1) / d;
@@ -100,8 +108,15 @@ vec3 azimuthal_equidistant_xyz(vec2 xy) {  // finite distance to edges
 }
 
 bool azeqd_valid(vec2 xy) {
-
     return dot(xy, xy) < PI * PI;
+}
+
+bool equirect_valid(vec2 xy) {
+    if (abs(xy.x) > 2 * PI)
+        return false;
+    if (abs(xy.y) > PI)
+        return false;
+    return true;
 }
 
 void main() {
@@ -117,7 +132,14 @@ void main() {
         xyz = azimuthal_equidistant_xyz(tex_coord.xy);
     }
     else if (projection == GNOMONIC_PROJECTION) {
+        if (! equirect_valid(tex_coord.xy)) {
+            color = vec4(1, 0, 0, 0);
+            return;
+        }
         xyz = gnomonic_xyz(tex_coord.xy);
+    }
+    else if (projection == EQUIRECT_PROJECTION) {
+        xyz = equirect_xyz(tex_coord.xy);
     }
     else {
         xyz = original_xyz(tex_coord.xy);

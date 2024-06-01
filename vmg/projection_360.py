@@ -5,3 +5,4 @@ class Projection360(Enum):
     STEREOGRAPHIC = 1
     EQUIDISTANT = 2
     GNOMONIC = 3
+    EQUIRECTANGULAR = 4

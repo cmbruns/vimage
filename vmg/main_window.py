@@ -67,6 +67,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         self.projection_group.addAction(self.actionPerspective)
         self.projection_group.addAction(self.actionStereographic)
         self.projection_group.addAction(self.actionEquidistant)
+        self.projection_group.addAction(self.actionEquirectangular)
         #
         self.imageWidgetGL.request_message.connect(self.statusbar.showMessage)
 
@@ -166,6 +167,12 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         self.load_image(self.image_list[self.image_index])
         self.update_previous_next()
 
+    def set_360_projection(self, projection: Projection360) -> None:
+        if self.imageWidgetGL.sphere_view_state.projection == projection:
+            return
+        self.imageWidgetGL.sphere_view_state.projection = projection
+        self.imageWidgetGL.update()
+
     def update_previous_next(self):
         if self.image_index < len(self.image_list) - 1:
             self.actionNext.setEnabled(True)
@@ -180,12 +187,13 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
 
     @QtCore.Slot(bool)
     def on_actionEquidistant_toggled(self, is_checked: bool):
-        if not is_checked:
-            return
-        if self.imageWidgetGL.sphere_view_state.projection == Projection360.EQUIDISTANT:
-            return
-        self.imageWidgetGL.sphere_view_state.projection = Projection360.EQUIDISTANT
-        self.imageWidgetGL.update()
+        if is_checked:
+            self.set_360_projection(Projection360.EQUIDISTANT)
+
+    @QtCore.Slot(bool)
+    def on_actionEquirectangular_toggled(self, is_checked: bool):
+        if is_checked:
+            self.set_360_projection(Projection360.EQUIRECTANGULAR)
 
     @QtCore.Slot()
     def on_actionExit_triggered(self):
@@ -206,12 +214,8 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
 
     @QtCore.Slot(bool)
     def on_actionPerspective_toggled(self, is_checked: bool):
-        if not is_checked:
-            return
-        if self.imageWidgetGL.sphere_view_state.projection == Projection360.GNOMONIC:
-            return
-        self.imageWidgetGL.sphere_view_state.projection = Projection360.GNOMONIC
-        self.imageWidgetGL.update()
+        if is_checked:
+            self.set_360_projection(Projection360.GNOMONIC)
 
     @QtCore.Slot()
     def on_actionNext_triggered(self):
@@ -298,12 +302,8 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
 
     @QtCore.Slot(bool)
     def on_actionStereographic_toggled(self, is_checked: bool):
-        if not is_checked:
-            return
-        if self.imageWidgetGL.sphere_view_state.projection == Projection360.STEREOGRAPHIC:
-            return
-        self.imageWidgetGL.sphere_view_state.projection = Projection360.STEREOGRAPHIC
-        self.imageWidgetGL.update()
+        if is_checked:
+            self.set_360_projection(Projection360.STEREOGRAPHIC)
 
     @QtCore.Slot(str)
     def file_open_event(self, file_: str):

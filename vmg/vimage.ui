@@ -68,6 +68,7 @@
      <addaction name="actionPerspective"/>
      <addaction name="actionStereographic"/>
      <addaction name="actionEquidistant"/>
+     <addaction name="actionEquirectangular"/>
     </widget>
     <addaction name="actionNext"/>
     <addaction name="actionPrevious"/>
@@ -222,7 +223,7 @@
     <bool>true</bool>
    </property>
    <property name="text">
-    <string>Stereographic (Small World)</string>
+    <string>Conformal (Stereographic)</string>
    </property>
   </action>
   <action name="actionEquidistant">
@@ -230,7 +231,7 @@
     <bool>true</bool>
    </property>
    <property name="text">
-    <string>Equidistant (Circular)</string>
+    <string>Equidistant</string>
    </property>
   </action>
   <action name="actionPerspective">
@@ -238,7 +239,15 @@
     <bool>true</bool>
    </property>
    <property name="text">
-    <string>Perspective (Straight Lines)</string>
+    <string>Perspective (Gnomonic)</string>
+   </property>
+  </action>
+  <action name="actionEquirectangular">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Equirectangular</string>
    </property>
   </action>
  </widget>
