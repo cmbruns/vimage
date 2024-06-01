@@ -1,13 +1,11 @@
 
-# import epeg
-
 import PIL
 import io
 import pathlib
 from PIL import Image
 from PySide6 import QtCore, QtGui, QtWidgets
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QFileDialog, QMessageBox
+from PySide6.QtWidgets import QFileDialog
 
 from vmg.natural_sort import natural_sort_key
 from vmg.pixel_filter import PixelFilter
@@ -78,6 +76,36 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
             self.statusbar.showMessage(str(uie), 5000)
         self.update_previous_next()
 
+    def _dialog_and_save_image(self, image):
+        file_path, _file_filter = QFileDialog.getSaveFileName(
+            parent=self,
+            caption="Save Image to File",
+            filter="PNG Files (*.png);;JPEG Files(*.jpg *.jpeg);;All files (*.*)",
+            selectedFilter="PNG Files (*.png)",
+        )
+        if len(file_path) < 1:
+            return
+        try:
+            self.save_image(file_path, image)
+        except ValueError as value_error:  # File without extension
+            QtWidgets.QMessageBox.warning(
+                self,
+                "Error saving image with that name",
+                f"Error: {str(value_error)}",
+            )
+        except OSError as os_error:  # cannot write mode RGBA as JPEG
+            QtWidgets.QMessageBox.warning(
+                self,
+                "Error saving image",
+                f"Error: {str(os_error)}",
+            )
+        except Exception as exception:
+            QtWidgets.QMessageBox.warning(
+                self,
+                "Error saving image",
+                f"Error: {str(exception)}",
+            )
+
     def dragEnterEvent(self, event: QtGui.QDragEnterEvent) -> None:
         mime_data = event.mimeData()
         if mime_data.hasUrls():
@@ -131,7 +159,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         if image is None:
             image = self.image
         # TODO: cancellable separate thread save? (at least after in-memory copy is made)
-        with ScopedWaitCursor() as swc:
+        with ScopedWaitCursor():
             self.statusbar.showMessage(f"Saving image {file_path}...", 5000)
             QtCore.QCoreApplication.processEvents()  # Make sure the message is shown
             # Avoid creating corrupt file by first writing to memory to check for writing errors
@@ -185,22 +213,26 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         else:
             self.actionPrevious.setEnabled(False)
 
-    @QtCore.Slot(bool)
-    def on_actionEquidistant_toggled(self, is_checked: bool):
+    @QtCore.Slot(str)  # noqa
+    def file_open_event(self, file_: str):
+        self.load_main_image(file_)
+
+    @QtCore.Slot(bool)  # noqa
+    def on_actionEquidistant_toggled(self, is_checked: bool):  # noqa
         if is_checked:
             self.set_360_projection(Projection360.EQUIDISTANT)
 
-    @QtCore.Slot(bool)
-    def on_actionEquirectangular_toggled(self, is_checked: bool):
+    @QtCore.Slot(bool)  # noqa
+    def on_actionEquirectangular_toggled(self, is_checked: bool):  # noqa
         if is_checked:
             self.set_360_projection(Projection360.EQUIRECTANGULAR)
 
-    @QtCore.Slot()
-    def on_actionExit_triggered(self):
+    @QtCore.Slot()  # noqa
+    def on_actionExit_triggered(self):  # noqa
         QtWidgets.QApplication.quit()
 
-    @QtCore.Slot(bool)
-    def on_actionFull_Screen_toggled(self, is_checked: bool):
+    @QtCore.Slot(bool)  # noqa
+    def on_actionFull_Screen_toggled(self, is_checked: bool):  # noqa
         if is_checked:
             self.menubar.hide()
             self.toolBar.hide()
@@ -212,25 +244,25 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
             self.statusbar.show()
             self.showNormal()
 
-    @QtCore.Slot(bool)
-    def on_actionPerspective_toggled(self, is_checked: bool):
+    @QtCore.Slot(bool)  # noqa
+    def on_actionPerspective_toggled(self, is_checked: bool):  # noqa
         if is_checked:
             self.set_360_projection(Projection360.GNOMONIC)
 
-    @QtCore.Slot()
-    def on_actionNext_triggered(self):
+    @QtCore.Slot()  # noqa
+    def on_actionNext_triggered(self):  # noqa
         if self.image_index >= len(self.image_list) - 1:
             self.actionNext.setEnabled(False)
             return
         self.image_index += 1
         self.activate_indexed_image()
 
-    @QtCore.Slot()
-    def on_actionNormal_View_triggered(self):
+    @QtCore.Slot()  # noqa
+    def on_actionNormal_View_triggered(self):  # noqa
         self.actionFull_Screen.setChecked(False)
 
-    @QtCore.Slot()
-    def on_actionOpen_triggered(self):
+    @QtCore.Slot()  # noqa
+    def on_actionOpen_triggered(self):  # noqa
         file_name, filter_used = QFileDialog.getOpenFileName(
             parent=self,
             caption="Choose a file",
@@ -240,56 +272,26 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
             return
         self.load_main_image(file_name)
 
-    @QtCore.Slot()
-    def on_actionPrevious_triggered(self):
+    @QtCore.Slot()  # noqa
+    def on_actionPrevious_triggered(self):  # noqa
         if self.image_index < 1 or len(self.image_list) < 1:
             self.actionPrevious.setEnabled(False)
             return
         self.image_index -= 1
         self.activate_indexed_image()
 
-    def _dialog_and_save_image(self, image):
-        file_path, _file_filter = QFileDialog.getSaveFileName(
-            parent=self,
-            caption="Save Image to File",
-            filter="PNG Files (*.png);;JPEG Files(*.jpg *.jpeg);;All files (*.*)",
-            selectedFilter="PNG Files (*.png)",
-        )
-        if len(file_path) < 1:
-            return
-        try:
-            self.save_image(file_path, image)
-        except ValueError as value_error:  # File without extension
-            QtWidgets.QMessageBox.warning(
-                self,
-                "Error saving image with that name",
-                f"Error: {str(value_error)}",
-            )
-        except OSError as os_error:  # cannot write mode RGBA as JPEG
-            QtWidgets.QMessageBox.warning(
-                self,
-                "Error saving image",
-                f"Error: {str(os_error)}",
-            )
-        except Exception as exception:
-            QtWidgets.QMessageBox.warning(
-                self,
-                "Error saving image",
-                f"Error: {str(exception)}",
-            )
-
-    @QtCore.Slot()
-    def on_actionSave_As_triggered(self):
+    @QtCore.Slot()  # noqa
+    def on_actionSave_As_triggered(self):  # noqa
         self._dialog_and_save_image(self.image)
 
-    @QtCore.Slot()
-    def on_actionSave_Current_View_As_triggered(self):
+    @QtCore.Slot()  # noqa
+    def on_actionSave_Current_View_As_triggered(self):  # noqa
         pixmap = self.imageWidgetGL.grab()
         view_image = Image.fromqpixmap(pixmap)
         self._dialog_and_save_image(view_image)
 
-    @QtCore.Slot(bool)
-    def on_actionSharp_toggled(self, is_checked: bool):
+    @QtCore.Slot(bool)  # noqa
+    def on_actionSharp_toggled(self, is_checked: bool):  # noqa
         if is_checked and self.imageWidgetGL.pixel_filter == PixelFilter.SHARP:
             return
         if not is_checked and self.imageWidgetGL.pixel_filter == PixelFilter.CATMULL_ROM:
@@ -300,11 +302,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
             self.imageWidgetGL.pixel_filter = PixelFilter.CATMULL_ROM
         self.imageWidgetGL.update()
 
-    @QtCore.Slot(bool)
-    def on_actionStereographic_toggled(self, is_checked: bool):
+    @QtCore.Slot(bool)  # noqa
+    def on_actionStereographic_toggled(self, is_checked: bool):  # noqa
         if is_checked:
             self.set_360_projection(Projection360.STEREOGRAPHIC)
-
-    @QtCore.Slot(str)
-    def file_open_event(self, file_: str):
-        self.load_main_image(file_)

@@ -1,4 +1,5 @@
 import sys
+from typing import Optional
 from PySide6.QtWidgets import QApplication, QFrame, QHBoxLayout, QLabel, QWidget
 from PySide6.QtGui import QColor, QPainter
 
@@ -30,7 +31,7 @@ class PixelColorWidget(QWidget):
         layout.addWidget(self.colored_square)
         layout.addWidget(self.label)
 
-    def set_color(self, color: QColor):
+    def set_color(self, color: Optional[QColor]):
         if color is None:
             self.label.setText("<no color>")
             self.colored_square.color = QColor(0, 0, 0, 0)

@@ -1,7 +1,7 @@
 import abc
 import math
 import pkg_resources
-from typing import Tuple
+from typing import Tuple, Optional
 from numbers import Number
 
 import numpy
@@ -15,12 +15,16 @@ from vmg.projection_360 import Projection360
 
 
 class IViewState(abc.ABC):
+    def __init__(self):
+        self.window_zoom = 1.0
+        self.pixel_filter = PixelFilter.CATMULL_ROM
+
     @abc.abstractmethod
     def drag_relative(self, dx: int, dy: int, gl_widget):
         pass
 
     @abc.abstractmethod
-    def image_for_window(self, wpos: WindowPos, gl_widget):
+    def image_for_window(self, p_win: WindowPos, gl_widget):
         pass
 
     @abc.abstractmethod
@@ -28,7 +32,7 @@ class IViewState(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def zoom_relative(self, zoom_factor: float, zoom_center: WindowPos, gl_widget):
+    def zoom_relative(self, zoom_factor: float, zoom_center: Optional[WindowPos], gl_widget):
         pass
 
 
@@ -44,9 +48,8 @@ class IImageShader(abc.ABC):
 
 class RectangularViewState(IViewState):
     def __init__(self):
+        super().__init__()
         self.image_center_img = [0.5, 0.5]  # In GL-like oriented texture coordinates
-        self.window_zoom = 1.0  # in windows per image
-        self.pixel_filter = PixelFilter.CATMULL_ROM
 
     def clamp_center(self):
         # Keep the center point on the actual image itself
@@ -103,7 +106,7 @@ class RectangularViewState(IViewState):
         self.window_zoom = 1.0
         self.image_center_img = [0.5, 0.5]
 
-    def zoom_relative(self, zoom_factor: float, zoom_center: WindowPos, gl_widget):
+    def zoom_relative(self, zoom_factor: float, zoom_center: Optional[WindowPos], gl_widget):
         new_zoom = self.window_zoom * zoom_factor
         if new_zoom <= 1:
             zoom_factor = 1 / self.window_zoom
@@ -123,11 +126,10 @@ class RectangularViewState(IViewState):
 
 class SphericalViewState(IViewState):
     def __init__(self):
+        super().__init__()
         self.image_rotation = numpy.identity(3, dtype=numpy.float32)
-        self.pitch = 0  # radians
-        self.yaw = 0  # radians
-        self.window_zoom = 1.0
-        self.pixel_filter = PixelFilter.CATMULL_ROM
+        self.pitch = 0.0  # radians
+        self.yaw = 0.0  # radians
         self.projection = Projection360.STEREOGRAPHIC
 
     def clamp(self):
@@ -156,15 +158,15 @@ class SphericalViewState(IViewState):
         ], dtype=numpy.float32)
         self.image_rotation = m1 @ m2
 
-    def image_for_window(self, wpos: WindowPos, gl_widget) -> Tuple[Number, Number]:
+    def image_for_window(self, p_win: WindowPos, gl_widget) -> Tuple[Number, Number]:
         x_scale = y_scale = self.window_zoom
-        wx = (wpos[0] - gl_widget.width() / 2) / gl_widget.width() / x_scale
-        wy = (wpos[1] - gl_widget.height() / 2) / gl_widget.height() / y_scale
+        wx = (p_win[0] - gl_widget.width() / 2) / gl_widget.width() / x_scale
+        wy = (p_win[1] - gl_widget.height() / 2) / gl_widget.height() / y_scale
         # https://en.wikipedia.org/wiki/Stereographic_projection
-        denom = 1 + wx * wx + wy * wy
-        x = 2 * wx / denom
-        y = 2 * wy / denom
-        z = (denom - 2) / denom
+        denominator = 1 + wx * wx + wy * wy
+        x = 2 * wx / denominator
+        y = 2 * wy / denominator
+        z = (denominator - 2) / denominator
         longitude = math.atan2(z, x)
         latitude = math.asin(y)
         c = 1.0 / math.pi
@@ -177,7 +179,7 @@ class SphericalViewState(IViewState):
         self.yaw = 0
         self.window_zoom = 1.0
 
-    def zoom_relative(self, zoom_factor: float, zoom_center: WindowPos, gl_widget):
+    def zoom_relative(self, zoom_factor: float, zoom_center: Optional[WindowPos], gl_widget):
         new_zoom = self.window_zoom * zoom_factor
         self.window_zoom = new_zoom
         self.clamp()
@@ -209,7 +211,7 @@ class RectangularShader(IImageShader):
         self.raw_rot_ont_location = GL.glGetUniformLocation(self.shader, "raw_rot_ont")
 
     def paint_gl(self, state, gl_widget) -> None:
-        # both nearest and catrom use nearest at the moment.
+        # both nearest and catmull-rom use nearest at the moment.
         GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_NEAREST)
         GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_LINEAR_MIPMAP_NEAREST)
         GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_S, GL.GL_CLAMP_TO_EDGE)
@@ -248,7 +250,7 @@ class SphericalShader(IImageShader):
         self.projection_location = GL.glGetUniformLocation(self.shader, "projection")
 
     def paint_gl(self, state, gl_widget) -> None:
-        # both nearest and catrom use nearest at the moment.
+        # both nearest and catmull-rom use nearest at the moment.
         GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_NEAREST)
         GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_LINEAR_MIPMAP_NEAREST)
         GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_S, GL.GL_REPEAT)

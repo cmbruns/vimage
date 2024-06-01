@@ -1,3 +1,5 @@
+from typing import Optional
+
 import numpy
 from OpenGL import GL
 import PIL
@@ -31,7 +33,7 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         self.grabGesture(Qt.PinchGesture)
         # self.grabGesture(Qt.PanGesture)
         self.grabGesture(Qt.SwipeGesture)
-        self.image: numpy.ndarray = None
+        self.image: Optional[numpy.ndarray] = None
         self.setMinimumSize(10, 10)
         self.vao = None
         self.texture = None
@@ -122,7 +124,7 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         img_x, img_y = self.view_state.image_for_window(win_xy, self)
         pxl_x = (img_x + 0.5) * ont_width
         pxl_y = (img_y + 0.5) * ont_height
-        self.request_message.emit(
+        self.request_message.emit(  # noqa
             # f"p_texc = {p_texc}"
             # f"{win_xy}; "
             # f"rc_scale = {rc_scale}; "

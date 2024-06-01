@@ -34,12 +34,11 @@ vec4 equirect_color(sampler2D image, vec2 tex_coord)
     // Use explicit gradients, to preserve anisotropic filtering during mipmap lookup
     vec2 dpdx = dFdx(tex_coord);
     vec2 dpdy = dFdy(tex_coord);
-    if (true) {
-        if (dpdx.x > 0.5) dpdx.x -= 1; // use "repeat" wrapping on gradient
-        if (dpdx.x < -0.5) dpdx.x += 1;
-        if (dpdy.x > 0.5) dpdy.x -= 1; // use "repeat" wrapping on gradient
-        if (dpdy.x < -0.5) dpdy.x += 1;
-    }
+
+    if (dpdx.x > 0.5) dpdx.x -= 1; // use "repeat" wrapping on gradient
+    if (dpdx.x < -0.5) dpdx.x += 1;
+    if (dpdy.x > 0.5) dpdy.x -= 1; // use "repeat" wrapping on gradient
+    if (dpdy.x < -0.5) dpdy.x += 1;
 
     return textureGrad(image, tex_coord, dpdx, dpdy);
 }

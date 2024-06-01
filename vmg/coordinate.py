@@ -64,15 +64,15 @@ class NdcPos(BasicVec2):
         return f"NdcPos(x={self.x:.4f}, y={self.y:.4f})"
 
     @staticmethod
-    def from_window(win: "WindowPos", width: Number, height: Number) -> "NdcPos":
+    def from_window(win: "WindowPos", width: float, height: float) -> "NdcPos":
         w, h = width, height
         # TODO: cache this matrix somewhere when the window size changes
-        ndc_X_win = numpy.array([
-            [2 / w, 0, -1],
-            [0, -2 / h, 1],
+        ndc_xform_win = numpy.array([
+            [2.0 / w, 0, -1],
+            [0, -2.0 / h, 1],
             [0, 0, 1],
         ], dtype=numpy.float32)
-        ndc = ndc_X_win @ (win.x, win.y, 1)  # Homogeneous coordinates
+        ndc = ndc_xform_win @ (win.x, win.y, 1)  # Homogeneous coordinates
         return NdcPos(ndc[0], ndc[1])
 
 
