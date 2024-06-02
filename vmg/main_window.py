@@ -1,12 +1,17 @@
+from typing import Optional
+
+import time
+
 import os
 
 import io
 
 import PIL
 import pathlib
-from PIL import Image
+from PIL import Image, ImageGrab
 from PySide6 import QtCore, QtGui, QtWidgets
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QUndoStack
 from PySide6.QtWidgets import QFileDialog
 
 from vmg.natural_sort import natural_sort_key
@@ -41,21 +46,26 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         self.image_list = []
         self.image_index = 0
         self.image = None
+        self.imageWidgetGL.pixel_filter = PixelFilter.CATMULL_ROM
+        self.imageWidgetGL.request_message.connect(self.statusbar.showMessage)
+        # Configure actions
         self.recent_files = RecentFileList(
             open_file_slot=self.load_main_image,
             settings_key="recent_files",
             menu=self.menuOpen_Recent,
         )
-        self.actionSave_As.setIcon(self.style().standardIcon(
-            QtWidgets.QStyle.SP_DialogSaveButton))
+        self.actionNext.setIcon(self.style().standardIcon(
+            QtWidgets.QStyle.SP_ArrowForward))
+        self.actionOpen.setShortcut(QtGui.QKeySequence.Open)
         self.actionOpen.setIcon(self.style().standardIcon(
             QtWidgets.QStyle.SP_DialogOpenButton))
         self.actionPrevious.setIcon(self.style().standardIcon(
             QtWidgets.QStyle.SP_ArrowBack))
-        self.actionNext.setIcon(self.style().standardIcon(
-            QtWidgets.QStyle.SP_ArrowForward))
+        self.actionExit.setShortcut(QtGui.QKeySequence.Quit)
+        self.actionSave_As.setIcon(self.style().standardIcon(
+            QtWidgets.QStyle.SP_DialogSaveButton))
+        self.actionSave_As.setShortcut(QtGui.QKeySequence.SaveAs)
         #
-        self.imageWidgetGL.pixel_filter = PixelFilter.CATMULL_ROM
         # Allow action shortcuts even when toolbar and menu bar are hidden
         self.addAction(self.actionNext)
         self.addAction(self.actionPrevious)
@@ -68,9 +78,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         self.projection_group.addAction(self.actionStereographic)
         self.projection_group.addAction(self.actionEquidistant)
         self.projection_group.addAction(self.actionEquirectangular)
-        #
-        self.imageWidgetGL.request_message.connect(self.statusbar.showMessage)
-        #
+        # Clipboard actions
         self.clipboard = QtGui.QGuiApplication.clipboard()
         self.clipboard.dataChanged.connect(self.process_clipboard_change)  # noqa
         self.actionCopy.setEnabled(False)
@@ -78,6 +86,18 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         self.actionPaste.setEnabled(self.clipboard.image().width() > 0)
         self.actionPaste.setShortcut(QtGui.QKeySequence.Paste)
         self.clipboard.dataChanged.connect(self.process_clipboard_change)  # noqa
+        # Undo actions
+        self.undo_stack = QUndoStack()  # TODO: per-image undo stack
+        self.undo_stack.cleanChanged.connect(self.undo_stack_clean_changed)
+        self.undo_stack.setActive()
+        self.action_undo = self.undo_stack.createUndoAction(self)
+        self.action_undo.setShortcut(QtGui.QKeySequence.Undo)
+        self.action_redo = self.undo_stack.createRedoAction(self)
+        self.action_redo.setShortcut(QtGui.QKeySequence.Redo)
+        top_action = self.menuEdit.actions()[0]
+        self.menuEdit.insertAction(top_action, self.action_undo)
+        self.menuEdit.insertAction(top_action, self.action_redo)
+        self.menuEdit.insertSeparator(top_action)
 
     def activate_indexed_image(self):
         try:
@@ -86,7 +106,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
             self.statusbar.showMessage(str(uie), 5000)
         self.update_previous_next()
 
-    def _dialog_and_save_image(self, image):
+    def _dialog_and_save_image(self, image) -> str:
         file_path, _file_filter = QFileDialog.getSaveFileName(
             parent=self,
             caption="Save Image to File",
@@ -94,9 +114,10 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
             selectedFilter="PNG Files (*.png)",
         )
         if len(file_path) < 1:
-            return
+            return ""
         try:
             self.save_image(file_path, image)
+            return file_path
         except ValueError as value_error:  # File without extension
             QtWidgets.QMessageBox.warning(
                 self,
@@ -115,6 +136,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
                 "Error saving image",
                 f"Error: {str(exception)}",
             )
+        return ""
 
     def dragEnterEvent(self, event: QtGui.QDragEnterEvent) -> None:
         mime_data = event.mimeData()
@@ -142,7 +164,9 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         event.acceptProposedAction()
         self.activateWindow()  # Take focus immediately after successful drop
 
-    def load_image_from_memory(self, image, name: str) -> None:
+    def load_image_from_memory(self, image: PIL.Image.Image, name: str) -> bool:
+        if image.width < 1:
+            return False
         f = str(name)
         self.image = image
         # TODO: separate thread cancellable loading
@@ -152,11 +176,14 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         self.actionSave_As.setEnabled(True)
         self.actionSave_Current_View_As.setEnabled(True)
         self.actionCopy.setEnabled(True)
+        return True
 
-    def load_image(self, file_name: str) -> None:
+    def load_image(self, file_name: str) -> bool:
         with ScopedWaitCursor():
             image = Image.open(str(file_name))
-            self.load_image_from_memory(image=image, name=file_name)
+            result = self.load_image_from_memory(image=image, name=file_name)
+            self.undo_stack.clear()
+            self.undo_stack.setClean()  # clear() does not always set clean
 
     def load_main_image(self, file_name: str):
         path = pathlib.Path(file_name)
@@ -238,8 +265,14 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
     def file_open_event(self, file_: str):
         self.load_main_image(file_)
 
+    # TODO: nuanced QImage format for clipboard
+    _qimage_format_for_pil_mode = {
+        "RGBA": QtGui.QImage.Format.Format_RGBA8888,
+    }
+
     @QtCore.Slot()  # noqa
     def on_actionCopy_triggered(self):  # noqa
+        # TODO - create a separate container for images...
         temp = self.image.convert("RGBA")
         qimage = QtGui.QImage(
             temp.tobytes("raw", "RGBA"),
@@ -283,16 +316,17 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
 
     @QtCore.Slot()  # noqa
     def on_actionPaste_triggered(self):  # noqa
-        qimage = self.clipboard.image()
-        if qimage.width() < 1:
-            self.actionPaste.setEnabled(False)
-            return
         with ScopedWaitCursor():
-            buffer = QtCore.QBuffer()
-            buffer.open(QtCore.QBuffer.ReadWrite)
-            qimage.save(buffer, "PNG")
-            image = Image.open(io.BytesIO(buffer.data()))
-            self.load_image_from_memory(image=image, name="Unnamed clipboard image")
+            clip = ImageGrab.grabclipboard()
+            if clip.width < 1:
+                self.actionPaste.setEnabled(False)
+                return
+            file_name = clip.filename
+            if file_name is None:
+                time_str = time.strftime("%Y%m%d_%H%M%S")
+                file_name = f"Clipboard{time_str}"
+            if self.load_image_from_memory(image=clip, name=file_name):
+                self.undo_stack.resetClean()  # clipboard image has not been saved
 
     @QtCore.Slot()  # noqa
     def on_actionNext_triggered(self):  # noqa
@@ -327,13 +361,18 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
 
     @QtCore.Slot()  # noqa
     def on_actionSave_As_triggered(self):  # noqa
-        self._dialog_and_save_image(self.image)
+        file_path = self._dialog_and_save_image(self.image)
+        if os.path.exists(file_path):
+            self.set_current_image_path(file_path)
+            self.undo_stack.setClean()
 
     @QtCore.Slot()  # noqa
     def on_actionSave_Current_View_As_triggered(self):  # noqa
         pixmap = self.imageWidgetGL.grab()
         view_image = Image.fromqpixmap(pixmap)
-        self._dialog_and_save_image(view_image)
+        file_path = self._dialog_and_save_image(view_image)
+        if os.path.exists(file_path):
+            self.recent_files.add_file(file_path)
 
     @QtCore.Slot(bool)  # noqa
     def on_actionSharp_toggled(self, is_checked: bool):  # noqa
@@ -351,3 +390,8 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
     def on_actionStereographic_toggled(self, is_checked: bool):  # noqa
         if is_checked:
             self.set_360_projection(Projection360.STEREOGRAPHIC)
+
+    @QtCore.Slot(bool)  # noqa
+    def undo_stack_clean_changed(self, clean: bool):
+        print(clean)
+        self.setWindowModified(not clean)
