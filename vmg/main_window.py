@@ -1,6 +1,6 @@
+import io
 
 import PIL
-import io
 import pathlib
 from PIL import Image
 from PySide6 import QtCore, QtGui, QtWidgets
@@ -68,6 +68,14 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         self.projection_group.addAction(self.actionEquirectangular)
         #
         self.imageWidgetGL.request_message.connect(self.statusbar.showMessage)
+        #
+        self.clipboard = QtGui.QGuiApplication.clipboard()
+        self.clipboard.dataChanged.connect(self.process_clipboard_change)  # noqa
+        self.actionCopy.setEnabled(False)
+        self.actionCopy.setShortcut(QtGui.QKeySequence.Copy)
+        self.actionPaste.setEnabled(self.clipboard.image().width() > 0)
+        self.actionPaste.setShortcut(QtGui.QKeySequence.Paste)
+        self.clipboard.dataChanged.connect(self.process_clipboard_change)  # noqa
 
     def activate_indexed_image(self):
         try:
@@ -132,16 +140,21 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         event.acceptProposedAction()
         self.activateWindow()  # Take focus immediately after successful drop
 
-    def load_image(self, file_name: str) -> None:
-        f = str(file_name)
+    def load_image_from_memory(self, image, name: str) -> None:
+        f = name
+        self.image = image
         # TODO: separate thread cancellable loading
-        with ScopedWaitCursor() as _:
-            self.image = Image.open(f)
-            self.imageWidgetGL.set_image(self.image)
-            self.set_current_image_path(f)
-            self.statusbar.showMessage(f"Loaded image {file_name}", 5000)
-            self.actionSave_As.setEnabled(True)
-            self.actionSave_Current_View_As.setEnabled(True)
+        self.imageWidgetGL.set_image(self.image)
+        self.set_current_image_path(f)
+        self.statusbar.showMessage(f"Loaded image {f}", 5000)
+        self.actionSave_As.setEnabled(True)
+        self.actionSave_Current_View_As.setEnabled(True)
+        self.actionCopy.setEnabled(True)
+
+    def load_image(self, file_name: str) -> None:
+        with ScopedWaitCursor():
+            image = Image.open(file_name)
+            self.load_image_from_memory(image=image, name=file_name)
 
     def load_main_image(self, file_name: str):
         path = pathlib.Path(file_name)
@@ -154,6 +167,11 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
             if file.suffix.lower() in (".png", ".jpg", ".jpeg"):  # TODO: is_image
                 paths_list.append(file)
         self.set_image_list(paths_list, 0)
+
+    @QtCore.Slot()  # noqa
+    def process_clipboard_change(self):
+        has_image = self.clipboard.image().width() > 0
+        self.actionPaste.setEnabled(has_image)
 
     def save_image(self, file_path: str, image=None):
         if image is None:
@@ -217,6 +235,17 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
     def file_open_event(self, file_: str):
         self.load_main_image(file_)
 
+    @QtCore.Slot()  # noqa
+    def on_actionCopy_triggered(self):  # noqa
+        temp = self.image.convert("RGBA")
+        qimage = QtGui.QImage(
+            temp.tobytes("raw", "RGBA"),
+            temp.size[0],
+            temp.size[1],
+            QtGui.QImage.Format.Format_RGBA8888,
+        )
+        self.clipboard.setImage(qimage)
+
     @QtCore.Slot(bool)  # noqa
     def on_actionEquidistant_toggled(self, is_checked: bool):  # noqa
         if is_checked:
@@ -248,6 +277,19 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
     def on_actionPerspective_toggled(self, is_checked: bool):  # noqa
         if is_checked:
             self.set_360_projection(Projection360.GNOMONIC)
+
+    @QtCore.Slot()  # noqa
+    def on_actionPaste_triggered(self):  # noqa
+        qimage = self.clipboard.image()
+        if qimage.width() < 1:
+            self.actionPaste.setEnabled(False)
+            return
+        with ScopedWaitCursor():
+            buffer = QtCore.QBuffer()
+            buffer.open(QtCore.QBuffer.ReadWrite)
+            qimage.save(buffer, "PNG")
+            image = Image.open(io.BytesIO(buffer.data()))
+            self.load_image_from_memory(image=image, name="Unnamed clipboard image")
 
     @QtCore.Slot()  # noqa
     def on_actionNext_triggered(self):  # noqa
