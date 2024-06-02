@@ -1,3 +1,5 @@
+import os
+
 import io
 
 import PIL
@@ -141,19 +143,19 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         self.activateWindow()  # Take focus immediately after successful drop
 
     def load_image_from_memory(self, image, name: str) -> None:
-        f = name
+        f = str(name)
         self.image = image
         # TODO: separate thread cancellable loading
         self.imageWidgetGL.set_image(self.image)
         self.set_current_image_path(f)
-        self.statusbar.showMessage(f"Loaded image {f}", 5000)
+        self.statusbar.showMessage(f"Loaded image {name}", 5000)
         self.actionSave_As.setEnabled(True)
         self.actionSave_Current_View_As.setEnabled(True)
         self.actionCopy.setEnabled(True)
 
     def load_image(self, file_name: str) -> None:
         with ScopedWaitCursor():
-            image = Image.open(file_name)
+            image = Image.open(str(file_name))
             self.load_image_from_memory(image=image, name=file_name)
 
     def load_main_image(self, file_name: str):
@@ -198,7 +200,8 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
 
     def set_current_image_path(self, path: str):
         self.setWindowFilePath(path)
-        self.recent_files.add_file(path)
+        if os.path.exists(path):
+            self.recent_files.add_file(path)
 
     def set_image_list(self, image_list: list, current_index: int):
         if len(image_list) < 1:
