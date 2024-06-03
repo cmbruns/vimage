@@ -80,6 +80,13 @@ app = BUNDLE(
                 'LSItemContentTypes': ['public.png'],
                 'LSHandlerRank': 'Owner'
             },
+            {
+                'CFBundleTypeExtensions': ['heif', 'HEIF', 'heic', 'HEIC'],
+                'CFBundleTypeMIMETypes': ['image/heic'],
+                'CFBundleTypeName': ['High Efficiency Image File Format'],
+                'CFBundleTypeRole': 'Viewer',
+                'LSHandlerRank': 'Owner',
+            },
         ]
     }
 )

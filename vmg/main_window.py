@@ -7,6 +7,7 @@ import os
 import io
 
 import PIL
+from pillow_heif import register_heif_opener
 import pathlib
 from PIL import Image, ImageGrab
 from PySide6 import QtCore, QtGui, QtWidgets
@@ -24,6 +25,7 @@ from vmg.ui_vimage import Ui_MainWindow
 _max_image_pixels = 1789569700
 if Image.MAX_IMAGE_PIXELS is not None and Image.MAX_IMAGE_PIXELS < _max_image_pixels:
     Image.MAX_IMAGE_PIXELS = _max_image_pixels
+register_heif_opener()
 
 
 class ScopedWaitCursor(object):
@@ -193,7 +195,14 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         for file in folder.glob("*.*"):
             if file.name == name:
                 continue  # Skip the triggering file
-            if file.suffix.lower() in (".png", ".jpg", ".jpeg"):  # TODO: is_image
+            if file.suffix.lower() in (
+                ".bmp",
+                ".heic",
+                ".heif",
+                ".png",
+                ".jpg",
+                ".jpeg",
+            ):  # TODO: is_image
                 paths_list.append(file)
         self.set_image_list(paths_list, 0)
 
