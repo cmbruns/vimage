@@ -127,36 +127,36 @@ class RectangularViewState(IViewState):
 class SphericalViewState(IViewState):
     def __init__(self):
         super().__init__()
-        self.image_rotation = numpy.identity(3, dtype=numpy.float32)
-        self.pitch = 0.0  # radians
-        self.yaw = 0.0  # radians
+        self.view_rot_ont = numpy.identity(3, dtype=numpy.float32)
+        self.view_pitch = 0.0  # radians
+        self.view_yaw = 0.0  # radians
         self.projection = Projection360.STEREOGRAPHIC
 
     def clamp(self):
-        self.pitch = min(self.pitch, math.pi / 2.0)
-        self.pitch = max(self.pitch, -math.pi / 2.0)
+        self.view_pitch = min(self.view_pitch, math.pi / 2.0)
+        self.view_pitch = max(self.view_pitch, -math.pi / 2.0)
         self.window_zoom = max(self.window_zoom, 0.05)
 
     def drag_relative(self, dx, dy, gl_widget):
         win_size = (gl_widget.width() + gl_widget.height()) / 2
-        self.yaw += dx / win_size / self.window_zoom
-        c = math.cos(self.yaw)
-        s = math.sin(self.yaw)
-        m1 = numpy.array([
+        self.view_yaw += dx / win_size / self.window_zoom
+        c = math.cos(self.view_yaw)
+        s = math.sin(self.view_yaw)
+        view_rot_pitch = numpy.array([
             [c, 0, s],
             [0, 1, 0],
             [-s, 0, c],
         ], dtype=numpy.float32)
-        self.pitch += dy / win_size / self.window_zoom
+        self.view_pitch += dy / win_size / self.window_zoom
         self.clamp()
-        c = math.cos(self.pitch)
-        s = math.sin(self.pitch)
-        m2 = numpy.array([
+        c = math.cos(self.view_pitch)
+        s = math.sin(self.view_pitch)
+        pitch_rot_ont = numpy.array([
             [1, 0, 0],
             [0, c, -s],
             [0, s, c],
         ], dtype=numpy.float32)
-        self.image_rotation = m1 @ m2
+        self.view_rot_ont = view_rot_pitch @ pitch_rot_ont
 
     def image_for_window(self, p_win: WindowPos, gl_widget) -> Tuple[Number, Number]:
         x_scale = y_scale = self.window_zoom
@@ -174,9 +174,9 @@ class SphericalViewState(IViewState):
         return ix, iy
 
     def reset(self):
-        self.image_rotation = numpy.identity(3, dtype=numpy.float32)
-        self.pitch = 0
-        self.yaw = 0
+        self.view_rot_ont = numpy.identity(3, dtype=numpy.float32)
+        self.view_pitch = 0
+        self.view_yaw = 0
         self.window_zoom = 1.0
 
     def zoom_relative(self, zoom_factor: float, zoom_center: Optional[WindowPos], gl_widget):
@@ -230,7 +230,7 @@ class SphericalShader(IImageShader):
         self.shader = None
         self.zoom_location = None
         self.pixelFilter_location = None
-        self.rotation_location = None
+        self.view_rot_ont_location = None
         self.window_size_location = None
         self.projection_location = None
 
@@ -245,7 +245,7 @@ class SphericalShader(IImageShader):
         GL.glLinkProgram(self.shader)
         self.zoom_location = GL.glGetUniformLocation(self.shader, "window_zoom")
         self.pixelFilter_location = GL.glGetUniformLocation(self.shader, "pixelFilter")
-        self.rotation_location = GL.glGetUniformLocation(self.shader, "rotation")
+        self.view_rot_ont_location = GL.glGetUniformLocation(self.shader, "view_rot_ont")
         self.window_size_location = GL.glGetUniformLocation(self.shader, "window_size")
         self.projection_location = GL.glGetUniformLocation(self.shader, "projection")
 
@@ -261,7 +261,7 @@ class SphericalShader(IImageShader):
         GL.glUseProgram(self.shader)
         GL.glUniform1f(self.zoom_location, state.window_zoom)
         GL.glUniform1i(self.pixelFilter_location, state.pixel_filter.value)
-        GL.glUniformMatrix3fv(self.rotation_location, 1, False, state.image_rotation)
+        GL.glUniformMatrix3fv(self.view_rot_ont_location, 1, True, state.view_rot_ont)
         GL.glUniform2i(self.window_size_location, gl_widget.width(), gl_widget.height())
         GL.glUniform1i(self.projection_location, state.projection.value)
         GL.glDrawArrays(GL.GL_TRIANGLE_STRIP, 0, 4)

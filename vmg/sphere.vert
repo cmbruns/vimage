@@ -43,14 +43,13 @@ uniform vec2 image_center = vec2(0.0, 0.5);
 uniform ivec2 window_size;
 uniform float window_zoom = 1.0;
 
-out vec3 tex_coord;
+out vec2 p_nic;
 
 void main() {
     // set position for each corner vertex
-    vec4 ndc = SCREEN_QUAD[gl_VertexID];
-    gl_Position = ndc;
+    gl_Position = SCREEN_QUAD[gl_VertexID];
+    vec2 p_ndc = gl_Position.xy / gl_Position.w;
     float window_aspect = window_size.x / float(window_size.y);
     float wa2 = sqrt(window_aspect);
-    vec2 xy = ndc.xy * vec2(wa2, 1/wa2) / window_zoom;
-    tex_coord = vec3(xy, ndc.z) / ndc.w;
+    p_nic = p_ndc * vec2(wa2, 1/wa2) / window_zoom;
 }
