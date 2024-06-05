@@ -15,8 +15,8 @@ uniform int projection = STEREOGRAPHIC_PROJECTION;
 
 uniform sampler2D image;
 uniform int pixelFilter = NEAREST;
-uniform mat3 view_rot_ont = mat3(1);
-uniform mat3 ont_X_raw = mat3(1);
+uniform mat3 ont_rot_view = mat3(1);
+uniform mat3 raw_rot_ont = mat3(1);
 
 in vec2 p_nic;
 out vec4 color;
@@ -120,41 +120,41 @@ bool equirect_valid(vec2 xy) {
 }
 
 void main() {
-    vec3 p_ont;
+    vec3 p_view;
     if (projection == STEREOGRAPHIC_PROJECTION) {
-        p_ont = stereographic_xyz(p_nic);
+        p_view = stereographic_xyz(p_nic);
     }
     else if (projection == AZ_EQ_PROJECTION) {
         if (! azeqd_valid(p_nic)) {
             color = vec4(1, 0, 0, 0);
             return;
         }
-        p_ont = azimuthal_equidistant_xyz(p_nic);
+        p_view = azimuthal_equidistant_xyz(p_nic);
     }
     else if (projection == GNOMONIC_PROJECTION) {
         if (! equirect_valid(p_nic)) {
             color = vec4(1, 0, 0, 0);
             return;
         }
-        p_ont = gnomonic_xyz(p_nic);
+        p_view = gnomonic_xyz(p_nic);
     }
     else if (projection == EQUIRECT_PROJECTION) {
-        p_ont = equirect_xyz(p_nic);
+        p_view = equirect_xyz(p_nic);
     }
     else {
-        p_ont = original_xyz(p_nic);
+        p_view = original_xyz(p_nic);
     }
 
-    vec3 p_view = view_rot_ont * p_ont;
+    vec3 p_raw = raw_rot_ont * ont_rot_view * p_view;
 
-    vec2 tex_coord = equirect_tex_coord(p_view);
+    vec2 p_tex = equirect_tex_coord(p_raw);
 
     switch(pixelFilter) {
     case NEAREST:
-        color = nearest(image, tex_coord);
+        color = nearest(image, p_tex);
         break;
     case CATMULL_ROM:
-        color = catrom(image, tex_coord);
+        color = catrom(image, p_tex);
         break;
     }
 

@@ -188,9 +188,6 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
             if self.load_image_from_memory(image=image, name=file_name):
                 self.undo_stack.clear()
                 self.undo_stack.setClean()  # clear() does not always set clean
-                # TODO: testing
-                xmp = image.getxmp()
-                print(json.dumps(xmp, indent=2))
 
     def load_main_image(self, file_name: str):
         path = pathlib.Path(file_name)

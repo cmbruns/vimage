@@ -72,7 +72,7 @@ class RectangularViewState(IViewState):
         x_scale = -gl_widget.width() * self.window_zoom
         y_scale = -gl_widget.height() * self.window_zoom
         img_height_raw, img_width_raw = gl_widget.image.shape[0:2]
-        img_width_ont, img_height_ont = [abs(x) for x in (gl_widget.raw_rot_ont @ [img_width_raw, img_height_raw])]
+        img_width_ont, img_height_ont = [abs(x) for x in (gl_widget.raw_rot_ont2 @ [img_width_raw, img_height_raw])]
         window_aspect = gl_widget.width() / gl_widget.height()
         image_aspect_ont = img_width_ont / img_height_ont
         ratio_ratio = window_aspect / image_aspect_ont
@@ -89,7 +89,7 @@ class RectangularViewState(IViewState):
         p_cwn[1] *= -1  # flip y
         window_aspect = gl_widget.width() / gl_widget.height()
         image_size_raw = numpy.flip(gl_widget.image.shape[0:2])
-        image_size_ont = [abs(x) for x in gl_widget.raw_rot_ont.T @ image_size_raw]
+        image_size_ont = [abs(x) for x in gl_widget.raw_rot_ont2.T @ image_size_raw]
         image_aspect_ont = image_size_ont[0] / image_size_ont[1]
         if window_aspect > image_aspect_ont:
             rc_scale = image_size_ont[1] / gl_widget.height() / self.window_zoom
@@ -127,7 +127,8 @@ class RectangularViewState(IViewState):
 class SphericalViewState(IViewState):
     def __init__(self):
         super().__init__()
-        self.view_rot_ont = numpy.identity(3, dtype=numpy.float32)
+        self.ont_rot_view = numpy.identity(3, dtype=numpy.float32)
+        self.raw_rot_ont = numpy.identity(3, dtype=numpy.float32)
         self.view_pitch = 0.0  # radians
         self.view_yaw = 0.0  # radians
         self.projection = Projection360.STEREOGRAPHIC
@@ -156,7 +157,7 @@ class SphericalViewState(IViewState):
             [0, c, -s],
             [0, s, c],
         ], dtype=numpy.float32)
-        self.view_rot_ont = view_rot_pitch @ pitch_rot_ont
+        self.ont_rot_view = view_rot_pitch @ pitch_rot_ont
 
     def image_for_window(self, p_win: WindowPos, gl_widget) -> Tuple[Number, Number]:
         x_scale = y_scale = self.window_zoom
@@ -174,7 +175,7 @@ class SphericalViewState(IViewState):
         return ix, iy
 
     def reset(self):
-        self.view_rot_ont = numpy.identity(3, dtype=numpy.float32)
+        self.ont_rot_view = numpy.identity(3, dtype=numpy.float32)
         self.view_pitch = 0
         self.view_yaw = 0
         self.window_zoom = 1.0
@@ -221,7 +222,7 @@ class RectangularShader(IImageShader):
         GL.glUniform2i(self.window_size_location, gl_widget.width(), gl_widget.height())
         GL.glUniform2f(self.image_center_img_location, *state.image_center_img)
         GL.glUniform1i(self.pixelFilter_location, state.pixel_filter.value)
-        GL.glUniformMatrix2fv(self.raw_rot_ont_location, 1, True, gl_widget.raw_rot_ont)
+        GL.glUniformMatrix2fv(self.raw_rot_ont_location, 1, True, gl_widget.raw_rot_ont2)
         GL.glDrawArrays(GL.GL_TRIANGLE_STRIP, 0, 4)
 
 
@@ -230,7 +231,8 @@ class SphericalShader(IImageShader):
         self.shader = None
         self.zoom_location = None
         self.pixelFilter_location = None
-        self.view_rot_ont_location = None
+        self.ont_rot_view_location = None
+        self.raw_rot_ont_location = None
         self.window_size_location = None
         self.projection_location = None
 
@@ -245,7 +247,8 @@ class SphericalShader(IImageShader):
         GL.glLinkProgram(self.shader)
         self.zoom_location = GL.glGetUniformLocation(self.shader, "window_zoom")
         self.pixelFilter_location = GL.glGetUniformLocation(self.shader, "pixelFilter")
-        self.view_rot_ont_location = GL.glGetUniformLocation(self.shader, "view_rot_ont")
+        self.ont_rot_view_location = GL.glGetUniformLocation(self.shader, "ont_rot_view")
+        self.raw_rot_ont_location = GL.glGetUniformLocation(self.shader, "raw_rot_ont")
         self.window_size_location = GL.glGetUniformLocation(self.shader, "window_size")
         self.projection_location = GL.glGetUniformLocation(self.shader, "projection")
 
@@ -261,7 +264,8 @@ class SphericalShader(IImageShader):
         GL.glUseProgram(self.shader)
         GL.glUniform1f(self.zoom_location, state.window_zoom)
         GL.glUniform1i(self.pixelFilter_location, state.pixel_filter.value)
-        GL.glUniformMatrix3fv(self.view_rot_ont_location, 1, True, state.view_rot_ont)
+        GL.glUniformMatrix3fv(self.ont_rot_view_location, 1, True, state.ont_rot_view)
+        GL.glUniformMatrix3fv(self.raw_rot_ont_location, 1, True, gl_widget.raw_rot_ont3)
         GL.glUniform2i(self.window_size_location, gl_widget.width(), gl_widget.height())
         GL.glUniform1i(self.projection_location, state.projection.value)
         GL.glDrawArrays(GL.GL_TRIANGLE_STRIP, 0, 4)

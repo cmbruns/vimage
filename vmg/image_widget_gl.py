@@ -1,3 +1,5 @@
+from math import cos, radians, sin
+
 from typing import Optional
 
 import numpy
@@ -48,7 +50,8 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         self.sphere_view_state: IViewState = SphericalViewState()
         self.view_state = self.rect_view_state
         self.is_360 = False
-        self.raw_rot_ont = numpy.eye(2, dtype=numpy.float32)
+        self.raw_rot_ont2 = numpy.eye(2, dtype=numpy.float32)  # For flatty images
+        self.raw_rot_ont3 = numpy.eye(3, dtype=numpy.float32)  # For spherical panos
 
     request_message = QtCore.Signal(str, int)
 
@@ -89,7 +92,7 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
 
         # centered, rotation corrected image dimensions [changes with window size and image size]
         raw_height, raw_width = self.image.shape[0:2]  # Unrotated dimension
-        ont_width, ont_height = [abs(x) for x in (self.raw_rot_ont @ [raw_width, raw_height])]
+        ont_width, ont_height = [abs(x) for x in (self.raw_rot_ont2 @ [raw_width, raw_height])]
         # zoom value depends on relative aspect ratio of window to image
         if self.width() / self.height() > ont_width / ont_height:
             # window aspect is wider than image aspect, so zoom by height
@@ -103,7 +106,7 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         p_ont = ont_from_cwn @ p_cwn
 
         # raw unrotated centered image coordinates [changes with image metadata]
-        ucimg_from_ont = self.raw_rot_ont
+        ucimg_from_ont = self.raw_rot_ont2
         p_ucimg = ucimg_from_ont @ p_ont
 
         # move origin from center to upper left corner [changes with image size]
@@ -202,20 +205,53 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         self.program.paint_gl(self.view_state, self)
 
     def set_image(self, image: PIL.Image.Image):
+        exif0 = image.getexif()
         exif = {
             PIL.ExifTags.TAGS[k]: v
-            for k, v in image.getexif().items()
+            for k, v in exif0.items()
             if k in PIL.ExifTags.TAGS
         }
+        for ifd_id in ExifTags.IFD:
+            try:
+                ifd = exif0.get_ifd(ifd_id)
+                if ifd_id == ExifTags.IFD.GPSInfo:
+                    resolve = ExifTags.GPSTAGS
+                else:
+                    resolve = ExifTags.TAGS
+                for k, v in ifd.items():
+                    tag = resolve.get(k, k)
+                    exif[tag] = v
+            except KeyError:
+                pass
+        xmp = image.getxmp()
         # Check for orientation metadata
         orientation_code: int = exif.get("Orientation", 1)
-        self.raw_rot_ont = _exif_orientation_to_matrix.get(orientation_code, numpy.eye(2, dtype=numpy.float32))
+        self.raw_rot_ont2 = _exif_orientation_to_matrix.get(orientation_code, numpy.eye(2, dtype=numpy.float32))
         # Check for 360 panorama image
         if image.width == 2 * image.height:
             try:
                 self.is_360 = True
                 self.view_state = self.sphere_view_state
                 self.program = self.sphere_shader
+                try:
+                    # TODO: InitialViewHeadingDegrees
+                    desc = xmp["xmpmeta"]["RDF"]["Description"]
+                    heading = radians(float(desc["PoseHeadingDegrees"]))
+                    pitch = radians(float(desc["PosePitchDegrees"]))
+                    roll = radians(float(desc["PoseRollDegrees"]))
+                    self.raw_rot_ont3 = numpy.array([
+                        [cos(roll), -sin(roll), 0],
+                        [sin(roll), cos(roll), 0],
+                        [0, 0, 1],
+                    ], dtype=numpy.float32)
+                    self.raw_rot_ont3 = self.raw_rot_ont3 @ [
+                        [1, 0, 0],
+                        [0, cos(pitch), sin(pitch)],
+                        [0, -sin(pitch), cos(pitch)],
+                    ]
+                    print(heading, pitch, roll)
+                except KeyError:
+                    pass
                 if exif["Model"].lower().startswith("ricoh theta"):
                     # print("360")
                     pass  # TODO 360 image
