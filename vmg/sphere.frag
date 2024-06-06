@@ -112,9 +112,7 @@ bool azeqd_valid(vec2 xy) {
 }
 
 bool equirect_valid(vec2 xy) {
-    if (abs(xy.x) > 2 * PI)
-        return false;
-    if (abs(xy.y) > PI)
+    if (abs(xy.y) > PI / 2)
         return false;
     return true;
 }
@@ -132,13 +130,13 @@ void main() {
         p_view = azimuthal_equidistant_xyz(p_nic);
     }
     else if (projection == GNOMONIC_PROJECTION) {
+        p_view = gnomonic_xyz(p_nic);
+    }
+    else if (projection == EQUIRECT_PROJECTION) {
         if (! equirect_valid(p_nic)) {
             color = vec4(1, 0, 0, 0);
             return;
         }
-        p_view = gnomonic_xyz(p_nic);
-    }
-    else if (projection == EQUIRECT_PROJECTION) {
         p_view = equirect_xyz(p_nic);
     }
     else {

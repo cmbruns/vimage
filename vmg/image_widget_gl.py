@@ -249,6 +249,11 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
                         [0, cos(pitch), sin(pitch)],
                         [0, -sin(pitch), cos(pitch)],
                     ]
+                    self.raw_rot_ont3 = self.raw_rot_ont3 @ [
+                        [cos(heading), 0, sin(heading)],
+                        [0, 1, 0],
+                        [-sin(heading), 0, cos(heading)],
+                    ]
                     print(heading, pitch, roll)
                 except KeyError:
                     pass
