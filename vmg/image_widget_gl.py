@@ -72,7 +72,6 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
 
     def _hover_pixel(self, win_xy: WindowPos) -> bool:
         # TODO: draw square around pixel
-        p_ndc = NdcPos.from_window(win_xy, self.width(), self.height())
 
         # coordinate systems:
         #  ndc - normalized device coordinates ; range -1,1 ; origin at center ; positive y up
@@ -82,62 +81,31 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         #  ulc - raw image with origin at upper left
         #  tex - texture coordinates ; range (0, 1)
 
-        # TODO: use these transformations in shader
-        # centered window pixel coordinates [changes with window size]
-        cwn_from_ndc = numpy.array([
-            [self.width()/2, 0],
-            [0, self.height()/2],
-        ], dtype=numpy.float32)
-        p_cwn = cwn_from_ndc @ p_ndc
-
-        # centered, rotation corrected image dimensions [changes with window size and image size]
+        # June 7th from jupyter notebook
+        # shift nomenclature
         raw_height, raw_width = self.image.shape[0:2]  # Unrotated dimension
-        ont_width, ont_height = [abs(x) for x in (self.raw_rot_ont2 @ [raw_width, raw_height])]
-        # zoom value depends on relative aspect ratio of window to image
-        if self.width() / self.height() > ont_width / ont_height:
-            # window aspect is wider than image aspect, so zoom by height
-            rc_scale = ont_height / self.height() / self.view_state.window_zoom
+        w_omp, h_omp = [abs(x) for x in (self.raw_rot_ont2 @ [raw_width, raw_height])]
+        w_qwn, h_qwn = self.width(), self.height()
+        zoom = self.view_state.window_zoom
+        cen_x_omp = self.view_state.image_center_img[0] * w_omp
+        cen_y_omp = self.view_state.image_center_img[1] * h_omp
+        # Scale aspect to fit image in window at zoom==1
+        if w_omp/h_omp > w_qwn/h_qwn:
+            # Image aspect is wider than window aspect
+            # So use width in scaling factor
+            scale = w_omp / w_qwn / zoom
         else:
-            rc_scale = ont_width / self.width() / self.view_state.window_zoom
-        ont_from_cwn = numpy.array([
-            [rc_scale, 0],
-            [0, -rc_scale],  # Flip Y when converting window coordinates to image coordinates
-        ], dtype=numpy.float32)
-        p_ont = ont_from_cwn @ p_cwn
-
-        # raw unrotated centered image coordinates [changes with image metadata]
-        ucimg_from_ont = self.raw_rot_ont2
-        p_ucimg = ucimg_from_ont @ p_ont
-
-        # move origin from center to upper left corner [changes with image size]
-        ulimg_from_ucimg = numpy.array([
-            [1, 0, raw_width/2],
-            [0, 1, raw_height/2],
+            # Use height in scaling factor
+            scale = h_omp / h_qwn / zoom
+        p_qwn = (win_xy.x, win_xy.y, 1.0)
+        omp_xform_qwn = numpy.array([
+            [scale, 0, cen_x_omp - scale*w_qwn/2],
+            [0, scale, cen_y_omp - scale*h_qwn/2],
             [0, 0, 1],
         ], dtype=numpy.float32)
-        p_ulimg = (ulimg_from_ucimg @ [*p_ucimg, 1])[0:2]
-
-        # convert to texture coordinates
-        texc_from_ulimg = numpy.array([
-            [1 / raw_width, 0],
-            [0, 1 / raw_height],
-        ], dtype=numpy.float32)
-        p_texc = texc_from_ulimg @ p_ulimg
-
-        img_x, img_y = self.view_state.image_for_window(win_xy, self)
-        pxl_x = (img_x + 0.5) * ont_width
-        pxl_y = (img_y + 0.5) * ont_height
+        p_omp = omp_xform_qwn @ p_qwn
         self.request_message.emit(  # noqa
-            # f"p_texc = {p_texc}"
-            # f"{win_xy}; "
-            # f"rc_scale = {rc_scale}; "
-            # f"{ndc}; "
-            # f"cwn = {p_cwn}; "
-            # f"p_ont = {p_ont}"
-            # f"p_ulimg = {p_ulimg}"
-            # f"cimg dims = [{ont_width},{ont_height}]; "
-            # f"image = [{img_x:.4f}, {img_y:.4f}]; "
-            f"image pixel = [{pxl_x:.1f}, {pxl_y:.1f}]"
+            f"image pixel2 = [{p_omp[0]:.1f}, {p_omp[1]:.1f}]"  # now OK
             , 2000)
         return False  # Nothing changed, so no update needed
 
