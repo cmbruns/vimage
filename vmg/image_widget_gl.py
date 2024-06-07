@@ -1,4 +1,4 @@
-from math import cos, radians, sin
+from math import asin, atan2, cos, degrees, radians, sin
 
 from typing import Optional
 
@@ -83,12 +83,19 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
 
         # June 7th from jupyter notebook
         # shift nomenclature
-        raw_height, raw_width = self.image.shape[0:2]  # Unrotated dimension
-        w_omp, h_omp = [abs(x) for x in (self.raw_rot_ont2 @ [raw_width, raw_height])]
-        w_qwn, h_qwn = self.width(), self.height()
         zoom = self.view_state.window_zoom
-        cen_x_omp = self.view_state.image_center_img[0] * w_omp
-        cen_y_omp = self.view_state.image_center_img[1] * h_omp
+        w_qwn, h_qwn = self.width(), self.height()
+        # TODO: delete obsolete transform codes elsewhere
+        if self.is_360:  # TODO: put these codes into view_model or something
+            # Spherical panorama image
+            w_omp, h_omp = 2, 2  # two radians, as if orthographic projection, say
+            cen_x_omp, cen_y_omp = 1, 1
+        else:
+            # Standard rectangular image
+            raw_height, raw_width = self.image.shape[0:2]  # Unrotated dimension
+            w_omp, h_omp = [abs(x) for x in (self.raw_rot_ont2 @ [raw_width, raw_height])]
+            cen_x_omp = self.rect_view_state.image_center_img[0] * w_omp
+            cen_y_omp = self.rect_view_state.image_center_img[1] * h_omp
         # Scale aspect to fit image in window at zoom==1
         if w_omp/h_omp > w_qwn/h_qwn:
             # Image aspect is wider than window aspect
@@ -98,15 +105,42 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
             # Use height in scaling factor
             scale = h_omp / h_qwn / zoom
         p_qwn = (win_xy.x, win_xy.y, 1.0)
-        omp_xform_qwn = numpy.array([
-            [scale, 0, cen_x_omp - scale*w_qwn/2],
-            [0, scale, cen_y_omp - scale*h_qwn/2],
-            [0, 0, 1],
-        ], dtype=numpy.float32)
-        p_omp = omp_xform_qwn @ p_qwn
-        self.request_message.emit(  # noqa
-            f"image pixel2 = [{p_omp[0]:.1f}, {p_omp[1]:.1f}]"  # now OK
+        if self.is_360:
+            # TODO: not just stereographic
+            #  just stereographic for now...
+            if w_omp / h_omp > w_qwn / h_qwn:
+                sc = 1 / w_qwn / zoom
+            else:
+                sc = 1 / h_qwn / zoom
+            nic_xform_qwn = numpy.array([
+                [2*sc, 0, -w_qwn*sc],
+                [0, -2*sc, h_qwn*sc],
+                [0, 0, 1],
+            ], dtype=numpy.float32)
+            p_nic = nic_xform_qwn @ p_qwn
+            p_ste = p_nic  # projected stereographic
+            d = p_ste[0]**2 + p_ste[1]**2 + 4
+            p_obq = numpy.array([
+                [4 * p_ste[0] / d],
+                [4 * p_ste[1] / d],
+                [(8 - d) / d],
+            ], dtype=numpy.float32)
+            p_viw = self.sphere_view_state.ont_rot_view.T @ p_obq
+            heading = degrees(atan2(p_viw[0], p_viw[2]))
+            pitch = degrees(asin(p_viw[1]))
+            self.request_message.emit(  # noqa
+                f"heading = {heading:.1f}°; pitch = {pitch:.1f}°"
             , 2000)
+        else:
+            omp_xform_qwn = numpy.array([
+                [scale, 0, cen_x_omp - scale * w_qwn / 2],
+                [0, scale, cen_y_omp - scale * h_qwn / 2],
+                [0, 0, 1],
+            ], dtype=numpy.float32)
+            p_omp = omp_xform_qwn @ p_qwn
+            self.request_message.emit(  # noqa
+                f"image pixel = [{int(p_omp[0])}, {int(p_omp[1])}]"
+                , 2000)
         return False  # Nothing changed, so no update needed
 
     def initializeGL(self) -> None:
