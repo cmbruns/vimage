@@ -120,14 +120,17 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
             p_nic = nic_xform_qwn @ p_qwn
             p_ste = p_nic  # projected stereographic
             d = p_ste[0]**2 + p_ste[1]**2 + 4
-            p_obq = numpy.array([
+            p_viw = numpy.array([  # sphere orientation as viewed on screen
                 [4 * p_ste[0] / d],
                 [4 * p_ste[1] / d],
-                [(8 - d) / d],
+                [(d - 8) / d],
             ], dtype=numpy.float32)
-            p_viw = self.sphere_view_state.ont_rot_view.T @ p_obq
-            heading = degrees(atan2(p_viw[0], p_viw[2]))
-            pitch = degrees(asin(p_viw[1]))
+            # print(p_viw)
+            # convert to rectified sphere orientation
+            p_ont = self.sphere_view_state.ont_rot_view @ p_viw
+            # print(p_ont)
+            heading = degrees(atan2(p_ont[0], -p_ont[2]))
+            pitch = degrees(asin(p_ont[1]))
             self.request_message.emit(  # noqa
                 f"heading = {heading:.1f}°; pitch = {pitch:.1f}°"
             , 2000)

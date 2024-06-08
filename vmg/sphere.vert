@@ -39,7 +39,6 @@ mat3 translate(vec2 t) {
 }
 
 uniform sampler2D image;
-uniform vec2 image_center = vec2(0.0, 0.5);
 uniform ivec2 window_size;
 uniform float window_zoom = 1.0;
 
@@ -49,7 +48,10 @@ void main() {
     // set position for each corner vertex
     gl_Position = SCREEN_QUAD[gl_VertexID];
     vec2 p_ndc = gl_Position.xy / gl_Position.w;
+    float scale = 1.0 / window_size.y / window_zoom;  // scale by height
     float window_aspect = window_size.x / float(window_size.y);
-    float wa2 = sqrt(window_aspect);
-    p_nic = p_ndc * vec2(wa2, 1/wa2) / window_zoom;
+    if (window_aspect < 1.0) { // narrow window, so scale by width
+        scale = 1.0 / window_size.x / window_zoom;
+    }
+    p_nic = p_ndc * vec2(scale * window_size.x, scale * window_size.y);
 }

@@ -1,5 +1,6 @@
 import abc
 import math
+from math import degrees
 import pkg_resources
 from typing import Tuple, Optional
 from numbers import Number
@@ -129,8 +130,8 @@ class SphericalViewState(IViewState):
         super().__init__()
         self.ont_rot_view = numpy.identity(3, dtype=numpy.float32)
         self.raw_rot_ont = numpy.identity(3, dtype=numpy.float32)
-        self.view_pitch = 0.0  # radians
-        self.view_yaw = 0.0  # radians
+        self.view_pitch = 0.0  # view pitch in radians above the horizon
+        self.view_yaw = 0.0  # view heading in radians clockwise from north
         self.projection = Projection360.STEREOGRAPHIC
 
     def clamp(self):
@@ -140,24 +141,25 @@ class SphericalViewState(IViewState):
 
     def drag_relative(self, dx, dy, gl_widget):
         win_size = (gl_widget.width() + gl_widget.height()) / 2
-        self.view_yaw += dx / win_size / self.window_zoom
+        self.view_yaw -= dx / win_size / self.window_zoom
         c = math.cos(self.view_yaw)
         s = math.sin(self.view_yaw)
-        view_rot_pitch = numpy.array([
-            [c, 0, s],
+        rot_heading = numpy.array([
+            [c, 0, -s],
             [0, 1, 0],
-            [-s, 0, c],
+            [s, 0, c],
         ], dtype=numpy.float32)
         self.view_pitch += dy / win_size / self.window_zoom
         self.clamp()
         c = math.cos(self.view_pitch)
         s = math.sin(self.view_pitch)
-        pitch_rot_ont = numpy.array([
+        rot_pitch = numpy.array([
             [1, 0, 0],
             [0, c, -s],
             [0, s, c],
         ], dtype=numpy.float32)
-        self.ont_rot_view = view_rot_pitch @ pitch_rot_ont
+        # print(f"View pitch = {degrees(self.view_pitch):.1f} heading = {degrees(self.view_yaw):.1f}")
+        self.ont_rot_view = rot_heading @ rot_pitch
 
     def image_for_window(self, p_win: WindowPos, gl_widget) -> Tuple[Number, Number]:
         x_scale = y_scale = self.window_zoom
