@@ -142,13 +142,15 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
                     [sin(p_ste[1])],
                     [-cos(p_ste[0])],
                 ], dtype=numpy.float32)
-            else:  # self.sphere_view_state.projection == Projection360.STEREOGRAPHIC:
+            elif self.sphere_view_state.projection == Projection360.STEREOGRAPHIC:
                 d = p_ste[0]**2 + p_ste[1]**2 + 4
                 p_viw = numpy.array([  # sphere orientation as viewed on screen
                     [4 * p_ste[0] / d],
                     [4 * p_ste[1] / d],
                     [(d - 8) / d],
                 ], dtype=numpy.float32)
+            else:
+                assert False  # What projection is this?
             # print(p_viw)
             # convert to rectified sphere orientation
             p_ont = self.sphere_view_state.ont_rot_view @ p_viw

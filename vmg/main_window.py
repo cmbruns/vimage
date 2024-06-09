@@ -379,10 +379,10 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         if self.image_index >= len(self.image_list) - 1:
             box = QMessageBox()
             box.setIcon(QMessageBox.Question)
-            box.setWindowTitle("Continue back to first image?")
+            box.setWindowTitle("Continue from first image?")
             box.setText(cleandoc("""
                This is the final image.
-               Do you want to continue back to the first image?
+               Do you want to continue from the first image?
             """))
             box.setStandardButtons(QMessageBox.Cancel | QMessageBox.Yes)
             box.setDefaultButton(QMessageBox.Yes)
@@ -419,10 +419,10 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         if self.image_index <= 0:
             box = QMessageBox()
             box.setIcon(QMessageBox.Question)
-            box.setWindowTitle("Continue back to final image?")
+            box.setWindowTitle("Continue from final image?")
             box.setText(cleandoc("""
                This is the first image.
-               Do you want to continue back to the final image?
+               Do you want to continue from the final image?
             """))
             box.setStandardButtons(QMessageBox.Cancel | QMessageBox.Yes)
             box.setDefaultButton(QMessageBox.Yes)
