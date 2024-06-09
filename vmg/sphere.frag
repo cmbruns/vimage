@@ -15,7 +15,7 @@ uniform int projection = STEREOGRAPHIC_PROJECTION;
 
 uniform sampler2D image;
 uniform int pixelFilter = NEAREST;
-uniform mat3 ont_rot_view = mat3(1);
+uniform mat3 ont_rot_obq = mat3(1);
 uniform mat3 raw_rot_ont = mat3(1);
 
 in vec2 p_nic;
@@ -118,32 +118,32 @@ bool equirect_valid(vec2 xy) {
 }
 
 void main() {
-    vec3 p_view;
+    vec3 p_obq;
     if (projection == STEREOGRAPHIC_PROJECTION) {
-        p_view = stereographic_xyz(p_nic);
+        p_obq = stereographic_xyz(p_nic);
     }
     else if (projection == AZ_EQ_PROJECTION) {
         if (! azeqd_valid(p_nic)) {
             color = vec4(1, 0, 0, 0);
             return;
         }
-        p_view = azimuthal_equidistant_xyz(p_nic);
+        p_obq = azimuthal_equidistant_xyz(p_nic);
     }
     else if (projection == GNOMONIC_PROJECTION) {
-        p_view = gnomonic_xyz(p_nic);
+        p_obq = gnomonic_xyz(p_nic);
     }
     else if (projection == EQUIRECT_PROJECTION) {
         if (! equirect_valid(p_nic)) {
             color = vec4(1, 0, 0, 0);
             return;
         }
-        p_view = equirect_xyz(p_nic);
+        p_obq = equirect_xyz(p_nic);
     }
     else {
-        p_view = original_xyz(p_nic);
+        p_obq = original_xyz(p_nic);
     }
 
-    vec3 p_raw = raw_rot_ont * ont_rot_view * p_view;
+    vec3 p_raw = raw_rot_ont * ont_rot_obq * p_obq;
 
     vec2 p_tex = equirect_tex_coord(p_raw);
 

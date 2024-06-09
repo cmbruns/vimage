@@ -120,43 +120,51 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
             ], dtype=numpy.float32)
             p_nic = nic_xform_qwn @ p_qwn
             # Set unzoomed window size to PI projected units
-            p_ste = p_nic * pi / 2  # projected stereographic
+            p_prj = p_nic * pi / 2  # projected stereographic
             if self.sphere_view_state.projection == Projection360.GNOMONIC:
-                d = 1.0 / (p_ste[0]**2 + p_ste[1]**2 + 1)**0.5
-                p_viw = numpy.array([  # sphere orientation as viewed on screen
-                    [d * p_ste[0]],
-                    [d * p_ste[1]],
+                d = 1.0 / (p_prj[0]**2 + p_prj[1]**2 + 1)**0.5
+                p_obq = numpy.array([  # sphere orientation as viewed on screen
+                    [d * p_prj[0]],
+                    [d * p_prj[1]],
                     [-d],
                 ], dtype=numpy.float32)
             elif self.sphere_view_state.projection == Projection360.EQUIDISTANT:
-                r = (p_ste[0]**2 + p_ste[1]**2)**0.5
+                r = (p_prj[0]**2 + p_prj[1]**2)**0.5
                 d = sin(r) / r
-                p_viw = numpy.array([  # sphere orientation as viewed on screen
-                    [d * p_ste[0]],
-                    [d * p_ste[1]],
+                p_obq = numpy.array([  # sphere orientation as viewed on screen
+                    [d * p_prj[0]],
+                    [d * p_prj[1]],
                     [-cos(r)],
                 ], dtype=numpy.float32)
             elif self.sphere_view_state.projection == Projection360.EQUIRECTANGULAR:
-                p_viw = numpy.array([  # sphere orientation as viewed on screen
-                    [sin(p_ste[0])],
-                    [sin(p_ste[1])],
-                    [-cos(p_ste[0])],
+                p_obq = numpy.array([  # sphere orientation as viewed on screen
+                    [sin(p_prj[0])],
+                    [sin(p_prj[1])],
+                    [-cos(p_prj[0])],
                 ], dtype=numpy.float32)
             elif self.sphere_view_state.projection == Projection360.STEREOGRAPHIC:
-                d = p_ste[0]**2 + p_ste[1]**2 + 4
-                p_viw = numpy.array([  # sphere orientation as viewed on screen
-                    [4 * p_ste[0] / d],
-                    [4 * p_ste[1] / d],
+                d = p_prj[0]**2 + p_prj[1]**2 + 4
+                p_obq = numpy.array([  # sphere orientation as viewed on screen
+                    [4 * p_prj[0] / d],
+                    [4 * p_prj[1] / d],
                     [(d - 8) / d],
                 ], dtype=numpy.float32)
             else:
                 assert False  # What projection is this?
-            # print(p_viw)
+            # print(p_obq)
             # convert to rectified sphere orientation
-            p_ont = self.sphere_view_state.ont_rot_view @ p_viw
+            p_ont = self.sphere_view_state.ont_rot_obq @ p_obq
             # print(p_ont)
             heading = degrees(atan2(p_ont[0], -p_ont[2]))
-            pitch = degrees(asin(p_ont[1]))
+            # Avoid out of range
+            y = p_ont[1]
+            assert y < 1.1
+            if y > 1:
+                y = 1
+            assert y > -1.1
+            if y < -1:
+                y = -1
+            pitch = degrees(asin(y))
             self.request_message.emit(  # noqa
                 f"heading = {heading:.1f}°; pitch = {pitch:.1f}°"
             , 2000)
@@ -201,7 +209,7 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         dx = event.pos().x() - self.previous_mouse_position.x()
         dy = event.pos().y() - self.previous_mouse_position.y()
         self.view_state.drag_relative(dx, dy, self)
-        self.sphere_view_state.drag_relative(dx, dy, self)  # TODO: redundant?
+        # self.sphere_view_state.drag_relative(dx, dy, self)  # TODO: redundant?
         self.previous_mouse_position = event.pos()
         self.update()
 
