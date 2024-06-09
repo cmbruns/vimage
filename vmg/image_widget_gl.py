@@ -1,4 +1,4 @@
-from math import asin, atan2, cos, degrees, radians, sin
+from math import asin, atan2, cos, degrees, pi, radians, sin
 
 from typing import Optional
 
@@ -88,8 +88,8 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         # TODO: delete obsolete transform codes elsewhere
         if self.is_360:  # TODO: put these codes into view_model or something
             # Spherical panorama image
-            w_omp, h_omp = 2, 2  # two radians, as if orthographic projection, say
-            cen_x_omp, cen_y_omp = 1, 1
+            w_omp, h_omp = pi, pi  # two radians, as if orthographic projection, say
+            cen_x_omp, cen_y_omp = pi/2, pi/2
         else:
             # Standard rectangular image
             raw_height, raw_width = self.image.shape[0:2]  # Unrotated dimension
@@ -118,7 +118,8 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
                 [0, 0, 1],
             ], dtype=numpy.float32)
             p_nic = nic_xform_qwn @ p_qwn
-            p_ste = p_nic  # projected stereographic
+            # Set unzoomed window size to PI projected units
+            p_ste = p_nic * pi / 2  # projected stereographic
             d = p_ste[0]**2 + p_ste[1]**2 + 4
             p_viw = numpy.array([  # sphere orientation as viewed on screen
                 [4 * p_ste[0] / d],

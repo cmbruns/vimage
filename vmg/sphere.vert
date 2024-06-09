@@ -44,14 +44,16 @@ uniform float window_zoom = 1.0;
 
 out vec2 p_nic;
 
+const float PI = 3.1415926535897932384626433832795;
+
 void main() {
     // set position for each corner vertex
     gl_Position = SCREEN_QUAD[gl_VertexID];
     vec2 p_ndc = gl_Position.xy / gl_Position.w;
-    float scale = 1.0 / window_size.y / window_zoom;  // scale by height
+    float scale = PI / 2.0 / window_size.y / window_zoom;  // scale by height
     float window_aspect = window_size.x / float(window_size.y);
     if (window_aspect < 1.0) { // narrow window, so scale by width
-        scale = 1.0 / window_size.x / window_zoom;
+        scale = PI / 2.0 / window_size.x / window_zoom;
     }
     p_nic = p_ndc * vec2(scale * window_size.x, scale * window_size.y);
 }
