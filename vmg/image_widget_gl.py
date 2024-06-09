@@ -11,6 +11,7 @@ from PySide6.QtCore import QEvent, Qt
 
 from vmg.coordinate import WindowPos, NdcPos
 from vmg.pixel_filter import PixelFilter
+from vmg.projection_360 import Projection360
 from vmg.view_model import RectangularViewState, RectangularShader, IViewState, IImageShader, SphericalViewState, \
     SphericalShader
 
@@ -120,12 +121,34 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
             p_nic = nic_xform_qwn @ p_qwn
             # Set unzoomed window size to PI projected units
             p_ste = p_nic * pi / 2  # projected stereographic
-            d = p_ste[0]**2 + p_ste[1]**2 + 4
-            p_viw = numpy.array([  # sphere orientation as viewed on screen
-                [4 * p_ste[0] / d],
-                [4 * p_ste[1] / d],
-                [(d - 8) / d],
-            ], dtype=numpy.float32)
+            if self.sphere_view_state.projection == Projection360.GNOMONIC:
+                d = 1.0 / (p_ste[0]**2 + p_ste[1]**2 + 1)**0.5
+                p_viw = numpy.array([  # sphere orientation as viewed on screen
+                    [d * p_ste[0]],
+                    [d * p_ste[1]],
+                    [-d],
+                ], dtype=numpy.float32)
+            elif self.sphere_view_state.projection == Projection360.EQUIDISTANT:
+                r = (p_ste[0]**2 + p_ste[1]**2)**0.5
+                d = sin(r) / r
+                p_viw = numpy.array([  # sphere orientation as viewed on screen
+                    [d * p_ste[0]],
+                    [d * p_ste[1]],
+                    [-cos(r)],
+                ], dtype=numpy.float32)
+            elif self.sphere_view_state.projection == Projection360.EQUIRECTANGULAR:
+                p_viw = numpy.array([  # sphere orientation as viewed on screen
+                    [sin(p_ste[0])],
+                    [sin(p_ste[1])],
+                    [-cos(p_ste[0])],
+                ], dtype=numpy.float32)
+            else:  # self.sphere_view_state.projection == Projection360.STEREOGRAPHIC:
+                d = p_ste[0]**2 + p_ste[1]**2 + 4
+                p_viw = numpy.array([  # sphere orientation as viewed on screen
+                    [4 * p_ste[0] / d],
+                    [4 * p_ste[1] / d],
+                    [(d - 8) / d],
+                ], dtype=numpy.float32)
             # print(p_viw)
             # convert to rectified sphere orientation
             p_ont = self.sphere_view_state.ont_rot_view @ p_viw
