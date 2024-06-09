@@ -1,7 +1,3 @@
-import json
-
-from typing import Optional
-
 import time
 
 import os
@@ -17,6 +13,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QUndoStack
 from PySide6.QtWidgets import QFileDialog
 
+from vmg.circular_combo_box import CircularComboBox
 from vmg.natural_sort import natural_sort_key
 from vmg.pixel_filter import PixelFilter
 from vmg.projection_360 import Projection360
@@ -52,6 +49,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         self.image = None
         self.imageWidgetGL.pixel_filter = PixelFilter.CATMULL_ROM
         self.imageWidgetGL.request_message.connect(self.statusbar.showMessage)
+        self.imageWidgetGL.signal_360.connect(self.set_is_360)
         # Configure actions
         self.recent_files = RecentFileList(
             open_file_slot=self.load_main_image,
@@ -78,10 +76,20 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         self.addAction(self.actionSharp)
         # Make projections mutually exclusive
         self.projection_group = QtGui.QActionGroup(self)
-        self.projection_group.addAction(self.actionPerspective)
-        self.projection_group.addAction(self.actionStereographic)
-        self.projection_group.addAction(self.actionEquidistant)
-        self.projection_group.addAction(self.actionEquirectangular)
+        self.projectionComboBox = CircularComboBox()
+        for proj in (
+                self.actionPerspective,
+                self.actionStereographic,
+                self.actionEquidistant,
+                self.actionEquirectangular,
+        ):
+            self.projection_group.addAction(proj)
+            self.projectionComboBox.addItem(proj.text(), proj)
+            if proj.isChecked():
+                self.projectionComboBox.setCurrentText(proj.text())
+        self.projectionComboBox.setEnabled(False)
+        self.projectionComboBox.currentIndexChanged.connect(self.on_projectionComboBox_currentIndexChanged)  # noqa
+        self.toolBar.addWidget(self.projectionComboBox)
         # Clipboard actions
         self.clipboard = QtGui.QGuiApplication.clipboard()
         self.clipboard.dataChanged.connect(self.process_clipboard_change)  # noqa
@@ -92,7 +100,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         self.clipboard.dataChanged.connect(self.process_clipboard_change)  # noqa
         # Undo actions
         self.undo_stack = QUndoStack()  # TODO: per-image undo stack
-        self.undo_stack.cleanChanged.connect(self.undo_stack_clean_changed)
+        self.undo_stack.cleanChanged.connect(self.undo_stack_clean_changed)  # noqa
         self.undo_stack.setActive()
         self.action_undo = self.undo_stack.createUndoAction(self)
         self.action_undo.setShortcut(QtGui.QKeySequence.Undo)
@@ -188,6 +196,8 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
             if self.load_image_from_memory(image=image, name=file_name):
                 self.undo_stack.clear()
                 self.undo_stack.setClean()  # clear() does not always set clean
+                return True
+        return False
 
     def load_main_image(self, file_name: str):
         path = pathlib.Path(file_name)
@@ -254,11 +264,18 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         self.load_image(self.image_list[self.image_index])
         self.update_previous_next()
 
-    def set_360_projection(self, projection: Projection360) -> None:
+    def set_360_projection(self, projection: Projection360, action: QtGui.QAction) -> None:
         if self.imageWidgetGL.sphere_view_state.projection == projection:
             return
         self.imageWidgetGL.sphere_view_state.projection = projection
+        if self.projectionComboBox.currentText() != action.text():
+            self.projectionComboBox.setCurrentText(action.text())
         self.imageWidgetGL.update()
+
+    @QtCore.Slot(bool)
+    def set_is_360(self, is_360: bool) -> None:
+        self.projectionComboBox.setEnabled(is_360)
+        self.menu360_Projection.setEnabled(is_360)
 
     def update_previous_next(self):
         if self.image_index < len(self.image_list) - 1:
@@ -296,12 +313,12 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
     @QtCore.Slot(bool)  # noqa
     def on_actionEquidistant_toggled(self, is_checked: bool):  # noqa
         if is_checked:
-            self.set_360_projection(Projection360.EQUIDISTANT)
+            self.set_360_projection(Projection360.EQUIDISTANT, self.actionEquidistant)
 
     @QtCore.Slot(bool)  # noqa
     def on_actionEquirectangular_toggled(self, is_checked: bool):  # noqa
         if is_checked:
-            self.set_360_projection(Projection360.EQUIRECTANGULAR)
+            self.set_360_projection(Projection360.EQUIRECTANGULAR, self.actionEquirectangular)
 
     @QtCore.Slot()  # noqa
     def on_actionExit_triggered(self):  # noqa
@@ -323,7 +340,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
     @QtCore.Slot(bool)  # noqa
     def on_actionPerspective_toggled(self, is_checked: bool):  # noqa
         if is_checked:
-            self.set_360_projection(Projection360.GNOMONIC)
+            self.set_360_projection(Projection360.GNOMONIC, self.actionPerspective)
 
     @QtCore.Slot()  # noqa
     def on_actionPaste_triggered(self):  # noqa
@@ -400,7 +417,12 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
     @QtCore.Slot(bool)  # noqa
     def on_actionStereographic_toggled(self, is_checked: bool):  # noqa
         if is_checked:
-            self.set_360_projection(Projection360.STEREOGRAPHIC)
+            self.set_360_projection(Projection360.STEREOGRAPHIC, self.actionStereographic)
+
+    @QtCore.Slot(int)  # noqa
+    def on_projectionComboBox_currentIndexChanged(self, index: int):
+        projection_action = self.projectionComboBox.itemData(index)
+        projection_action.trigger()
 
     @QtCore.Slot(bool)  # noqa
     def undo_stack_clean_changed(self, clean: bool):

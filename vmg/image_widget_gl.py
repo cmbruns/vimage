@@ -260,8 +260,7 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
                         [0, 1, 0],
                         [-sin(heading), 0, cos(heading)],
                     ]
-                    print(heading, pitch, roll)
-                except KeyError:
+                except (KeyError, TypeError):
                     pass
                 if exif["Model"].lower().startswith("ricoh theta"):
                     # print("360")
@@ -272,6 +271,7 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
             self.is_360 = False
             self.view_state = self.rect_view_state
             self.program = self.rect_shader
+        self.signal_360.emit(self.is_360)
         self.image = numpy.array(image)
         # Normalize values to maximum 1.0 and convert to float32
         # TODO: test performance
@@ -299,6 +299,8 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         self.sphere_view_state.reset()
         self.rect_view_state.reset()
         self.update()
+
+    signal_360 = QtCore.Signal(bool)
 
     def maybe_upload_image(self):
         if not self.image_needs_upload:

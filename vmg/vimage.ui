@@ -62,6 +62,9 @@
      <string>View</string>
     </property>
     <widget class="QMenu" name="menu360_Projection">
+     <property name="enabled">
+      <bool>false</bool>
+     </property>
      <property name="title">
       <string>360 Projection</string>
      </property>
@@ -221,7 +224,10 @@
     <bool>true</bool>
    </property>
    <property name="text">
-    <string>Conformal (Stereographic)</string>
+    <string>Stereographic</string>
+   </property>
+   <property name="toolTip">
+    <string>Stereographic projection preserves the shapes and angles of objects. This can be used to make &quot;small world&quot; images. The image is unbounded and the field of view is limited to less than 360 degrees.</string>
    </property>
   </action>
   <action name="actionEquidistant">
@@ -231,13 +237,19 @@
    <property name="text">
     <string>Equidistant</string>
    </property>
+   <property name="toolTip">
+    <string>Equidistant projection can show the entire panorama within a circular boundary. Distances from the center point are proportional to the true angle from the center point.</string>
+   </property>
   </action>
   <action name="actionPerspective">
    <property name="checkable">
     <bool>true</bool>
    </property>
    <property name="text">
-    <string>Perspective (Gnomonic)</string>
+    <string>Perspective</string>
+   </property>
+   <property name="toolTip">
+    <string>Perspective projection is similar to plain old non-360 non-fisheye photos. Straight lines in the real world remain straight in this projection. The image is unbounded and the field of view is limited to less than 180 degrees.</string>
    </property>
   </action>
   <action name="actionEquirectangular">
@@ -246,6 +258,9 @@
    </property>
    <property name="text">
     <string>Equirectangular</string>
+   </property>
+   <property name="toolTip">
+    <string>Equirectangular projection can show the entire panorama within a rectangle. This projection is often used as the internal storage format for 360 images.</string>
    </property>
   </action>
   <action name="actionPaste">

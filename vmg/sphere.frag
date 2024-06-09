@@ -7,10 +7,10 @@ const int CATMULL_ROM = 2;
 const float PI = 3.1415926535897932384626433832795;
 
 // Keep these constants in sync with projection_360.py
+const int GNOMONIC_PROJECTION = 0;
 const int STEREOGRAPHIC_PROJECTION = 1;
 const int AZ_EQ_PROJECTION = 2;
-const int GNOMONIC_PROJECTION = 3;
-const int EQUIRECT_PROJECTION = 4;
+const int EQUIRECT_PROJECTION = 3;
 uniform int projection = STEREOGRAPHIC_PROJECTION;
 
 uniform sampler2D image;
