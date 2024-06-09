@@ -137,10 +137,11 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
                     [-cos(r)],
                 ], dtype=numpy.float32)
             elif self.sphere_view_state.projection == Projection360.EQUIRECTANGULAR:
+                cy = cos(p_prj[1])
                 p_obq = numpy.array([  # sphere orientation as viewed on screen
-                    [sin(p_prj[0])],
+                    [sin(p_prj[0]) * cy],
                     [sin(p_prj[1])],
-                    [-cos(p_prj[0])],
+                    [-cos(p_prj[0]) * cy],
                 ], dtype=numpy.float32)
             elif self.sphere_view_state.projection == Projection360.STEREOGRAPHIC:
                 d = p_prj[0]**2 + p_prj[1]**2 + 4
@@ -158,7 +159,14 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
             heading = degrees(atan2(p_ont[0], -p_ont[2]))
             # Avoid out of range
             y = p_ont[1]
-            assert y < 1.1
+            if y >= 1.1:
+                print("y >= 1.1")
+                print(y)
+                print(p_prj)
+                print(p_ont, sum(p_ont * p_ont))
+                print(p_obq, sum(p_obq * p_obq))
+                print(self.sphere_view_state.ont_rot_obq)
+            # assert y < 1.1
             if y > 1:
                 y = 1
             assert y > -1.1
@@ -321,7 +329,11 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
             self.image = numpy.square(self.image)  # approximate srgb -> linear
         else:
             for rgb in range(3):
-                self.image[:, :, rgb] = numpy.square(self.image[:, :, rgb])  # approximate srgb -> linear
+                # crashes below on Mac with certain image when rgb==1
+                # Upgrading numpy to 1.26.4 from 1.25.something maybe helps
+                t0 = self.image[:, :, rgb]
+                t1 = numpy.square(t0)  # crashes here on Mac with certain image, but not every time
+                self.image[:, :, rgb] = t1  # approximate srgb -> linear
         # Use premultiplied alpha for better filtering
         if image.mode == "RGBA":
             a = self.image

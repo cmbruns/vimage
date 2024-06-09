@@ -11,7 +11,11 @@ from vmg.main_window import VimageMainWindow
 class VimageApplication(QtWidgets.QApplication):
     def event(self, event):
         if event.type() == QEvent.FileOpen:
-            self.on_file_open_event.emit(event.file())
+            file_name = event.file()
+            if file_name.endswith("Contents/plugins/python-ce/helpers/pydev/pydevd.py"):
+                pass  # Elide strange signal when debugging in pycharm on Mac
+            else:
+                self.on_file_open_event.emit(event.file())
         return super().event(event)
 
     on_file_open_event = QtCore.Signal(str)

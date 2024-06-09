@@ -87,7 +87,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
             if proj.isChecked():
                 self.projectionComboBox.setCurrentText(proj.text())
         self.projectionComboBox.setEnabled(False)
-        self.projectionComboBox.currentIndexChanged.connect(self.on_projection_combo_box_current_index_changed)  # noqa
+        self.projectionComboBox.currentIndexChanged.connect(self.projection_combo_box_current_index_changed)  # noqa
         # List label show progress through image list
         self.list_label = QtWidgets.QLabel("0/0")
         self.list_label.setMinimumWidth(40)
@@ -469,7 +469,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
             self.set_360_projection(Projection360.STEREOGRAPHIC, self.actionStereographic)
 
     @QtCore.Slot(int)  # noqa
-    def on_projection_combo_box_current_index_changed(self, index: int):
+    def projection_combo_box_current_index_changed(self, index: int):
         projection_action = self.projectionComboBox.itemData(index)
         projection_action.trigger()
 
