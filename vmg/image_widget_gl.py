@@ -167,7 +167,7 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
                 y = -1
             pitch = degrees(asin(y))
             self.request_message.emit(  # noqa
-                f"heading = {heading:.1f}°; pitch = {pitch:.1f}°"
+                f"heading = {heading:.1f}°  pitch = {pitch:.1f}°"
             , 2000)
         else:
             omp_xform_qwn = numpy.array([

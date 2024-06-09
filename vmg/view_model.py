@@ -70,19 +70,20 @@ class RectangularViewState(IViewState):
 
     def drag_relative(self, dx, dy, gl_widget):
         # Compute scales for converting window pixels to ndc coordinates
-        x_scale = -gl_widget.width() * self.window_zoom
-        y_scale = -gl_widget.height() * self.window_zoom
+        w_qwn, h_qwn = gl_widget.width(), gl_widget.height()
         img_height_raw, img_width_raw = gl_widget.image.shape[0:2]
-        img_width_ont, img_height_ont = [abs(x) for x in (gl_widget.raw_rot_ont2 @ [img_width_raw, img_height_raw])]
-        window_aspect = gl_widget.width() / gl_widget.height()
-        image_aspect_ont = img_width_ont / img_height_ont
-        ratio_ratio = window_aspect / image_aspect_ont
-        if window_aspect > image_aspect_ont:
-            x_scale /= ratio_ratio
+        w_omp, h_omp = [abs(x) for x in (gl_widget.raw_rot_ont2 @ [img_width_raw, img_height_raw])]
+        if w_omp / h_omp > w_qwn / h_qwn:
+            # image aspect is than window aspect, so scale by width for snug fit
+            asc_qwn = w_qwn
+            asc_omp = w_omp
         else:
-            y_scale *= ratio_ratio
-        self.image_center_img[0] += dx / x_scale
-        self.image_center_img[1] += dy / y_scale
+            asc_qwn = h_qwn
+            asc_omp = h_omp
+        zoom = self.window_zoom
+        k = -asc_omp / asc_qwn / zoom
+        self.image_center_img[0] += k * dx / w_omp
+        self.image_center_img[1] += k * dy / h_omp
         self.clamp_center()
 
     def image_for_window(self, p_qwn: WindowPos, gl_widget):
