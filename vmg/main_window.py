@@ -1,17 +1,16 @@
-import time
-
-import os
-
+from inspect import cleandoc
 import io
+import os
+from pathlib import Path
+import time
 
 import PIL
 from pillow_heif import register_heif_opener
-import pathlib
 from PIL import Image, ImageGrab
 from PySide6 import QtCore, QtGui, QtWidgets
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QUndoStack
-from PySide6.QtWidgets import QFileDialog
+from PySide6.QtWidgets import QFileDialog, QMessageBox
 
 from vmg.circular_combo_box import CircularComboBox
 from vmg.natural_sort import natural_sort_key
@@ -88,8 +87,14 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
             if proj.isChecked():
                 self.projectionComboBox.setCurrentText(proj.text())
         self.projectionComboBox.setEnabled(False)
-        self.projectionComboBox.currentIndexChanged.connect(self.on_projectionComboBox_currentIndexChanged)  # noqa
+        self.projectionComboBox.currentIndexChanged.connect(self.on_projection_combo_box_current_index_changed)  # noqa
+        # List label show progress through image list
+        self.list_label = QtWidgets.QLabel("0/0")
+        self.list_label.setMinimumWidth(40)
+        self.toolBar.addWidget(self.list_label)
+        self.toolBar.addSeparator()
         self.toolBar.addWidget(self.projectionComboBox)
+        self.toolBar.toggleViewAction().setEnabled(False)  # I did not like accidentally hiding it
         # Clipboard actions
         self.clipboard = QtGui.QGuiApplication.clipboard()
         self.clipboard.dataChanged.connect(self.process_clipboard_change)  # noqa
@@ -155,7 +160,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         if mime_data.hasUrls():
             for url in mime_data.urls():
                 file = url.toLocalFile()
-                if pathlib.Path(file).is_file():
+                if Path(file).is_file():
                     event.acceptProposedAction()
                     return
 
@@ -165,7 +170,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         if mime_data.hasUrls():
             for url in mime_data.urls():
                 file = url.toLocalFile()
-                if pathlib.Path(file).is_file():
+                if Path(file).is_file():
                     files.append(file)
         if len(files) < 1:
             return
@@ -200,7 +205,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         return False
 
     def load_main_image(self, file_name: str):
-        path = pathlib.Path(file_name)
+        path = Path(file_name)
         name = path.name
         paths_list = [path, ]
         folder = path.parent.absolute()
@@ -272,22 +277,32 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
             self.projectionComboBox.setCurrentText(action.text())
         self.imageWidgetGL.update()
 
-    @QtCore.Slot(bool)
+    @QtCore.Slot(bool)  # noqa
     def set_is_360(self, is_360: bool) -> None:
         self.projectionComboBox.setEnabled(is_360)
         self.menu360_Projection.setEnabled(is_360)
 
     def update_previous_next(self):
-        if self.image_index < len(self.image_list) - 1:
+        # Update progress label
+        total = len(self.image_list)
+        current = self.image_index + 1
+        self.list_label.setText(f"{current}/{total}")
+        #
+        if len(self.image_list) < 2:
+            for action in (self.actionPrevious, self.actionNext):
+                action.setEnabled(False)
+                action.setToolTip("")
+        else:
+            next_index = (self.image_index + 1) % total
+            prev_index = (self.image_index - 1 + total) % total
+            assert next_index >= 0
+            assert next_index < total
+            assert prev_index >= 0
+            assert prev_index < total
+            self.actionNext.setToolTip(Path(self.image_list[next_index]).name)
+            self.actionPrevious.setToolTip(Path(self.image_list[prev_index]).name)
             self.actionNext.setEnabled(True)
-            self.actionNext.setToolTip(str(self.image_list[self.image_index + 1]))
-        else:
-            self.actionNext.setEnabled(False)
-        if self.image_index > 0:
             self.actionPrevious.setEnabled(True)
-            self.actionPrevious.setToolTip(str(self.image_list[self.image_index - 1]))
-        else:
-            self.actionPrevious.setEnabled(False)
 
     @QtCore.Slot(str)  # noqa
     def file_open_event(self, file_: str):
@@ -358,10 +373,27 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
 
     @QtCore.Slot()  # noqa
     def on_actionNext_triggered(self):  # noqa
-        if self.image_index >= len(self.image_list) - 1:
+        if len(self.image_list) < 2:
             self.actionNext.setEnabled(False)
             return
+        if self.image_index >= len(self.image_list) - 1:
+            box = QMessageBox()
+            box.setIcon(QMessageBox.Question)
+            box.setWindowTitle("Continue back to first image?")
+            box.setText(cleandoc("""
+               This is the final image.
+               Do you want to continue back to the first image?
+            """))
+            box.setStandardButtons(QMessageBox.Cancel | QMessageBox.Yes)
+            box.setDefaultButton(QMessageBox.Yes)
+            button_yes = box.button(QMessageBox.Yes)
+            button_yes.setText("Continue")
+            reply = box.exec()
+            if reply != QMessageBox.Yes:
+                return
         self.image_index += 1
+        if self.image_index >= len(self.image_list):
+            self.image_index -= len(self.image_list)
         self.activate_indexed_image()
 
     @QtCore.Slot()  # noqa
@@ -381,10 +413,27 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
 
     @QtCore.Slot()  # noqa
     def on_actionPrevious_triggered(self):  # noqa
-        if self.image_index < 1 or len(self.image_list) < 1:
+        if len(self.image_list) < 2:
             self.actionPrevious.setEnabled(False)
             return
+        if self.image_index <= 0:
+            box = QMessageBox()
+            box.setIcon(QMessageBox.Question)
+            box.setWindowTitle("Continue back to final image?")
+            box.setText(cleandoc("""
+               This is the first image.
+               Do you want to continue back to the final image?
+            """))
+            box.setStandardButtons(QMessageBox.Cancel | QMessageBox.Yes)
+            box.setDefaultButton(QMessageBox.Yes)
+            button_yes = box.button(QMessageBox.Yes)
+            button_yes.setText("Continue")
+            reply = box.exec()
+            if reply != QMessageBox.Yes:
+                return
         self.image_index -= 1
+        if self.image_index < 0:
+            self.image_index += len(self.image_list)
         self.activate_indexed_image()
 
     @QtCore.Slot()  # noqa
@@ -420,7 +469,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
             self.set_360_projection(Projection360.STEREOGRAPHIC, self.actionStereographic)
 
     @QtCore.Slot(int)  # noqa
-    def on_projectionComboBox_currentIndexChanged(self, index: int):
+    def on_projection_combo_box_current_index_changed(self, index: int):
         projection_action = self.projectionComboBox.itemData(index)
         projection_action.trigger()
 
