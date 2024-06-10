@@ -20,6 +20,15 @@ class BasicVec(object):
     def __len__(self):
         return len(self._v)
 
+    def __mul__(self, rhs):
+        return self._v * rhs
+
+    def __repr__(self):
+        return repr(self._v)
+
+    def __sub__(self, rhs):
+        return self.__class__(* self._v - rhs)
+
 
 class BasicVec2(BasicVec):
     """Base class for semantic 2D coordinate types"""
