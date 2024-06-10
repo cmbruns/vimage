@@ -263,6 +263,8 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
 
     def set_image(self, image: PIL.Image.Image):
         self.image_state = ImageState(image)
+        self.view_state.reset()
+        self.view_state.set_360(self.image_state.is_360)
         self.view_state.set_image_size(*self.image_state.size)
         exif0 = image.getexif()
         exif = {

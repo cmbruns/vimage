@@ -1,4 +1,4 @@
-from math import asin, atan2, cos, degrees, pi, sin
+from math import asin, atan2, cos, degrees, pi, radians, sin
 from typing import Optional
 
 import numpy
@@ -72,10 +72,51 @@ class ImageState(object):
         orientation_code: int = exif.get("Orientation", 1)
         self._raw_rot_omp = self._exif_orientation_to_matrix.get(orientation_code, numpy.eye(2, dtype=numpy.float32))
         self.size_omp = DimensionsOmp(*[abs(x) for x in (self.raw_rot_omp.T @ self.size_raw)])
+        if self.size_omp.x == 2 * self.size_omp.y:
+            try:
+                self._is_360 = True
+                try:
+                    # TODO: InitialViewHeadingDegrees
+                    desc = xmp["xmpmeta"]["RDF"]["Description"]
+                    heading = radians(float(desc["PoseHeadingDegrees"]))
+                    pitch = radians(float(desc["PosePitchDegrees"]))
+                    roll = radians(float(desc["PoseRollDegrees"]))
+                    self._raw_rot_ont = numpy.array([
+                        [cos(roll), -sin(roll), 0],
+                        [sin(roll), cos(roll), 0],
+                        [0, 0, 1],
+                    ], dtype=numpy.float32)
+                    self._raw_rot_ont = self._raw_rot_ont @ [
+                        [1, 0, 0],
+                        [0, cos(pitch), sin(pitch)],
+                        [0, -sin(pitch), cos(pitch)],
+                    ]
+                    self._raw_rot_ont = self._raw_rot_ont @ [
+                        [cos(heading), 0, sin(heading)],
+                        [0, 1, 0],
+                        [-sin(heading), 0, cos(heading)],
+                    ]
+                except (KeyError, TypeError):
+                    pass
+                if exif["Model"].lower().startswith("ricoh theta"):
+                    # print("360")
+                    pass  # TODO 360 image
+            except KeyError:
+                pass
+        else:
+            self._is_360 = False
+
+    @property
+    def is_360(self) -> bool:
+        return self._is_360
 
     @property
     def raw_rot_omp(self) -> numpy.array:
         return self._raw_rot_omp
+
+    @property
+    def raw_rot_ont(self) -> numpy.array:
+        return self._raw_rot_ont
 
     @property
     def size(self) -> DimensionsOmp:
@@ -133,17 +174,11 @@ class ViewState(QObject):
             cy = max(cy, 0.5 / z)
         self._center_rel = LocationRelative(cx, cy)
 
-    @Slot(int, int)
-    def set_image_size(self, width, height):
-        self._size_omp = DimensionsOmp(width, height)
-        self._update_aspect_scale()
-
-    def set_window_size(self, width, height):
-        self._size_qwn = DimensionsQwn(width, height)
-        self._update_aspect_scale()
-
     @property
     def is_360(self) -> bool:
+        """
+        View state can override image 360-ness
+        """
         return self._is_360
 
     @property
@@ -165,31 +200,31 @@ class ViewState(QObject):
         if self.projection == Projection360.GNOMONIC:
             d = 1.0 / (p_prj[0] ** 2 + p_prj[1] ** 2 + 1) ** 0.5
             p_obq = numpy.array([  # sphere orientation as viewed on screen
-                [d * p_prj[0]],
-                [d * p_prj[1]],
-                [-d],
+                d * p_prj[0],
+                d * p_prj[1],
+                -d,
             ], dtype=numpy.float32)
         elif self.projection == Projection360.EQUIDISTANT:
             r = (p_prj[0] ** 2 + p_prj[1] ** 2) ** 0.5
             d = sin(r) / r
             p_obq = numpy.array([  # sphere orientation as viewed on screen
-                [d * p_prj[0]],
-                [d * p_prj[1]],
-                [-cos(r)],
+                d * p_prj[0],
+                d * p_prj[1],
+                -cos(r),
             ], dtype=numpy.float32)
         elif self.projection == Projection360.EQUIRECTANGULAR:
             cy = cos(p_prj[1])
             p_obq = numpy.array([  # sphere orientation as viewed on screen
-                [sin(p_prj[0]) * cy],
-                [sin(p_prj[1])],
-                [-cos(p_prj[0]) * cy],
+                sin(p_prj[0]) * cy,
+                sin(p_prj[1]),
+                -cos(p_prj[0]) * cy,
             ], dtype=numpy.float32)
         elif self.projection == Projection360.STEREOGRAPHIC:
             d = p_prj[0] ** 2 + p_prj[1] ** 2 + 4
             p_obq = numpy.array([  # sphere orientation as viewed on screen
-                [4 * p_prj[0] / d],
-                [4 * p_prj[1] / d],
-                [(d - 8) / d],
+                4 * p_prj[0] / d,
+                4 * p_prj[1] / d,
+                (d - 8) / d,
             ], dtype=numpy.float32)
         else:
             assert False  # What projection is this?
@@ -222,7 +257,7 @@ class ViewState(QObject):
             [0, s, c],
         ], dtype=numpy.float32)
         ont_rot_obq = rot_heading @ rot_pitch
-        return LocationOnt(* ont_rot_obq * p_obq)
+        return LocationOnt(* ont_rot_obq @ p_obq)
 
     def ont_for_qwn(self, p_qwn: LocationQwn) -> LocationOnt:
         p_prj = self.prj_for_qwn(p_qwn)
@@ -242,18 +277,47 @@ class ViewState(QObject):
     def projection(self) -> Projection360:
         return self._projection
 
+    def reset(self) -> None:
+        self._zoom = 1.0  # windows per image
+        self._center_rel = LocationRelative(0.5, 0.5)
+        self._view_heading_radians = 0.0
+        self._view_pitch_radians = 0.0
+
+    def set_360(self, is_360: bool) -> None:
+        self._is_360 = is_360
+        self._update_aspect_scale()
+
+    def set_image_size(self, width, height):
+        self._size_omp = DimensionsOmp(width, height)
+        self._update_aspect_scale()
+
+    def set_window_size(self, width, height):
+        self._size_qwn = DimensionsQwn(width, height)
+        self._update_aspect_scale()
+
     def _update_aspect_scale(self):
         w_omp, h_omp = self._size_omp
         w_qwn, h_qwn = self._size_qwn
-        if w_omp/h_omp > w_qwn/h_qwn:
-            # Image aspect is wider than window aspect
-            # So use width in scaling factor
-            self.asc_omp = w_omp
-            self.asc_qwn = w_qwn
-        else:
-            # Use height in scaling factor
-            self.asc_omp = h_omp
-            self.asc_qwn = h_qwn
+        if self.is_360:
+            if 1 > w_qwn/h_qwn:
+                # window aspect is thin
+                # So use width in scaling factor
+                self.asc_omp = w_omp
+                self.asc_qwn = w_qwn
+            else:
+                # Use height in scaling factor
+                self.asc_omp = h_omp
+                self.asc_qwn = h_qwn
+        else:  # rectangular image
+            if w_omp/h_omp > w_qwn/h_qwn:
+                # Image aspect is wider than window aspect
+                # So use width in scaling factor
+                self.asc_omp = w_omp
+                self.asc_qwn = w_qwn
+            else:
+                # Use height in scaling factor
+                self.asc_omp = h_omp
+                self.asc_qwn = h_qwn
 
     @property
     def zoom(self) -> float:
@@ -286,6 +350,7 @@ class ProjectedPoint(object):
     def __init__(self, qpoint: QPoint, view_state: ViewState):
         p_qwn = LocationQwn(qpoint.x(), qpoint.y(), 1.0)
         if view_state.is_360:
+            p_nic = view_state.nic_for_qwn(p_qwn)
             p_ont = view_state.ont_for_qwn(p_qwn)
             self._heading = degrees(atan2(p_ont.x, -p_ont.z))
             self._pitch = degrees(asin(p_ont.y))
