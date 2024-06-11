@@ -56,12 +56,12 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
             menu=self.menuOpen_Recent,
         )
         self.actionNext.setIcon(self.style().standardIcon(
-            QtWidgets.QStyle.SP_ArrowForward))
+            QtWidgets.QStyle.SP_MediaSeekForward))
         self.actionOpen.setShortcut(QtGui.QKeySequence.Open)
         self.actionOpen.setIcon(self.style().standardIcon(
             QtWidgets.QStyle.SP_DialogOpenButton))
         self.actionPrevious.setIcon(self.style().standardIcon(
-            QtWidgets.QStyle.SP_ArrowBack))
+            QtWidgets.QStyle.SP_MediaSeekBackward))
         self.actionExit.setShortcut(QtGui.QKeySequence.Quit)
         self.actionSave_As.setIcon(self.style().standardIcon(
             QtWidgets.QStyle.SP_DialogSaveButton))
