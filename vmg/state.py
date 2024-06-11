@@ -98,7 +98,10 @@ class ImageState(object):
                     exif[tag] = v
             except KeyError:
                 pass
-        xmp = pil_image.getxmp()  # noqa
+        try:
+            xmp = pil_image.getxmp()  # noqa
+        except AttributeError:
+            xmp = {}
         orientation_code: int = exif.get("Orientation", 1)
         self._raw_rot_omp = self._exif_orientation_to_matrix.get(orientation_code, numpy.eye(2, dtype=numpy.float32))
         self.size_omp = DimensionsOmp(*[abs(x) for x in (self.raw_rot_omp.T @ self.size_raw)])

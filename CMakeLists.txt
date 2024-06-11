@@ -2,7 +2,9 @@ cmake_minimum_required(VERSION 3.5)
 project(vimage NONE)
 
 find_program(UIC PySide6-uic
-  HINTS /Library/Frameworks/Python.framework/Versions/3.9/bin/
+  HINTS
+    /Library/Frameworks/Python.framework/Versions/3.9/bin/
+    /usr/local/bin/
 )
 add_custom_command(
     OUTPUT "${CMAKE_SOURCE_DIR}/vmg/ui_vimage.py"
@@ -12,7 +14,9 @@ add_custom_command(
 )
 
 find_program(PYINSTALLER pyinstaller
-    HINTS /Library/Frameworks/Python.framework/Versions/3.9/bin/
+    HINTS
+      /Library/Frameworks/Python.framework/Versions/3.9/bin/
+      /usr/local/bin/
 )
 add_custom_target(RunPyInstaller ALL
     COMMAND ${CMAKE_COMMAND} -E remove_directory "${CMAKE_BINARY_DIR}/dist"
@@ -35,12 +39,16 @@ elseif(APPLE)
       DESTINATION "."
       USE_SOURCE_PERMISSIONS
   )
+ elseif(UNIX)
+  install(DIRECTORY "${CMAKE_BINARY_DIR}/dist/vimage"
+      DESTINATION "."
+  )
 endif()
 
 set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_SOURCE_DIR}/LICENSE.txt")
 set(CPACK_PACKAGE_VERSION_MAJOR "0")
 set(CPACK_PACKAGE_VERSION_MINOR "8")
-set(CPACK_PACKAGE_VERSION_PATCH "1")
+set(CPACK_PACKAGE_VERSION_PATCH "2")
 set(CPACK_PACKAGE_EXECUTABLES "vimage;vimage")
 
 if (WIN32)
@@ -52,6 +60,11 @@ if (WIN32)
 elseif(APPLE)
   set(CPACK_GENERATOR DragNDrop)
   set(CPACK_DMG_DS_STORE "${CMAKE_SOURCE_DIR}/CMake/DS_Store")
+elseif(UNIX)
+  set(CPACK_GENERATOR DEB)
+  set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Christopher Bruns")
+  set(CPACK_DEBIAN_PACKAGE_DEPENDS "")
+  set(CPACK_SET_DESTDIR "ON")
 endif()
 
 
