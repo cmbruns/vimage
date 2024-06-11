@@ -14,20 +14,41 @@ class BasicVec(object):
     def __init__(self, *args) -> None:
         self._v = numpy.array(args, dtype=numpy.float32)
 
-    def __getitem__(self, item):
-        return self._v[item]
+    def __abs__(self):
+        return sum(x**2 for x in self)**0.5
+
+    def __add__(self, rhs):
+        return self.__class__(* (self._v + rhs))
+
+    def __getitem__(self, key):
+        return self._v[key]
 
     def __len__(self):
         return len(self._v)
 
+    def __matmul__(self, rhs):
+        return self._v @ rhs
+
     def __mul__(self, rhs):
-        return self._v * rhs
+        return self.__class__(* (self._v * rhs))
+
+    def __neg__(self):
+        return self.__class__(* -self._v)
+
+    def __pos__(self):
+        return self
 
     def __repr__(self):
         return repr(self._v)
 
+    def __setitem__(self, key, value):
+        self._v[key] = value
+
     def __sub__(self, rhs):
-        return self.__class__(* self._v - rhs)
+        return self.__class__(* (self._v - rhs))
+
+    def __truediv__(self, rhs):
+        return self.__class__(* (self._v / rhs))
 
 
 class BasicVec2(BasicVec):

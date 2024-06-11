@@ -183,7 +183,7 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
             # print(f"h_omp_xform_qwn:")
             # print(omp_xform_qwn)
             p_omp = omp_xform_qwn @ p_qwn
-            print(f"h_omp: {p_omp}")
+            # print(f"h_omp: {p_omp}")
             self.request_message.emit(  # noqa
                 f"image pixel = [{int(p_omp[0])}, {int(p_omp[1])}]"
                 , 2000)
@@ -209,11 +209,8 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
             return
         if event.source() != Qt.MouseEventNotSynthesized:
             return
+        projected_point = ProjectedPoint(event.pos(), self.view_state)
         if not self.is_dragging:
-            test = ProjectedPoint(
-                event.pos(),
-                self.view_state,
-            )
             update_needed = self._hover_pixel(WindowPos.from_qpoint(event.pos()))
             if update_needed:
                 self.update()
@@ -222,7 +219,7 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         dx = event.pos().x() - self.previous_mouse_position.x()
         dy = event.pos().y() - self.previous_mouse_position.y()
         self.view_state0.drag_relative(dx, dy, self)
-        # self.sphere_view_state.drag_relative(dx, dy, self)  # TODO: redundant?
+        self.view_state.drag_relative(event.pos(), self.previous_mouse_position)
         self.previous_mouse_position = event.pos()
         self.update()
 
@@ -233,6 +230,7 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
 
     def mouseReleaseEvent(self, event):
         self.is_dragging = False
+        self.previous_mouse_position = None
         self.setCursor(Qt.CrossCursor)
 
     def wheelEvent(self, event: QtGui.QWheelEvent):

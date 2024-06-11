@@ -291,7 +291,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         if len(self.image_list) < 2:
             for action in (self.actionPrevious, self.actionNext):
                 action.setEnabled(False)
-                action.setToolTip("")
+                action.setToolTip(action.text())
         else:
             next_index = (self.image_index + 1) % total
             prev_index = (self.image_index - 1 + total) % total
@@ -299,8 +299,8 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
             assert next_index < total
             assert prev_index >= 0
             assert prev_index < total
-            self.actionNext.setToolTip(Path(self.image_list[next_index]).name)
-            self.actionPrevious.setToolTip(Path(self.image_list[prev_index]).name)
+            self.actionNext.setToolTip(f"{self.actionNext.text()}: {Path(self.image_list[next_index]).name}")
+            self.actionPrevious.setToolTip(f"{self.actionPrevious.text()}: {Path(self.image_list[prev_index]).name}")
             self.actionNext.setEnabled(True)
             self.actionPrevious.setEnabled(True)
 

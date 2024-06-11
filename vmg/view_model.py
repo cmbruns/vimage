@@ -82,8 +82,10 @@ class RectangularViewState(IViewState):
             asc_omp = h_omp
         zoom = self.window_zoom
         k = -asc_omp / asc_qwn / zoom
+        # print(f"old drag dx, dy rel {k * dx / w_omp} {k * dy / h_omp}")
         self.image_center_img[0] += k * dx / w_omp
         self.image_center_img[1] += k * dy / h_omp
+        # print(f"old way image center {self.image_center_img}")
         self.clamp_center()
 
     def image_for_window(self, p_qwn: WindowPos, gl_widget):

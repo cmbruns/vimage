@@ -39,7 +39,9 @@ class LocationOmp(BasicVec3):
 
 
 class LocationQwn(BasicVec3):
-    pass
+    @staticmethod
+    def from_qpoint(qpoint: QPoint) -> "LocationQwn":
+        return LocationQwn(qpoint.x(), qpoint.y(), 1)
 
 
 class LocationRelative(BasicVec2):
@@ -157,6 +159,7 @@ class ViewState(QObject):
         return LocationOmp(* self._center_rel * self._size_omp, 1)
 
     def _clamp_center(self):
+        # TODO: we can still drag to the aspect padding...
         # Keep the center point on the actual image itself
         cx, cy = self._center_rel
         cx = max(0.0, cx)
@@ -173,6 +176,18 @@ class ViewState(QObject):
             cy = min(cy, 1 - 0.5 / z)
             cy = max(cy, 0.5 / z)
         self._center_rel = LocationRelative(cx, cy)
+
+    def drag_relative(self, prev: QPoint, curr: QPoint):
+        prev_qwn = LocationQwn.from_qpoint(prev)
+        curr_qwn = LocationQwn.from_qpoint(curr)
+        prev_omp = self.omp_for_qwn(prev_qwn)
+        curr_omp = self.omp_for_qwn(curr_qwn)
+        d_omp = curr_omp - prev_omp
+        d_rel = (d_omp.x / self._size_omp.x, d_omp.y / self._size_omp.y)
+        new_center = LocationRelative(self._center_rel.x + d_rel[0], self._center_rel.y + d_rel[1])
+        self._center_rel[:] = new_center[:]
+        self._clamp_center()
+        # print(f"new way image center {self._center_rel}")
 
     @property
     def is_360(self) -> bool:
@@ -356,7 +371,7 @@ class ProjectedPoint(object):
             self._pitch = degrees(asin(p_ont.y))
         else:
             self._p_omp = LocationOmp(*view_state.omp_for_qwn(p_qwn))
-            print(self.omp)
+            # print(self.omp)
             self._heading = 0
             self._pitch = 0
 

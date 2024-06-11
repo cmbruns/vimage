@@ -139,7 +139,7 @@
     <bool>false</bool>
    </property>
    <property name="text">
-    <string>Next</string>
+    <string>Next Image</string>
    </property>
    <property name="shortcut">
     <string>Right</string>
@@ -150,7 +150,7 @@
     <bool>false</bool>
    </property>
    <property name="text">
-    <string>Previous</string>
+    <string>Previous Image</string>
    </property>
    <property name="shortcut">
     <string>Left</string>
