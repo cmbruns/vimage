@@ -48,6 +48,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         self.image = None
         self.imageWidgetGL.request_message.connect(self.statusbar.showMessage)
         self.imageWidgetGL.signal_360.connect(self.set_is_360)
+        self.imageWidgetGL.image_size_changed.connect(self.set_image_size)
         # Configure actions
         self.recent_files = RecentFileList(
             open_file_slot=self.load_main_image,
@@ -65,7 +66,6 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         self.actionSave_As.setIcon(self.style().standardIcon(
             QtWidgets.QStyle.SP_DialogSaveButton))
         self.actionSave_As.setShortcut(QtGui.QKeySequence.SaveAs)
-        #
         # Allow action shortcuts even when toolbar and menu bar are hidden
         self.addAction(self.actionNext)
         self.addAction(self.actionPrevious)
@@ -87,13 +87,17 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
                 self.projectionComboBox.setCurrentText(proj.text())
         self.projectionComboBox.setEnabled(False)
         self.projectionComboBox.currentIndexChanged.connect(self.projection_combo_box_current_index_changed)  # noqa
-        # List label show progress through image list
+        # Add image list progress label to tool bar
         self.list_label = QtWidgets.QLabel("0/0")
         self.list_label.setMinimumWidth(40)
         self.toolBar.addWidget(self.list_label)
         self.toolBar.addSeparator()
         self.toolBar.addWidget(self.projectionComboBox)
         self.toolBar.toggleViewAction().setEnabled(False)  # I did not like accidentally hiding it
+        # Add image dimensions to status bar
+        self.size_label = QtWidgets.QLabel("0x0")
+        # self.size_label.setMinimumWidth(40)
+        self.statusbar.addPermanentWidget(self.size_label, stretch=0)
         # Clipboard actions
         self.clipboard = QtGui.QGuiApplication.clipboard()
         self.clipboard.dataChanged.connect(self.process_clipboard_change)  # noqa
@@ -275,6 +279,10 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         if self.projectionComboBox.currentText() != action.text():
             self.projectionComboBox.setCurrentText(action.text())
         self.imageWidgetGL.update()
+
+    @QtCore.Slot(int, int)  # noqa
+    def set_image_size(self, w, h) -> None:
+        self.size_label.setText(f"{w}x{h}")
 
     @QtCore.Slot(bool)  # noqa
     def set_is_360(self, is_360: bool) -> None:

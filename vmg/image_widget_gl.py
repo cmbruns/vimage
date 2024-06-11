@@ -148,7 +148,6 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         else:
             self.is_360 = False
             self.program = self.rect_shader
-        self.signal_360.emit(self.is_360)  # noqa
         self.image = numpy.array(image)
         # Normalize values to maximum 1.0 and convert to float32
         # TODO: test performance
@@ -174,8 +173,12 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
             for rgb in range(3):
                 a[:, :, rgb] = (a[:, :, rgb] * alpha_layer).astype(a.dtype)
         self.image_needs_upload = True
+        self.signal_360.emit(self.is_360)  # noqa
+        w, h = self.image_state.size
+        self.image_size_changed.emit(int(w), int(h))
         self.update()
 
+    image_size_changed = QtCore.Signal(int, int)
     signal_360 = QtCore.Signal(bool)
 
     def maybe_upload_image(self):
