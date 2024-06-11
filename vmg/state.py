@@ -4,7 +4,7 @@ from typing import Optional
 import numpy
 import PIL.Image
 from PIL import ExifTags
-from PySide6.QtCore import QPoint, QSize, QObject, Slot
+from PySide6.QtCore import QPoint, QSize, QObject
 
 from vmg.coordinate import BasicVec2, BasicVec3
 from vmg.pixel_filter import PixelFilter
@@ -25,7 +25,7 @@ class LocationHpd(BasicVec2):
     Heading is measured in degrees clockwise from north.
     Pitch is measured as degrees above the horizon.
     """
-    def __init__(self, heading: float, pitch: float)-> None:
+    def __init__(self, heading: float, pitch: float) -> None:
         super().__init__(heading, pitch)
 
     def __repr__(self):
@@ -174,7 +174,7 @@ class ViewState(QObject):
         super().__init__()
         self._size_qwn = DimensionsQwn(window_size.width(), window_size.height())
         self._size_omp = DimensionsOmp(* image_size)
-        self._projection = Projection360.STEREOGRAPHIC
+        self.projection = Projection360.STEREOGRAPHIC
         self._zoom = 1.0  # windows per image
         self._is_360 = False
         self._center_rel = LocationRelative(0.5, 0.5)
@@ -219,7 +219,7 @@ class ViewState(QObject):
             prev_hpd = self.hpd_for_qwn(prev_qwn)
             curr_hpd = self.hpd_for_qwn(curr_qwn)
             d_hpd = curr_hpd - prev_hpd
-            print(d_hpd)
+            # print(d_hpd)
             new_heading = self._view_heading_degrees + d_hpd.heading
             while new_heading <= -180:
                 new_heading += 360
@@ -229,7 +229,7 @@ class ViewState(QObject):
             new_pitch = self._view_pitch_degrees + d_hpd.pitch
             new_pitch = numpy.clip(new_pitch, -90, 90)
             self._view_pitch_degrees = new_pitch
-            print(f"New view direction heading={self._view_heading_degrees:.1f}° pitch={self._view_pitch_degrees:.1f}°")
+            # print(f"New view direction heading={self._view_heading_degrees:.1f}° pitch={self._view_pitch_degrees:.1f}°")
         else:
             prev_omp = self.omp_for_qwn(prev_qwn)
             curr_omp = self.omp_for_qwn(curr_qwn)
@@ -247,7 +247,7 @@ class ViewState(QObject):
             degrees(asin(p_ont.y)),
         )
 
-    def hpd_for_qwn(self, p_ont: LocationOnt) -> LocationHpd:
+    def hpd_for_qwn(self, p_ont: LocationQwn) -> LocationHpd:
         return self.hpd_for_ont(self.ont_for_qwn(p_ont))
 
     @property
@@ -349,10 +349,6 @@ class ViewState(QObject):
         return LocationPrj(* prj_xform_nic @ p_nic)
 
     @property
-    def projection(self) -> Projection360:
-        return self._projection
-
-    @property
     def raw_rot_omp(self) -> numpy.array:
         return self._raw_rot_omp
 
@@ -426,27 +422,3 @@ class ViewState(QObject):
             dy = after_omp.y - before_omp.y
             self._center_rel = self._center_rel - (dx/self._size_omp.x, dy/self._size_omp.y)
         self._clamp_center()
-
-
-class ProjectedPoint(object):
-    """
-    Immutable representation of a screen point at a moment in time
-    """
-    def __init__(self, qpoint: QPoint, view_state: ViewState):
-        p_qwn = LocationQwn(qpoint.x(), qpoint.y(), 1.0)
-        if view_state.is_360:
-            self._heading_pitch = view_state.hpd_for_qwn(p_qwn)
-            # print(self.heading_pitch)
-        else:
-            self._p_omp = LocationOmp(*view_state.omp_for_qwn(p_qwn))
-            # print(self.omp)
-            self._heading = 0
-            self._pitch = 0
-
-    @property
-    def omp(self) -> LocationOmp:
-        return self._p_omp
-
-    @property
-    def heading_pitch(self) -> LocationHpd:
-        return self._heading_pitch

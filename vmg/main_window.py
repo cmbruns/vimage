@@ -269,9 +269,9 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         self.update_previous_next()
 
     def set_360_projection(self, projection: Projection360, action: QtGui.QAction) -> None:
-        if self.imageWidgetGL.sphere_view_state.projection == projection:
+        if self.imageWidgetGL.view_state.projection == projection:
             return
-        self.imageWidgetGL.sphere_view_state.projection = projection
+        self.imageWidgetGL.view_state.projection = projection
         if self.projectionComboBox.currentText() != action.text():
             self.projectionComboBox.setCurrentText(action.text())
         self.imageWidgetGL.update()
@@ -435,10 +435,9 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
             self.image_index += len(self.image_list)
         self.activate_indexed_image()
 
-    @QtCore.Slot()
-    def on_actionReset_View_triggered(self):
+    @QtCore.Slot()  # noqa
+    def on_actionReset_View_triggered(self):  # noqa
         self.imageWidgetGL.view_state.reset()
-        self.imageWidgetGL.view_state0.reset()  # TODO: remove
         self.imageWidgetGL.update()
 
     @QtCore.Slot()  # noqa

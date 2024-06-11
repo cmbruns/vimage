@@ -1,19 +1,13 @@
-from math import asin, atan2, cos, degrees, pi, radians, sin
-
 from typing import Optional
 
 import numpy
 from OpenGL import GL
-import PIL
-from PIL import ExifTags
+import PIL.Image
 from PySide6 import QtCore, QtGui, QtOpenGLWidgets
-from PySide6.QtCore import QEvent, Qt
+from PySide6.QtCore import QEvent, Qt, QPoint
 
-from vmg.coordinate import WindowPos, NdcPos
-from vmg.projection_360 import Projection360
-from vmg.state import ProjectedPoint, ImageState, ViewState
-from vmg.view_model import RectangularViewState, RectangularShader, IViewState, IImageShader, SphericalViewState, \
-    SphericalShader
+from vmg.state import ImageState, ViewState, LocationQwn
+from vmg.shader import RectangularShader, IImageShader, SphericalShader
 
 _exif_orientation_to_matrix = {
     1: numpy.array([[1, 0], [0, 1]], dtype=numpy.float32),
@@ -47,9 +41,6 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         self.rect_shader = RectangularShader()
         self.sphere_shader = SphericalShader()
         self.program: IImageShader = self.rect_shader
-        self.rect_view_state: IViewState = RectangularViewState()
-        self.sphere_view_state: IViewState = SphericalViewState()
-        # self.view_state0 = self.rect_view_state
         self.view_state = ViewState(window_size=self.size())
         self.is_360 = False
         self.raw_rot_ont2 = numpy.eye(2, dtype=numpy.float32)  # For flatty images
@@ -66,126 +57,25 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
             elif pinch is not None:
                 zoom = pinch.scaleFactor()
                 self.view_state.zoom_relative(zoom, None)
-                # self.view_state0.zoom_relative(zoom, None, self)
-                # self.sphere_view_state.zoom_relative(zoom, None, self)
                 self.update()
                 return True
 
         return super().event(event)
 
-    def _hover_pixel(self, win_xy: WindowPos) -> bool:
-        # TODO: draw square around pixel
-
-        # coordinate systems:
-        #  ndc - normalized device coordinates ; range -1,1 ; origin at center ; positive y up
-        #  win - window ; origin at center ; units window pixels ; positive y up ; origin at center
-        #  ont - oriented image coordinates ; units image pixels ; positive y down ; origin at center
-        #  raw - raw image coordinates (before EXIF orientation correction) ; origin at center
-        #  ulc - raw image with origin at upper left
-        #  tex - texture coordinates ; range (0, 1)
-
-        # June 7th from jupyter notebook
-        # shift nomenclature
-        zoom = self.view_state.zoom
-        w_qwn, h_qwn = self.width(), self.height()
-        # TODO: delete obsolete transform codes elsewhere
-        if self.is_360:  # TODO: put these codes into view_model or something
-            # Spherical panorama image
-            w_omp, h_omp = pi, pi  # two radians, as if orthographic projection, say
-            cen_x_omp, cen_y_omp = pi/2, pi/2
-        else:
-            # Standard rectangular image
-            raw_height, raw_width = self.image.shape[0:2]  # Unrotated dimension
-            w_omp, h_omp = [abs(x) for x in (self.raw_rot_ont2 @ [raw_width, raw_height])]
-            cen_x_omp = self.rect_view_state.image_center_img[0] * w_omp
-            cen_y_omp = self.rect_view_state.image_center_img[1] * h_omp
-        # Scale aspect to fit image in window at zoom==1
-        if w_omp/h_omp > w_qwn/h_qwn:
-            # Image aspect is wider than window aspect
-            # So use width in scaling factor
-            scale = w_omp / w_qwn / zoom
-        else:
-            # Use height in scaling factor
-            scale = h_omp / h_qwn / zoom
-        p_qwn = (win_xy.x, win_xy.y, 1.0)
-        # print(f"h_qwn: {p_qwn}")
-        # print(f"h {w_omp} {h_omp} {w_qwn} {h_qwn}")
+    def _hover_pixel(self, qpoint: QPoint) -> bool:
+        p_qwn = LocationQwn.from_qpoint(qpoint)
         if self.is_360:
-            # TODO: not just stereographic
-            #  just stereographic for now...
-            if w_omp / h_omp > w_qwn / h_qwn:
-                sc = 1 / w_qwn / zoom
-            else:
-                sc = 1 / h_qwn / zoom
-            nic_xform_qwn = numpy.array([
-                [2*sc, 0, -w_qwn*sc],
-                [0, -2*sc, h_qwn*sc],
-                [0, 0, 1],
-            ], dtype=numpy.float32)
-            p_nic = nic_xform_qwn @ p_qwn
-            # Set unzoomed window size to PI projected units
-            p_prj = p_nic * pi / 2  # projected stereographic
-            if self.sphere_view_state.projection == Projection360.GNOMONIC:
-                d = 1.0 / (p_prj[0]**2 + p_prj[1]**2 + 1)**0.5
-                p_obq = numpy.array([  # sphere orientation as viewed on screen
-                    [d * p_prj[0]],
-                    [d * p_prj[1]],
-                    [-d],
-                ], dtype=numpy.float32)
-            elif self.sphere_view_state.projection == Projection360.EQUIDISTANT:
-                r = (p_prj[0]**2 + p_prj[1]**2)**0.5
-                d = sin(r) / r
-                p_obq = numpy.array([  # sphere orientation as viewed on screen
-                    [d * p_prj[0]],
-                    [d * p_prj[1]],
-                    [-cos(r)],
-                ], dtype=numpy.float32)
-            elif self.sphere_view_state.projection == Projection360.EQUIRECTANGULAR:
-                cy = cos(p_prj[1])
-                p_obq = numpy.array([  # sphere orientation as viewed on screen
-                    [sin(p_prj[0]) * cy],
-                    [sin(p_prj[1])],
-                    [-cos(p_prj[0]) * cy],
-                ], dtype=numpy.float32)
-            elif self.sphere_view_state.projection == Projection360.STEREOGRAPHIC:
-                d = p_prj[0]**2 + p_prj[1]**2 + 4
-                p_obq = numpy.array([  # sphere orientation as viewed on screen
-                    [4 * p_prj[0] / d],
-                    [4 * p_prj[1] / d],
-                    [(d - 8) / d],
-                ], dtype=numpy.float32)
-            else:
-                assert False  # What projection is this?
-            # print(p_obq)
-            # convert to rectified sphere orientation
-            p_ont = self.sphere_view_state.ont_rot_obq @ p_obq
-            # print(p_ont)
-            heading = degrees(atan2(p_ont[0], -p_ont[2]))
-            # Avoid out of range
-            y = p_ont[1]
-            assert y < 1.1
-            if y > 1:
-                y = 1
-            assert y > -1.1
-            if y < -1:
-                y = -1
-            pitch = degrees(asin(y))
+            p_hpd = self.view_state.hpd_for_qwn(p_qwn)
             self.request_message.emit(  # noqa
-                f"heading = {heading:.1f}°  pitch = {pitch:.1f}°"
-            , 2000)
+                f"heading = {p_hpd.heading:.1f}°  pitch = {p_hpd.pitch:.1f}°",
+                2000,
+            )
         else:
-            omp_xform_qwn = numpy.array([
-                [scale, 0, cen_x_omp - scale * w_qwn / 2],
-                [0, scale, cen_y_omp - scale * h_qwn / 2],
-                [0, 0, 1],
-            ], dtype=numpy.float32)
-            # print(f"h_omp_xform_qwn:")
-            # print(omp_xform_qwn)
-            p_omp = omp_xform_qwn @ p_qwn
-            # print(f"h_omp: {p_omp}")
+            p_omp = self.view_state.omp_for_qwn(p_qwn)
             self.request_message.emit(  # noqa
-                f"image pixel = [{int(p_omp[0])}, {int(p_omp[1])}]"
-                , 2000)
+                f"image pixel = [{int(p_omp.x)}, {int(p_omp.y)}]",
+                2000,
+            )
         return False  # Nothing changed, so no update needed
 
     def initializeGL(self) -> None:
@@ -208,19 +98,12 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
             return
         if event.source() != Qt.MouseEventNotSynthesized:
             return
-        projected_point = ProjectedPoint(event.pos(), self.view_state)
-        if not self.is_dragging:
-            update_needed = self._hover_pixel(WindowPos.from_qpoint(event.pos()))
-            if update_needed:
-                self.update()
-            return
-        # Drag image around
-        dx = event.pos().x() - self.previous_mouse_position.x()
-        dy = event.pos().y() - self.previous_mouse_position.y()
-        # self.view_state0.drag_relative(dx, dy, self)
-        self.view_state.drag_relative(event.pos(), self.previous_mouse_position)
-        self.previous_mouse_position = event.pos()
-        self.update()
+        if self.is_dragging:
+            self.view_state.drag_relative(event.pos(), self.previous_mouse_position)
+            self.previous_mouse_position = event.pos()
+            self.update()
+        else:
+            self._hover_pixel(event.pos())
 
     def mousePressEvent(self, event):
         self.is_dragging = True
@@ -237,9 +120,6 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         if d_scale == 0:
             return
         d_scale = 1.12 ** d_scale
-        win_xy = (event.position().x(), event.position().y())
-        # self.sphere_view_state.zoom_relative(d_scale, win_xy, self)
-        # self.view_state0.zoom_relative(d_scale, win_xy, self)
         self.view_state.zoom_relative(d_scale, event.position())
         self.update()
 
@@ -262,67 +142,13 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         self.view_state.reset()
         self.view_state.set_360(self.image_state.is_360)
         self.view_state.set_image_state(self.image_state)
-        exif0 = image.getexif()
-        exif = {
-            PIL.ExifTags.TAGS[k]: v
-            for k, v in exif0.items()
-            if k in PIL.ExifTags.TAGS
-        }
-        for ifd_id in ExifTags.IFD:
-            try:
-                ifd = exif0.get_ifd(ifd_id)
-                if ifd_id == ExifTags.IFD.GPSInfo:
-                    resolve = ExifTags.GPSTAGS
-                else:
-                    resolve = ExifTags.TAGS
-                for k, v in ifd.items():
-                    tag = resolve.get(k, k)
-                    exif[tag] = v
-            except KeyError:
-                pass
-        xmp = image.getxmp()
-        # Check for orientation metadata
-        orientation_code: int = exif.get("Orientation", 1)
-        self.raw_rot_ont2 = _exif_orientation_to_matrix.get(orientation_code, numpy.eye(2, dtype=numpy.float32))
-        # Check for 360 panorama image
-        if image.width == 2 * image.height:
-            try:
-                self.is_360 = True
-                # self.view_state0 = self.sphere_view_state
-                self.program = self.sphere_shader
-                try:
-                    # TODO: InitialViewHeadingDegrees
-                    desc = xmp["xmpmeta"]["RDF"]["Description"]
-                    heading = radians(float(desc["PoseHeadingDegrees"]))
-                    pitch = radians(float(desc["PosePitchDegrees"]))
-                    roll = radians(float(desc["PoseRollDegrees"]))
-                    self.raw_rot_ont3 = numpy.array([
-                        [cos(roll), -sin(roll), 0],
-                        [sin(roll), cos(roll), 0],
-                        [0, 0, 1],
-                    ], dtype=numpy.float32)
-                    self.raw_rot_ont3 = self.raw_rot_ont3 @ [
-                        [1, 0, 0],
-                        [0, cos(pitch), sin(pitch)],
-                        [0, -sin(pitch), cos(pitch)],
-                    ]
-                    self.raw_rot_ont3 = self.raw_rot_ont3 @ [
-                        [cos(heading), 0, sin(heading)],
-                        [0, 1, 0],
-                        [-sin(heading), 0, cos(heading)],
-                    ]
-                except (KeyError, TypeError):
-                    pass
-                if exif["Model"].lower().startswith("ricoh theta"):
-                    # print("360")
-                    pass  # TODO 360 image
-            except KeyError:
-                pass
+        if self.view_state.is_360:
+            self.is_360 = True
+            self.program = self.sphere_shader
         else:
             self.is_360 = False
-            # self.view_state0 = self.rect_view_state
             self.program = self.rect_shader
-        self.signal_360.emit(self.is_360)
+        self.signal_360.emit(self.is_360)  # noqa
         self.image = numpy.array(image)
         # Normalize values to maximum 1.0 and convert to float32
         # TODO: test performance
@@ -339,7 +165,7 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
             self.image = numpy.square(self.image)  # approximate srgb -> linear
         else:
             for rgb in range(3):
-                # square() method below crashes on mac with numpy 1.25. OK with 1.26
+                # square() method below crashes on Mac with numpy 1.25. OK with 1.26
                 self.image[:, :, rgb] = numpy.square(self.image[:, :, rgb])  # approximate srgb -> linear
         # Use premultiplied alpha for better filtering
         if image.mode == "RGBA":
@@ -348,8 +174,6 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
             for rgb in range(3):
                 a[:, :, rgb] = (a[:, :, rgb] * alpha_layer).astype(a.dtype)
         self.image_needs_upload = True
-        self.sphere_view_state.reset()
-        self.rect_view_state.reset()
         self.update()
 
     signal_360 = QtCore.Signal(bool)
