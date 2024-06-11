@@ -75,6 +75,7 @@
     </widget>
     <addaction name="actionNext"/>
     <addaction name="actionPrevious"/>
+    <addaction name="actionReset_View"/>
     <addaction name="actionSharp"/>
     <addaction name="actionFull_Screen"/>
     <addaction name="menu360_Projection"/>
@@ -274,6 +275,11 @@
   <action name="actionCopy">
    <property name="text">
     <string>Copy</string>
+   </property>
+  </action>
+  <action name="actionReset_View">
+   <property name="text">
+    <string>Reset View</string>
    </property>
   </action>
  </widget>

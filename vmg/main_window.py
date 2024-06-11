@@ -46,7 +46,6 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         self.image_list = []
         self.image_index = 0
         self.image = None
-        self.imageWidgetGL.pixel_filter = PixelFilter.CATMULL_ROM
         self.imageWidgetGL.request_message.connect(self.statusbar.showMessage)
         self.imageWidgetGL.signal_360.connect(self.set_is_360)
         # Configure actions
@@ -352,25 +351,6 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
             self.statusbar.show()
             self.showNormal()
 
-    @QtCore.Slot(bool)  # noqa
-    def on_actionPerspective_toggled(self, is_checked: bool):  # noqa
-        if is_checked:
-            self.set_360_projection(Projection360.GNOMONIC, self.actionPerspective)
-
-    @QtCore.Slot()  # noqa
-    def on_actionPaste_triggered(self):  # noqa
-        with ScopedWaitCursor():
-            clip = ImageGrab.grabclipboard()
-            if clip.width < 1:
-                self.actionPaste.setEnabled(False)
-                return
-            file_name = clip.filename
-            if file_name is None:
-                time_str = time.strftime("%Y%m%d_%H%M%S")
-                file_name = f"Clipboard{time_str}"
-            if self.load_image_from_memory(image=clip, name=file_name):
-                self.undo_stack.resetClean()  # clipboard image has not been saved
-
     @QtCore.Slot()  # noqa
     def on_actionNext_triggered(self):  # noqa
         if len(self.image_list) < 2:
@@ -412,6 +392,25 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         self.load_main_image(file_name)
 
     @QtCore.Slot()  # noqa
+    def on_actionPaste_triggered(self):  # noqa
+        with ScopedWaitCursor():
+            clip = ImageGrab.grabclipboard()
+            if clip.width < 1:
+                self.actionPaste.setEnabled(False)
+                return
+            file_name = clip.filename
+            if file_name is None:
+                time_str = time.strftime("%Y%m%d_%H%M%S")
+                file_name = f"Clipboard{time_str}"
+            if self.load_image_from_memory(image=clip, name=file_name):
+                self.undo_stack.resetClean()  # clipboard image has not been saved
+
+    @QtCore.Slot(bool)  # noqa
+    def on_actionPerspective_toggled(self, is_checked: bool):  # noqa
+        if is_checked:
+            self.set_360_projection(Projection360.GNOMONIC, self.actionPerspective)
+
+    @QtCore.Slot()  # noqa
     def on_actionPrevious_triggered(self):  # noqa
         if len(self.image_list) < 2:
             self.actionPrevious.setEnabled(False)
@@ -436,6 +435,12 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
             self.image_index += len(self.image_list)
         self.activate_indexed_image()
 
+    @QtCore.Slot()
+    def on_actionReset_View_triggered(self):
+        self.imageWidgetGL.view_state.reset()
+        self.imageWidgetGL.view_state0.reset()  # TODO: remove
+        self.imageWidgetGL.update()
+
     @QtCore.Slot()  # noqa
     def on_actionSave_As_triggered(self):  # noqa
         file_path = self._dialog_and_save_image(self.image)
@@ -453,14 +458,15 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
 
     @QtCore.Slot(bool)  # noqa
     def on_actionSharp_toggled(self, is_checked: bool):  # noqa
-        if is_checked and self.imageWidgetGL.pixel_filter == PixelFilter.SHARP:
+        vs = self.imageWidgetGL.view_state
+        if is_checked and vs.pixel_filter == PixelFilter.SHARP:
             return
-        if not is_checked and self.imageWidgetGL.pixel_filter == PixelFilter.CATMULL_ROM:
+        if not is_checked and vs.pixel_filter == PixelFilter.CATMULL_ROM:
             return
         if is_checked:
-            self.imageWidgetGL.pixel_filter = PixelFilter.SHARP
+            vs.pixel_filter = PixelFilter.SHARP
         else:
-            self.imageWidgetGL.pixel_filter = PixelFilter.CATMULL_ROM
+            vs.pixel_filter = PixelFilter.CATMULL_ROM
         self.imageWidgetGL.update()
 
     @QtCore.Slot(bool)  # noqa

@@ -7,6 +7,7 @@ from PIL import ExifTags
 from PySide6.QtCore import QPoint, QSize, QObject, Slot
 
 from vmg.coordinate import BasicVec2, BasicVec3
+from vmg.pixel_filter import PixelFilter
 from vmg.projection_360 import Projection360
 
 
@@ -18,15 +19,33 @@ class DimensionsQwn(BasicVec2):
     pass
 
 
+class LocationHpd(BasicVec2):
+    """
+    Heading and pitch in degrees.
+    Heading is measured in degrees clockwise from north.
+    Pitch is measured as degrees above the horizon.
+    """
+    def __init__(self, heading: float, pitch: float)-> None:
+        super().__init__(heading, pitch)
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}(heading={self.x}, pitch={self.y})"
+
+    def __str__(self):
+        return f"(heading={self.x:.1f}°, pitch={self.y:.1f}°)"
+
+    @property
+    def heading(self):
+        """Angle clockwise from north in degrees"""
+        return self.x
+
+    @property
+    def pitch(self):
+        """Angle above horizon in degrees"""
+        return self.y
+
+
 class LocationObq(BasicVec3):
-    pass
-
-
-class LocationOnt(BasicVec3):
-    pass
-
-
-class LocationPrj(BasicVec3):
     pass
 
 
@@ -35,6 +54,14 @@ class LocationNic(BasicVec3):
 
 
 class LocationOmp(BasicVec3):
+    pass
+
+
+class LocationOnt(BasicVec3):
+    pass
+
+
+class LocationPrj(BasicVec3):
     pass
 
 
@@ -52,6 +79,7 @@ class ImageState(object):
     def __init__(self, pil_image: PIL.Image.Image):
         raw_width, raw_height = pil_image.size  # Unrotated dimension
         self.size_raw = (raw_width, raw_height)
+        self._raw_rot_ont = numpy.eye(3, dtype=numpy.float32)
         exif0 = pil_image.getexif()
         exif = {
             PIL.ExifTags.TAGS[k]: v
@@ -150,13 +178,20 @@ class ViewState(QObject):
         self._zoom = 1.0  # windows per image
         self._is_360 = False
         self._center_rel = LocationRelative(0.5, 0.5)
-        self._view_heading_radians = 0.0
-        self._view_pitch_radians = 0.0
+        self._view_heading_degrees = 0.0
+        self._view_pitch_degrees = 0.0
         self._update_aspect_scale()
+        self._raw_rot_omp = numpy.eye(2, dtype=numpy.float32)
+        self.raw_rot_ont = numpy.eye(3, dtype=numpy.float32)
+        self.pixel_filter = PixelFilter.CATMULL_ROM
 
     @property
     def center_omp(self) -> LocationOmp:
         return LocationOmp(* self._center_rel * self._size_omp, 1)
+
+    @property
+    def center_rel(self) -> LocationRelative:
+        return self._center_rel
 
     def _clamp_center(self):
         # TODO: we can still drag to the aspect padding...
@@ -180,14 +215,40 @@ class ViewState(QObject):
     def drag_relative(self, prev: QPoint, curr: QPoint):
         prev_qwn = LocationQwn.from_qpoint(prev)
         curr_qwn = LocationQwn.from_qpoint(curr)
-        prev_omp = self.omp_for_qwn(prev_qwn)
-        curr_omp = self.omp_for_qwn(curr_qwn)
-        d_omp = curr_omp - prev_omp
-        d_rel = (d_omp.x / self._size_omp.x, d_omp.y / self._size_omp.y)
-        new_center = LocationRelative(self._center_rel.x + d_rel[0], self._center_rel.y + d_rel[1])
-        self._center_rel[:] = new_center[:]
-        self._clamp_center()
-        # print(f"new way image center {self._center_rel}")
+        if self.is_360:
+            prev_hpd = self.hpd_for_qwn(prev_qwn)
+            curr_hpd = self.hpd_for_qwn(curr_qwn)
+            d_hpd = curr_hpd - prev_hpd
+            print(d_hpd)
+            new_heading = self._view_heading_degrees + d_hpd.heading
+            while new_heading <= -180:
+                new_heading += 360
+            while new_heading > 180:
+                new_heading -= 360
+            self._view_heading_degrees = new_heading
+            new_pitch = self._view_pitch_degrees + d_hpd.pitch
+            new_pitch = numpy.clip(new_pitch, -90, 90)
+            self._view_pitch_degrees = new_pitch
+            print(f"New view direction heading={self._view_heading_degrees:.1f}° pitch={self._view_pitch_degrees:.1f}°")
+        else:
+            prev_omp = self.omp_for_qwn(prev_qwn)
+            curr_omp = self.omp_for_qwn(curr_qwn)
+            d_omp = curr_omp - prev_omp
+            d_rel = (d_omp.x / self._size_omp.x, d_omp.y / self._size_omp.y)
+            new_center = LocationRelative(self._center_rel.x + d_rel[0], self._center_rel.y + d_rel[1])
+            self._center_rel[:] = new_center[:]
+            self._clamp_center()
+            # print(f"new way image center {self._center_rel}")
+
+    @staticmethod
+    def hpd_for_ont(p_ont: LocationOnt) -> LocationHpd:
+        return LocationHpd(
+            degrees(atan2(p_ont.x, -p_ont.z)),
+            degrees(asin(p_ont.y)),
+        )
+
+    def hpd_for_qwn(self, p_ont: LocationOnt) -> LocationHpd:
+        return self.hpd_for_ont(self.ont_for_qwn(p_ont))
 
     @property
     def is_360(self) -> bool:
@@ -195,10 +256,6 @@ class ViewState(QObject):
         View state can override image 360-ness
         """
         return self._is_360
-
-    @property
-    def ont_rot_obq(self) -> numpy.array:
-        raise NotImplementedError
 
     def nic_for_qwn(self, p_qwn: LocationQwn) -> LocationNic:
         w_qwn, h_qwn = self._size_qwn
@@ -257,22 +314,25 @@ class ViewState(QObject):
         return LocationOmp(* omp_xform_nic @ p_nic)
 
     def ont_for_obq(self, p_obq: LocationObq) -> LocationOnt:
-        c = cos(self._view_heading_radians)
-        s = sin(self._view_heading_radians)
+        return LocationOnt(* self.ont_rot_obq @ p_obq)
+
+    @property
+    def ont_rot_obq(self) -> numpy.array:
+        c = cos(radians(self._view_heading_degrees))
+        s = sin(radians(self._view_heading_degrees))
         rot_heading = numpy.array([
             [c, 0, -s],
             [0, 1, 0],
             [s, 0, c],
         ], dtype=numpy.float32)
-        c = cos(self._view_pitch_radians)
-        s = sin(self._view_pitch_radians)
+        c = cos(radians(self._view_pitch_degrees))
+        s = sin(radians(self._view_pitch_degrees))
         rot_pitch = numpy.array([
             [1, 0, 0],
             [0, c, -s],
             [0, s, c],
         ], dtype=numpy.float32)
-        ont_rot_obq = rot_heading @ rot_pitch
-        return LocationOnt(* ont_rot_obq @ p_obq)
+        return rot_heading @ rot_pitch
 
     def ont_for_qwn(self, p_qwn: LocationQwn) -> LocationOnt:
         p_prj = self.prj_for_qwn(p_qwn)
@@ -292,18 +352,24 @@ class ViewState(QObject):
     def projection(self) -> Projection360:
         return self._projection
 
+    @property
+    def raw_rot_omp(self) -> numpy.array:
+        return self._raw_rot_omp
+
     def reset(self) -> None:
         self._zoom = 1.0  # windows per image
         self._center_rel = LocationRelative(0.5, 0.5)
-        self._view_heading_radians = 0.0
-        self._view_pitch_radians = 0.0
+        self._view_heading_degrees = 0.0
+        self._view_pitch_degrees = 0.0
 
     def set_360(self, is_360: bool) -> None:
         self._is_360 = is_360
         self._update_aspect_scale()
 
-    def set_image_size(self, width, height):
-        self._size_omp = DimensionsOmp(width, height)
+    def set_image_state(self, image_state: ImageState):
+        self._size_omp = image_state.size
+        self._raw_rot_omp = image_state.raw_rot_omp
+        self.raw_rot_ont = image_state.raw_rot_ont
         self._update_aspect_scale()
 
     def set_window_size(self, width, height):
@@ -333,6 +399,10 @@ class ViewState(QObject):
                 # Use height in scaling factor
                 self.asc_omp = h_omp
                 self.asc_qwn = h_qwn
+
+    @property
+    def window_size(self) -> DimensionsQwn:
+        return self._size_qwn
 
     @property
     def zoom(self) -> float:
@@ -365,10 +435,8 @@ class ProjectedPoint(object):
     def __init__(self, qpoint: QPoint, view_state: ViewState):
         p_qwn = LocationQwn(qpoint.x(), qpoint.y(), 1.0)
         if view_state.is_360:
-            p_nic = view_state.nic_for_qwn(p_qwn)
-            p_ont = view_state.ont_for_qwn(p_qwn)
-            self._heading = degrees(atan2(p_ont.x, -p_ont.z))
-            self._pitch = degrees(asin(p_ont.y))
+            self._heading_pitch = view_state.hpd_for_qwn(p_qwn)
+            # print(self.heading_pitch)
         else:
             self._p_omp = LocationOmp(*view_state.omp_for_qwn(p_qwn))
             # print(self.omp)
@@ -380,9 +448,5 @@ class ProjectedPoint(object):
         return self._p_omp
 
     @property
-    def heading_degrees(self) -> float:
-        return self._heading
-
-    @property
-    def pitch_degrees(self) -> float:
-        return self._pitch
+    def heading_pitch(self) -> LocationHpd:
+        return self._heading_pitch

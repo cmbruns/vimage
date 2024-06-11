@@ -163,6 +163,7 @@ class SphericalViewState(IViewState):
         ], dtype=numpy.float32)
         # print(f"View pitch = {degrees(self.view_pitch):.1f} heading = {degrees(self.view_yaw):.1f}")
         self.ont_rot_obq = rot_heading @ rot_pitch
+        print(f"classic view direction heading={degrees(self.view_yaw):.1f}° pitch={degrees(self.view_pitch):.1f}°")
 
     def image_for_window(self, p_win: WindowPos, gl_widget) -> Tuple[Number, Number]:
         x_scale = y_scale = self.window_zoom
@@ -199,7 +200,7 @@ class RectangularShader(IImageShader):
         self.window_size_location = None
         self.image_center_img_location = None
         self.pixelFilter_location = None
-        self.raw_rot_ont_location = None
+        self.raw_rot_omp_location = None
 
     def initialize_gl(self) -> None:
         vertex_shader = compileShader(pkg_resources.resource_string(
@@ -214,20 +215,20 @@ class RectangularShader(IImageShader):
         self.window_size_location = GL.glGetUniformLocation(self.shader, "window_size")
         self.image_center_img_location = GL.glGetUniformLocation(self.shader, "image_center_img")
         self.pixelFilter_location = GL.glGetUniformLocation(self.shader, "pixelFilter")
-        self.raw_rot_ont_location = GL.glGetUniformLocation(self.shader, "raw_rot_ont")
+        self.raw_rot_omp_location = GL.glGetUniformLocation(self.shader, "raw_rot_omp")
 
-    def paint_gl(self, state, gl_widget) -> None:
+    def paint_gl(self, state) -> None:
         # both nearest and catmull-rom use nearest at the moment.
         GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_NEAREST)
         GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_LINEAR_MIPMAP_NEAREST)
         GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_S, GL.GL_CLAMP_TO_EDGE)
         GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_T, GL.GL_CLAMP_TO_EDGE)
         GL.glUseProgram(self.shader)
-        GL.glUniform1f(self.zoom_location, state.window_zoom)
-        GL.glUniform2i(self.window_size_location, gl_widget.width(), gl_widget.height())
-        GL.glUniform2f(self.image_center_img_location, *state.image_center_img)
+        GL.glUniform1f(self.zoom_location, state.zoom)
+        GL.glUniform2i(self.window_size_location, *state.window_size)
+        GL.glUniform2f(self.image_center_img_location, *state.center_rel)
         GL.glUniform1i(self.pixelFilter_location, state.pixel_filter.value)
-        GL.glUniformMatrix2fv(self.raw_rot_ont_location, 1, True, gl_widget.raw_rot_ont2)
+        GL.glUniformMatrix2fv(self.raw_rot_omp_location, 1, True, state.raw_rot_omp)
         GL.glDrawArrays(GL.GL_TRIANGLE_STRIP, 0, 4)
 
 
@@ -257,7 +258,7 @@ class SphericalShader(IImageShader):
         self.window_size_location = GL.glGetUniformLocation(self.shader, "window_size")
         self.projection_location = GL.glGetUniformLocation(self.shader, "projection")
 
-    def paint_gl(self, state, gl_widget) -> None:
+    def paint_gl(self, state) -> None:
         # both nearest and catmull-rom use nearest at the moment.
         GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_NEAREST)
         GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_LINEAR_MIPMAP_NEAREST)
@@ -267,10 +268,10 @@ class SphericalShader(IImageShader):
         GL.glTexParameterf(GL.GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, f_largest)
 
         GL.glUseProgram(self.shader)
-        GL.glUniform1f(self.zoom_location, state.window_zoom)
+        GL.glUniform1f(self.zoom_location, state.zoom)
         GL.glUniform1i(self.pixelFilter_location, state.pixel_filter.value)
         GL.glUniformMatrix3fv(self.ont_rot_obq_location, 1, True, state.ont_rot_obq)
-        GL.glUniformMatrix3fv(self.raw_rot_ont_location, 1, True, gl_widget.raw_rot_ont3)
-        GL.glUniform2i(self.window_size_location, gl_widget.width(), gl_widget.height())
+        GL.glUniformMatrix3fv(self.raw_rot_ont_location, 1, True, state.raw_rot_ont)
+        GL.glUniform2i(self.window_size_location, *state.window_size)
         GL.glUniform1i(self.projection_location, state.projection.value)
         GL.glDrawArrays(GL.GL_TRIANGLE_STRIP, 0, 4)

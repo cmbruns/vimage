@@ -10,7 +10,6 @@ from PySide6 import QtCore, QtGui, QtOpenGLWidgets
 from PySide6.QtCore import QEvent, Qt
 
 from vmg.coordinate import WindowPos, NdcPos
-from vmg.pixel_filter import PixelFilter
 from vmg.projection_360 import Projection360
 from vmg.state import ProjectedPoint, ImageState, ViewState
 from vmg.view_model import RectangularViewState, RectangularShader, IViewState, IImageShader, SphericalViewState, \
@@ -45,13 +44,12 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         self.image_needs_upload = False
         self.is_dragging = False
         self.previous_mouse_position = None
-        self.pixel_filter = PixelFilter.CATMULL_ROM
         self.rect_shader = RectangularShader()
         self.sphere_shader = SphericalShader()
         self.program: IImageShader = self.rect_shader
         self.rect_view_state: IViewState = RectangularViewState()
         self.sphere_view_state: IViewState = SphericalViewState()
-        self.view_state0 = self.rect_view_state
+        # self.view_state0 = self.rect_view_state
         self.view_state = ViewState(window_size=self.size())
         self.is_360 = False
         self.raw_rot_ont2 = numpy.eye(2, dtype=numpy.float32)  # For flatty images
@@ -67,8 +65,9 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
                 print(swipe)
             elif pinch is not None:
                 zoom = pinch.scaleFactor()
-                self.view_state0.zoom_relative(zoom, None, self)
-                self.sphere_view_state.zoom_relative(zoom, None, self)
+                self.view_state.zoom_relative(zoom, None)
+                # self.view_state0.zoom_relative(zoom, None, self)
+                # self.sphere_view_state.zoom_relative(zoom, None, self)
                 self.update()
                 return True
 
@@ -87,7 +86,7 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
 
         # June 7th from jupyter notebook
         # shift nomenclature
-        zoom = self.view_state0.window_zoom
+        zoom = self.view_state.zoom
         w_qwn, h_qwn = self.width(), self.height()
         # TODO: delete obsolete transform codes elsewhere
         if self.is_360:  # TODO: put these codes into view_model or something
@@ -218,7 +217,7 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         # Drag image around
         dx = event.pos().x() - self.previous_mouse_position.x()
         dy = event.pos().y() - self.previous_mouse_position.y()
-        self.view_state0.drag_relative(dx, dy, self)
+        # self.view_state0.drag_relative(dx, dy, self)
         self.view_state.drag_relative(event.pos(), self.previous_mouse_position)
         self.previous_mouse_position = event.pos()
         self.update()
@@ -239,8 +238,8 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
             return
         d_scale = 1.12 ** d_scale
         win_xy = (event.position().x(), event.position().y())
-        self.sphere_view_state.zoom_relative(d_scale, win_xy, self)
-        self.view_state0.zoom_relative(d_scale, win_xy, self)
+        # self.sphere_view_state.zoom_relative(d_scale, win_xy, self)
+        # self.view_state0.zoom_relative(d_scale, win_xy, self)
         self.view_state.zoom_relative(d_scale, event.position())
         self.update()
 
@@ -252,8 +251,7 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         #
         GL.glBindTexture(GL.GL_TEXTURE_2D, self.texture)
         self.maybe_upload_image()
-        self.view_state0.pixel_filter = self.pixel_filter
-        self.program.paint_gl(self.view_state0, self)
+        self.program.paint_gl(self.view_state)
 
     def resizeGL(self, w, h):
         # TODO: do we ever need to check the size outside of ViewState?
@@ -263,7 +261,7 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         self.image_state = ImageState(image)
         self.view_state.reset()
         self.view_state.set_360(self.image_state.is_360)
-        self.view_state.set_image_size(*self.image_state.size)
+        self.view_state.set_image_state(self.image_state)
         exif0 = image.getexif()
         exif = {
             PIL.ExifTags.TAGS[k]: v
@@ -290,7 +288,7 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         if image.width == 2 * image.height:
             try:
                 self.is_360 = True
-                self.view_state0 = self.sphere_view_state
+                # self.view_state0 = self.sphere_view_state
                 self.program = self.sphere_shader
                 try:
                     # TODO: InitialViewHeadingDegrees
@@ -322,7 +320,7 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
                 pass
         else:
             self.is_360 = False
-            self.view_state0 = self.rect_view_state
+            # self.view_state0 = self.rect_view_state
             self.program = self.rect_shader
         self.signal_360.emit(self.is_360)
         self.image = numpy.array(image)

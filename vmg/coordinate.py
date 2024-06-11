@@ -56,6 +56,12 @@ class BasicVec2(BasicVec):
     def __init__(self, x: Number, y: Number) -> None:
         super().__init__(x, y)
 
+    def __repr__(self):
+        return f"{self.__class__.__name__}(x={self.x}, y={self.y})"
+
+    def __str__(self):
+        return f"(x={self.x:.3f}, y={self.y:.3f})"
+
     @property
     def x(self):
         return self._v[0]
@@ -69,6 +75,12 @@ class BasicVec3(BasicVec):
     """Base class for semantic 3D coordinate types"""
     def __init__(self, x: Number, y: Number, z: Number) -> None:
         super().__init__(x, y, z)
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}(x={self.x}, y={self.y}, z={self.z})"
+
+    def __str__(self):
+        return f"(x={self.x:.3f}, y={self.y:.3f}, y={self.z:.3f})"
 
     @property
     def x(self):
