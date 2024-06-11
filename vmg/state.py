@@ -178,8 +178,6 @@ class ViewState(QObject):
         self._zoom = 1.0  # windows per image
         self._is_360 = False
         self._center_rel = LocationRelative(0.5, 0.5)
-        self._view_heading_degrees = 0.0
-        self._view_pitch_degrees = 0.0
         self._update_aspect_scale()
         self._raw_rot_omp = numpy.eye(2, dtype=numpy.float32)
         self.raw_rot_ont = numpy.eye(3, dtype=numpy.float32)
@@ -201,15 +199,16 @@ class ViewState(QObject):
         cy = max(0.0, cy)
         cx = min(1.0, cx)
         cy = min(1.0, cy)
-        z = self.zoom
-        if z <= 1:
-            cx = 0.5
-            cy = 0.5
-        else:
-            cx = min(cx, 1 - 0.5 / z)
-            cx = max(cx, 0.5 / z)
-            cy = min(cy, 1 - 0.5 / z)
-            cy = max(cy, 0.5 / z)
+        if not self.is_360:
+            z = self.zoom
+            if z <= 1:
+                cx = 0.5
+                cy = 0.5
+            else:
+                cx = min(cx, 1 - 0.5 / z)
+                cx = max(cx, 0.5 / z)
+                cy = min(cy, 1 - 0.5 / z)
+                cy = max(cy, 0.5 / z)
         self._center_rel = LocationRelative(cx, cy)
 
     def drag_relative(self, prev: QPoint, curr: QPoint):
@@ -220,16 +219,16 @@ class ViewState(QObject):
             curr_hpd = self.hpd_for_qwn(curr_qwn)
             d_hpd = curr_hpd - prev_hpd
             # print(d_hpd)
-            new_heading = self._view_heading_degrees + d_hpd.heading
+            new_heading = self.view_heading_degrees + d_hpd.heading
             while new_heading <= -180:
                 new_heading += 360
             while new_heading > 180:
                 new_heading -= 360
-            self._view_heading_degrees = new_heading
-            new_pitch = self._view_pitch_degrees + d_hpd.pitch
+            self.view_heading_degrees = new_heading
+            new_pitch = self.view_pitch_degrees + d_hpd.pitch
             new_pitch = numpy.clip(new_pitch, -90, 90)
-            self._view_pitch_degrees = new_pitch
-            # print(f"New view direction heading={self._view_heading_degrees:.1f}° pitch={self._view_pitch_degrees:.1f}°")
+            self.view_pitch_degrees = new_pitch
+            # print(f"New view direction heading={self.view_heading_degrees:.1f}° pitch={self.view_pitch_degrees:.1f}°")
         else:
             prev_omp = self.omp_for_qwn(prev_qwn)
             curr_omp = self.omp_for_qwn(curr_qwn)
@@ -318,15 +317,15 @@ class ViewState(QObject):
 
     @property
     def ont_rot_obq(self) -> numpy.array:
-        c = cos(radians(self._view_heading_degrees))
-        s = sin(radians(self._view_heading_degrees))
+        c = cos(radians(self.view_heading_degrees))
+        s = sin(radians(self.view_heading_degrees))
         rot_heading = numpy.array([
             [c, 0, -s],
             [0, 1, 0],
             [s, 0, c],
         ], dtype=numpy.float32)
-        c = cos(radians(self._view_pitch_degrees))
-        s = sin(radians(self._view_pitch_degrees))
+        c = cos(radians(self.view_pitch_degrees))
+        s = sin(radians(self.view_pitch_degrees))
         rot_pitch = numpy.array([
             [1, 0, 0],
             [0, c, -s],
@@ -355,8 +354,8 @@ class ViewState(QObject):
     def reset(self) -> None:
         self._zoom = 1.0  # windows per image
         self._center_rel = LocationRelative(0.5, 0.5)
-        self._view_heading_degrees = 0.0
-        self._view_pitch_degrees = 0.0
+        self.view_heading_degrees = 0.0
+        self.view_pitch_degrees = 0.0
 
     def set_360(self, is_360: bool) -> None:
         self._is_360 = is_360
@@ -397,6 +396,29 @@ class ViewState(QObject):
                 self.asc_qwn = h_qwn
 
     @property
+    def view_heading_degrees(self):
+        # interpret center point as heading/pitch in 360 mode
+        return (self._center_rel.x - 0.5) * 360.0
+
+    @view_heading_degrees.setter
+    def view_heading_degrees(self, value):
+        while value > 180.0:
+            value -= 360.0
+        while value <= -180.0:
+            value += 360.0
+        self._center_rel[0] = value / 360.0 + 0.5
+
+    @property
+    def view_pitch_degrees(self):
+        # interpret center point as heading/pitch in 360 mode
+        return (self._center_rel.y - 0.5) * 180.0
+
+    @view_pitch_degrees.setter
+    def view_pitch_degrees(self, value):
+        value = numpy.clip(value, -90.0, 90.0)
+        self._center_rel[1] = value / 180.0 + 0.5
+
+    @property
     def window_size(self) -> DimensionsQwn:
         return self._size_qwn
 
@@ -412,13 +434,23 @@ class ViewState(QObject):
             new_zoom = 1
         self._zoom = new_zoom
         if zoom_center is not None:
-            # TODO 360 images...
             p_qwn = LocationQwn(zoom_center.x(), zoom_center.y(), 1)
-            self._zoom = old_zoom
-            before_omp = self.omp_for_qwn(p_qwn)  # Before position
-            self._zoom = new_zoom
-            after_omp = self.omp_for_qwn(p_qwn)  # After position
-            dx = after_omp.x - before_omp.x
-            dy = after_omp.y - before_omp.y
-            self._center_rel = self._center_rel - (dx/self._size_omp.x, dy/self._size_omp.y)
-        self._clamp_center()
+            if self.is_360:
+                self._zoom = old_zoom
+                before_hpd = self.hpd_for_qwn(p_qwn)  # Before position
+                self._zoom = new_zoom
+                after_hpd = self.hpd_for_qwn(p_qwn)  # After position
+                dh = after_hpd.heading - before_hpd.heading
+                dp = after_hpd.pitch - before_hpd.pitch
+                self.view_heading_degrees -= dh
+                self.view_pitch_degrees -= dp
+            else:
+                self._zoom = old_zoom
+                before_omp = self.omp_for_qwn(p_qwn)  # Before position
+                self._zoom = new_zoom
+                after_omp = self.omp_for_qwn(p_qwn)  # After position
+                dx = after_omp.x - before_omp.x
+                dy = after_omp.y - before_omp.y
+                self._center_rel = self._center_rel - (dx/self._size_omp.x, dy/self._size_omp.y)
+        if not self.is_360:
+            self._clamp_center()
