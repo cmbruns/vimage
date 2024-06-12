@@ -92,6 +92,8 @@
     </property>
     <addaction name="actionCopy"/>
     <addaction name="actionPaste"/>
+    <addaction name="separator"/>
+    <addaction name="actionSelect_Rectangle"/>
    </widget>
    <addaction name="menuFile"/>
    <addaction name="menuEdit"/>
@@ -111,6 +113,7 @@
    </attribute>
    <addaction name="actionOpen"/>
    <addaction name="actionSave_As"/>
+   <addaction name="separator"/>
    <addaction name="actionPrevious"/>
    <addaction name="actionNext"/>
   </widget>
@@ -280,6 +283,14 @@
   <action name="actionReset_View">
    <property name="text">
     <string>Reset View</string>
+   </property>
+  </action>
+  <action name="actionSelect_Rectangle">
+   <property name="text">
+    <string>Select Rectangle</string>
+   </property>
+   <property name="toolTip">
+    <string>Select a rectangular region</string>
    </property>
   </action>
  </widget>

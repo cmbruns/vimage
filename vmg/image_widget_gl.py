@@ -4,7 +4,8 @@ import numpy
 from OpenGL import GL
 import PIL.Image
 from PySide6 import QtCore, QtGui, QtOpenGLWidgets
-from PySide6.QtCore import QEvent, Qt, QPoint
+from PySide6.QtCore import QEvent, Qt, QPoint, QRect
+from PySide6.QtGui import QPainter, QPen
 
 from vmg.state import ImageState, ViewState, LocationQwn
 from vmg.shader import RectangularShader, IImageShader, SphericalShader
@@ -19,6 +20,21 @@ _exif_orientation_to_matrix = {
     7: numpy.array([[0, -1], [-1, 0]], dtype=numpy.float32),
     8: numpy.array([[0, -1], [1, 0]], dtype=numpy.float32),
 }
+
+
+class NativePainter(object):
+    """
+    Context manager for begin/end native painting
+    """
+    def __init__(self, painter: QPainter):
+        self.painter = painter
+
+    def __enter__(self):
+        self.painter.beginNativePainting()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.painter.endNativePainting()
 
 
 class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
@@ -124,14 +140,36 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         self.update()
 
     def paintGL(self) -> None:
-        GL.glClear(GL.GL_COLOR_BUFFER_BIT)
-        if self.image is None:
-            return
-        GL.glBindVertexArray(self.vao)
+        painter = QPainter(self)
+        with NativePainter(painter):
+            GL.glClear(GL.GL_COLOR_BUFFER_BIT)
+            if self.image is None:
+                return
+            GL.glBindVertexArray(self.vao)
+            GL.glBindTexture(GL.GL_TEXTURE_2D, self.texture)
+            self.maybe_upload_image()
+            self.program.paint_gl(self.view_state)
         #
-        GL.glBindTexture(GL.GL_TEXTURE_2D, self.texture)
-        self.maybe_upload_image()
-        self.program.paint_gl(self.view_state)
+        pen1 = QPen()
+        pen1.setColor("#60ffffff")
+        pen1.setWidth(3)
+        pen1.setStyle(Qt.DashLine)
+        pen1.setDashPattern([3, 6, 3, 6])
+        pen1.setDashOffset(0)
+        painter.setPen(pen1)
+        rect = QRect()
+        rect.setTopLeft(QPoint(10, 10))
+        rect.setWidth(100)
+        rect.setHeight(100)
+        painter.drawRect(rect)
+        pen2 = QPen()
+        pen2.setColor("#60000000")
+        pen2.setWidth(3)
+        pen2.setStyle(Qt.DashLine)
+        pen2.setDashPattern([3, 6, 3, 6])
+        pen2.setDashOffset(4.5)
+        painter.setPen(pen2)
+        painter.drawRect(rect)
 
     def resizeGL(self, w, h):
         # TODO: do we ever need to check the size outside of ViewState?

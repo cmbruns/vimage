@@ -1,3 +1,4 @@
+import pkg_resources
 from inspect import cleandoc
 import io
 import os
@@ -66,6 +67,8 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         self.actionSave_As.setIcon(self.style().standardIcon(
             QtWidgets.QStyle.SP_DialogSaveButton))
         self.actionSave_As.setShortcut(QtGui.QKeySequence.SaveAs)
+        rect_icon_file = pkg_resources.resource_filename("vmg.images", "box_icon.png")
+        self.actionSelect_Rectangle.setIcon(QtGui.QIcon(rect_icon_file))
         # Allow action shortcuts even when toolbar and menu bar are hidden
         self.addAction(self.actionNext)
         self.addAction(self.actionPrevious)
@@ -87,10 +90,12 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
                 self.projectionComboBox.setCurrentText(proj.text())
         self.projectionComboBox.setEnabled(False)
         self.projectionComboBox.currentIndexChanged.connect(self.projection_combo_box_current_index_changed)  # noqa
-        # Add image list progress label to tool bar
+        # Add image list progress label to toolbar
         self.list_label = QtWidgets.QLabel("0/0")
         self.list_label.setMinimumWidth(40)
         self.toolBar.addWidget(self.list_label)
+        self.toolBar.addSeparator()
+        self.toolBar.addAction(self.actionSelect_Rectangle)
         self.toolBar.addSeparator()
         self.toolBar.addWidget(self.projectionComboBox)
         self.toolBar.toggleViewAction().setEnabled(False)  # I did not like accidentally hiding it
