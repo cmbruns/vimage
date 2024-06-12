@@ -3,7 +3,7 @@ from typing import Optional
 import numpy
 from OpenGL import GL
 import PIL.Image
-from PySide6 import QtCore, QtGui, QtOpenGLWidgets
+from PySide6 import QtCore, QtGui, QtOpenGLWidgets, QtWidgets
 from PySide6.QtCore import QEvent, Qt, QPoint, QRect
 from PySide6.QtGui import QPainter, QPen
 
@@ -22,25 +22,12 @@ _exif_orientation_to_matrix = {
 }
 
 
-class NativePainter(object):
-    """
-    Context manager for begin/end native painting
-    """
-    def __init__(self, painter: QPainter):
-        self.painter = painter
-
-    def __enter__(self):
-        self.painter.beginNativePainting()
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        self.painter.endNativePainting()
-
-
 class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.setCursor(Qt.CrossCursor)
+        self.setCursor(Qt.OpenHandCursor)
+        self.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.customContextMenuRequested.connect(self.show_context_menu)
         self.setAttribute(Qt.WA_AcceptTouchEvents, True)
         self.setMouseTracking(True)
         self.grabGesture(Qt.PinchGesture)
@@ -122,6 +109,9 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
             self._hover_pixel(event.pos())
 
     def mousePressEvent(self, event):
+        if event.button() == Qt.RightButton:
+            self.customContextMenuRequested.emit(event.pos())
+            return
         self.is_dragging = True
         self.previous_mouse_position = event.pos()
         self.setCursor(Qt.ClosedHandCursor)
@@ -129,7 +119,7 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
     def mouseReleaseEvent(self, event):
         self.is_dragging = False
         self.previous_mouse_position = None
-        self.setCursor(Qt.CrossCursor)
+        self.setCursor(Qt.OpenHandCursor)
 
     def wheelEvent(self, event: QtGui.QWheelEvent):
         d_scale = event.angleDelta().y() / 120.0
@@ -140,36 +130,13 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         self.update()
 
     def paintGL(self) -> None:
-        painter = QPainter(self)
-        with NativePainter(painter):
-            GL.glClear(GL.GL_COLOR_BUFFER_BIT)
-            if self.image is None:
-                return
-            GL.glBindVertexArray(self.vao)
-            GL.glBindTexture(GL.GL_TEXTURE_2D, self.texture)
-            self.maybe_upload_image()
-            self.program.paint_gl(self.view_state)
-        #
-        pen1 = QPen()
-        pen1.setColor("#60ffffff")
-        pen1.setWidth(3)
-        pen1.setStyle(Qt.DashLine)
-        pen1.setDashPattern([3, 6, 3, 6])
-        pen1.setDashOffset(0)
-        painter.setPen(pen1)
-        rect = QRect()
-        rect.setTopLeft(QPoint(10, 10))
-        rect.setWidth(100)
-        rect.setHeight(100)
-        painter.drawRect(rect)
-        pen2 = QPen()
-        pen2.setColor("#60000000")
-        pen2.setWidth(3)
-        pen2.setStyle(Qt.DashLine)
-        pen2.setDashPattern([3, 6, 3, 6])
-        pen2.setDashOffset(4.5)
-        painter.setPen(pen2)
-        painter.drawRect(rect)
+        GL.glClear(GL.GL_COLOR_BUFFER_BIT)
+        if self.image is None:
+            return
+        GL.glBindVertexArray(self.vao)
+        GL.glBindTexture(GL.GL_TEXTURE_2D, self.texture)
+        self.maybe_upload_image()
+        self.program.paint_gl(self.view_state)
 
     def resizeGL(self, w, h):
         # TODO: do we ever need to check the size outside of ViewState?
@@ -215,6 +182,16 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         w, h = self.image_state.size
         self.image_size_changed.emit(int(w), int(h))
         self.update()
+
+    @QtCore.Slot(QPoint)
+    def show_context_menu(self, qpoint: QPoint):
+        print("context menu")
+        menu = QtWidgets.QMenu("Context menu", parent=self)
+        menu.addSeparator()
+        menu.addAction(QtGui.QAction("Start selecting a rectangle here", self))
+        menu.addSeparator()
+        menu.addAction(QtGui.QAction("Cancel [ESC]", self))
+        menu.exec(self.mapToGlobal(qpoint))
 
     image_size_changed = QtCore.Signal(int, int)
     signal_360 = QtCore.Signal(bool)
