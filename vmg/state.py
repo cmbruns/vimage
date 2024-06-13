@@ -4,75 +4,15 @@ from typing import Optional
 import numpy
 import PIL.Image
 from PIL import ExifTags
+from PySide6 import QtCore, QtGui
 from PySide6.QtCore import QPoint, QSize, QObject
+from PySide6.QtGui import Qt
 
-from vmg.coordinate import BasicVec2, BasicVec3
+from vmg.frame import DimensionsOmp, DimensionsQwn, LocationHpd, LocationObq, LocationNic, LocationOmp, LocationOnt, \
+    LocationPrj, LocationQwn, LocationRelative
 from vmg.pixel_filter import PixelFilter
 from vmg.projection_360 import Projection360
-
-
-class DimensionsOmp(BasicVec2):
-    pass
-
-
-class DimensionsQwn(BasicVec2):
-    pass
-
-
-class LocationHpd(BasicVec2):
-    """
-    Heading and pitch in degrees.
-    Heading is measured in degrees clockwise from north.
-    Pitch is measured as degrees above the horizon.
-    """
-    def __init__(self, heading: float, pitch: float) -> None:
-        super().__init__(heading, pitch)
-
-    def __repr__(self):
-        return f"{self.__class__.__name__}(heading={self.x}, pitch={self.y})"
-
-    def __str__(self):
-        return f"(heading={self.x:.1f}°, pitch={self.y:.1f}°)"
-
-    @property
-    def heading(self):
-        """Angle clockwise from north in degrees"""
-        return self.x
-
-    @property
-    def pitch(self):
-        """Angle above horizon in degrees"""
-        return self.y
-
-
-class LocationObq(BasicVec3):
-    pass
-
-
-class LocationNic(BasicVec3):
-    pass
-
-
-class LocationOmp(BasicVec3):
-    pass
-
-
-class LocationOnt(BasicVec3):
-    pass
-
-
-class LocationPrj(BasicVec3):
-    pass
-
-
-class LocationQwn(BasicVec3):
-    @staticmethod
-    def from_qpoint(qpoint: QPoint) -> "LocationQwn":
-        return LocationQwn(qpoint.x(), qpoint.y(), 1)
-
-
-class LocationRelative(BasicVec2):
-    pass
+from vmg.rect_sel import RectangularSelection
 
 
 class ImageState(object):
@@ -185,10 +125,14 @@ class ViewState(QObject):
         self._raw_rot_omp = numpy.eye(2, dtype=numpy.float32)
         self.raw_rot_ont = numpy.eye(3, dtype=numpy.float32)
         self.pixel_filter = PixelFilter.CATMULL_ROM
+        self.sel_rect = RectangularSelection()
+        self.sel_rect.cursorChanged.connect(self.cursorChanged)
+        self._is_dragging = False
+        self._previous_mouse_position = None
 
     @property
     def center_omp(self) -> LocationOmp:
-        return LocationOmp(* self._center_rel * self._size_omp, 1)
+        return LocationOmp(*self._center_rel * self._size_omp, 1)
 
     @property
     def center_rel(self) -> LocationRelative:
@@ -213,6 +157,14 @@ class ViewState(QObject):
                 cy = min(cy, 1 - 0.5 / z)
                 cy = max(cy, 0.5 / z)
         self._center_rel = LocationRelative(cx, cy)
+
+    def context_menu_actions(self, qpoint: QPoint) -> list:
+        result = []
+        p_omp = self.omp_for_qpoint(qpoint)
+        result.extend(self.sel_rect.context_menu_actions(p_omp))
+        return result
+
+    cursorChanged = QtCore.Signal(QtGui.QCursor)
 
     def drag_relative(self, prev: QPoint, curr: QPoint):
         prev_qwn = LocationQwn.from_qpoint(prev)
@@ -259,6 +211,46 @@ class ViewState(QObject):
         """
         return self._is_360
 
+    def mouse_move_event(self, event) -> bool:
+        p_omp = self.omp_for_qpoint(event.pos())
+        if self.sel_rect.mouse_move_event(event, p_omp):
+            return True
+        elif self._is_dragging:
+            self.drag_relative(event.pos(), self._previous_mouse_position)
+            self._previous_mouse_position = event.pos()
+            return True
+        else:
+            p_qwn = LocationQwn.from_qpoint(event.pos())
+            if self.is_360:
+                p_hpd = self.hpd_for_qwn(p_qwn)
+                self.request_message.emit(  # noqa
+                    f"heading = {p_hpd.heading:.1f}°  pitch = {p_hpd.pitch:.1f}°",
+                    2000,
+                )
+            else:
+                self.request_message.emit(  # noqa
+                    f"image pixel = [{int(p_omp.x)}, {int(p_omp.y)}]",
+                    2000,
+                )
+            return False
+
+    def mouse_press_event(self, event) -> bool:
+        p_omp = self.omp_for_qpoint(event.pos())
+        if self.sel_rect.mouse_press_event(event, p_omp):
+            return True
+        else:
+            self._is_dragging = True
+            self._previous_mouse_position = event.pos()
+            self.cursorChanged.emit(Qt.ClosedHandCursor)  # noqa
+            return True
+
+    def mouse_release_event(self, event) -> bool:
+        self._is_dragging = False
+        self._previous_mouse_position = None
+        self.cursorChanged.emit(None)  # noqa
+        p_omp = self.omp_for_qpoint(event.pos())
+        return self.sel_rect.mouse_release_event(event, p_omp)
+
     def nic_for_qwn(self, p_qwn: LocationQwn) -> LocationNic:
         w_qwn, h_qwn = self._size_qwn
         zoom = self.zoom
@@ -268,7 +260,7 @@ class ViewState(QObject):
             [0, -2*scale, h_qwn*scale],
             [0, 0, 1],
         ], dtype=numpy.float32)
-        return LocationNic(* nic_xform_qwn @ p_qwn)
+        return LocationNic(*nic_xform_qwn @ p_qwn)
 
     def obq_for_prj(self, p_prj: LocationPrj) -> LocationObq:
         if self.projection == Projection360.GNOMONIC:
@@ -304,6 +296,9 @@ class ViewState(QObject):
             assert False  # What projection is this?
         return LocationObq(*p_obq)
 
+    def omp_for_qpoint(self, qpoint: QPoint) -> LocationOmp:
+        return self.omp_for_qwn(LocationQwn.from_qpoint(qpoint))
+
     def omp_for_qwn(self, p_qwn: LocationQwn) -> LocationOmp:
         p_nic = self.nic_for_qwn(p_qwn)
         center_omp = self.center_omp
@@ -313,10 +308,10 @@ class ViewState(QObject):
             [0, -scale, center_omp.y],
             [0, 0, 1],
         ], dtype=numpy.float32)
-        return LocationOmp(* omp_xform_nic @ p_nic)
+        return LocationOmp(*omp_xform_nic @ p_nic)
 
     def ont_for_obq(self, p_obq: LocationObq) -> LocationOnt:
-        return LocationOnt(* self.ont_rot_obq @ p_obq)
+        return LocationOnt(*self.ont_rot_obq @ p_obq)
 
     @property
     def ont_rot_obq(self) -> numpy.array:
@@ -348,11 +343,13 @@ class ViewState(QObject):
             [0, pi/2, 0],
             [0, 0, 1],
         ], dtype=numpy.float32)
-        return LocationPrj(* prj_xform_nic @ p_nic)
+        return LocationPrj(*prj_xform_nic @ p_nic)
 
     @property
     def raw_rot_omp(self) -> numpy.array:
         return self._raw_rot_omp
+
+    request_message = QtCore.Signal(str, int)
 
     def reset(self) -> None:
         self._zoom = 1.0  # windows per image
@@ -373,6 +370,10 @@ class ViewState(QObject):
     def set_window_size(self, width, height):
         self._size_qwn = DimensionsQwn(width, height)
         self._update_aspect_scale()
+
+    @QtCore.Slot()  # noqa
+    def start_rect_with_no_point(self):
+        self.sel_rect.begin(None)
 
     def _update_aspect_scale(self):
         w_omp, h_omp = self._size_omp

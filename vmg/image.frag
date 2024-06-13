@@ -6,7 +6,7 @@ const int CATMULL_ROM = 2;
 
 uniform sampler2D image;
 uniform int pixelFilter = NEAREST;
-uniform ivec4 selrect_omp = ivec4(100, 150, 200, 300);  // left top bottom right
+uniform ivec4 sel_rect_omp = ivec4(100, 150, 200, 300);  // left top bottom right
 
 in vec2 p_tex;
 in vec2 p_omp;
@@ -69,14 +69,14 @@ void main()
     float line_width_qwn = 1.8;  // box outline line width in window pixels
     float hlw = 0.5 * omp_scale_qwn * line_width_qwn;  // half line width, in image pixels
     // Is this pixel on the box outline?
-    if (p_omp.x >= selrect_omp.x - hlw &&  // left clip
-        p_omp.x <= selrect_omp.z + 1 + hlw &&  // right clip
-        p_omp.y >= selrect_omp.y - hlw &&  // top clip
-        p_omp.y <= selrect_omp.w + 1 + hlw && (  // bottom clip
-          abs(p_omp.x - selrect_omp.x) <= hlw ||  // on left edge
-          abs(p_omp.x - selrect_omp.z - 1) <= hlw ||  // on right edge
-          abs(p_omp.y - selrect_omp.y) <= hlw ||  // on top edge
-          abs(p_omp.y - selrect_omp.w - 1) <= hlw)  // on bottom edge
+    if (p_omp.x >= sel_rect_omp.x - hlw &&  // left clip
+        p_omp.x <= sel_rect_omp.z + hlw &&  // right clip
+        p_omp.y >= sel_rect_omp.y - hlw &&  // top clip
+        p_omp.y <= sel_rect_omp.w + hlw && (  // bottom clip
+          abs(p_omp.x - sel_rect_omp.x) <= hlw ||  // on left edge
+          abs(p_omp.x - sel_rect_omp.z) <= hlw ||  // on right edge
+          abs(p_omp.y - sel_rect_omp.y) <= hlw ||  // on top edge
+          abs(p_omp.y - sel_rect_omp.w) <= hlw)  // on bottom edge
     ) {
         // invert color, similar to irfanview
         vec4 box_color = vec4(1, 1, 1, 2) - image_color;

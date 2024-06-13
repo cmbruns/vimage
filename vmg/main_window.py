@@ -69,6 +69,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         self.actionSave_As.setShortcut(QtGui.QKeySequence.SaveAs)
         rect_icon_file = pkg_resources.resource_filename("vmg.images", "box_icon.png")
         self.actionSelect_Rectangle.setIcon(QtGui.QIcon(rect_icon_file))
+        self.actionSelect_Rectangle.triggered.connect(self.imageWidgetGL.start_rect_with_no_point)
         # Allow action shortcuts even when toolbar and menu bar are hidden
         self.addAction(self.actionNext)
         self.addAction(self.actionPrevious)

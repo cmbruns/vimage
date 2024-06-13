@@ -4,30 +4,17 @@ import numpy
 from OpenGL import GL
 import PIL.Image
 from PySide6 import QtCore, QtGui, QtOpenGLWidgets, QtWidgets
-from PySide6.QtCore import QEvent, Qt, QPoint, QRect
-from PySide6.QtGui import QPainter, QPen
+from PySide6.QtCore import QEvent, Qt, QPoint
 
-from vmg.state import ImageState, ViewState, LocationQwn
+from vmg.state import ImageState, ViewState
 from vmg.shader import RectangularShader, IImageShader, SphericalShader
-
-_exif_orientation_to_matrix = {
-    1: numpy.array([[1, 0], [0, 1]], dtype=numpy.float32),
-    2: numpy.array([[-1, 0], [0, 1]], dtype=numpy.float32),
-    3: numpy.array([[-1, 0], [0, -1]], dtype=numpy.float32),
-    4: numpy.array([[1, 0], [0, -1]], dtype=numpy.float32),
-    5: numpy.array([[0, 1], [1, 0]], dtype=numpy.float32),
-    6: numpy.array([[0, 1], [-1, 0]], dtype=numpy.float32),
-    7: numpy.array([[0, -1], [-1, 0]], dtype=numpy.float32),
-    8: numpy.array([[0, -1], [1, 0]], dtype=numpy.float32),
-}
 
 
 class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.setCursor(Qt.OpenHandCursor)
         self.setContextMenuPolicy(Qt.CustomContextMenu)
-        self.customContextMenuRequested.connect(self.show_context_menu)
+        self.customContextMenuRequested.connect(self.show_context_menu)  # noqa
         self.setAttribute(Qt.WA_AcceptTouchEvents, True)
         self.setMouseTracking(True)
         self.grabGesture(Qt.PinchGesture)
@@ -39,17 +26,23 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         self.vao = None
         self.texture = None
         self.image_needs_upload = False
-        self.is_dragging = False
-        self.previous_mouse_position = None
         self.rect_shader = RectangularShader()
         self.sphere_shader = SphericalShader()
         self.program: IImageShader = self.rect_shader
         self.view_state = ViewState(window_size=self.size())
+        self.view_state.cursorChanged.connect(self.change_cursor)
+        self.view_state.request_message.connect(self.request_message)
         self.is_360 = False
         self.raw_rot_ont2 = numpy.eye(2, dtype=numpy.float32)  # For flatty images
         self.raw_rot_ont3 = numpy.eye(3, dtype=numpy.float32)  # For spherical panos
 
     request_message = QtCore.Signal(str, int)
+
+    @QtCore.Slot(QtGui.QCursor)  # noqa
+    def change_cursor(self, cursor: QtGui.QCursor):
+        if cursor is None:
+            self.unsetCursor()
+        self.setCursor(cursor)
 
     def event(self, event: QEvent):
         if event.type() == QEvent.Gesture:
@@ -64,22 +57,6 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
                 return True
 
         return super().event(event)
-
-    def _hover_pixel(self, qpoint: QPoint) -> bool:
-        p_qwn = LocationQwn.from_qpoint(qpoint)
-        if self.is_360:
-            p_hpd = self.view_state.hpd_for_qwn(p_qwn)
-            self.request_message.emit(  # noqa
-                f"heading = {p_hpd.heading:.1f}°  pitch = {p_hpd.pitch:.1f}°",
-                2000,
-            )
-        else:
-            p_omp = self.view_state.omp_for_qwn(p_qwn)
-            self.request_message.emit(  # noqa
-                f"image pixel = [{int(p_omp.x)}, {int(p_omp.y)}]",
-                2000,
-            )
-        return False  # Nothing changed, so no update needed
 
     def initializeGL(self) -> None:
         # Use native-like background color
@@ -101,25 +78,18 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
             return
         if event.source() != Qt.MouseEventNotSynthesized:
             return
-        if self.is_dragging:
-            self.view_state.drag_relative(event.pos(), self.previous_mouse_position)
-            self.previous_mouse_position = event.pos()
+        if self.view_state.mouse_move_event(event):
             self.update()
-        else:
-            self._hover_pixel(event.pos())
 
     def mousePressEvent(self, event):
         if event.button() == Qt.RightButton:
-            self.customContextMenuRequested.emit(event.pos())
+            self.customContextMenuRequested.emit(event.pos())  # noqa
             return
-        self.is_dragging = True
-        self.previous_mouse_position = event.pos()
-        self.setCursor(Qt.ClosedHandCursor)
+        else:
+            self.view_state.mouse_press_event(event)
 
     def mouseReleaseEvent(self, event):
-        self.is_dragging = False
-        self.previous_mouse_position = None
-        self.setCursor(Qt.OpenHandCursor)
+        self.view_state.mouse_release_event(event)
 
     def wheelEvent(self, event: QtGui.QWheelEvent):
         d_scale = event.angleDelta().y() / 120.0
@@ -180,15 +150,16 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         self.image_needs_upload = True
         self.signal_360.emit(self.is_360)  # noqa
         w, h = self.image_state.size
-        self.image_size_changed.emit(int(w), int(h))
+        self.image_size_changed.emit(int(w), int(h))  # noqa
         self.update()
 
-    @QtCore.Slot(QPoint)
+    @QtCore.Slot(QPoint)  # noqa
     def show_context_menu(self, qpoint: QPoint):
-        print("context menu")
         menu = QtWidgets.QMenu("Context menu", parent=self)
         menu.addSeparator()
-        menu.addAction(QtGui.QAction("Start selecting a rectangle here", self))
+        if self.image is not None:
+            for action in self.view_state.context_menu_actions(qpoint):
+                menu.addAction(action)
         menu.addSeparator()
         menu.addAction(QtGui.QAction("Cancel [ESC]", self))
         menu.exec(self.mapToGlobal(qpoint))
@@ -235,3 +206,7 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         )
         GL.glGenerateMipmap(GL.GL_TEXTURE_2D)
         self.image_needs_upload = False
+
+    @QtCore.Slot()  # noqa
+    def start_rect_with_no_point(self):
+        self.view_state.sel_rect.begin(None)

@@ -73,9 +73,13 @@
      <addaction name="actionEquidistant"/>
      <addaction name="actionEquirectangular"/>
     </widget>
-    <addaction name="actionNext"/>
-    <addaction name="actionPrevious"/>
     <addaction name="actionReset_View"/>
+    <addaction name="actionZoom_Out"/>
+    <addaction name="actionZoom_In"/>
+    <addaction name="separator"/>
+    <addaction name="actionPrevious"/>
+    <addaction name="actionNext"/>
+    <addaction name="separator"/>
     <addaction name="actionSharp"/>
     <addaction name="actionFull_Screen"/>
     <addaction name="menu360_Projection"/>
@@ -85,15 +89,20 @@
      <string>Help</string>
     </property>
     <addaction name="actionAbout"/>
+    <addaction name="actionReport_a_Problem"/>
    </widget>
    <widget class="QMenu" name="menuEdit">
     <property name="title">
      <string>Edit</string>
     </property>
+    <addaction name="actionCrop_to_Current_View"/>
+    <addaction name="actionCrop_to_Selection"/>
+    <addaction name="separator"/>
     <addaction name="actionCopy"/>
     <addaction name="actionPaste"/>
     <addaction name="separator"/>
     <addaction name="actionSelect_Rectangle"/>
+    <addaction name="actionClear_Selection"/>
    </widget>
    <addaction name="menuFile"/>
    <addaction name="menuEdit"/>
@@ -291,6 +300,54 @@
    </property>
    <property name="toolTip">
     <string>Select a rectangular region</string>
+   </property>
+  </action>
+  <action name="actionCrop_to_Selection">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
+   <property name="text">
+    <string>Crop to Selection</string>
+   </property>
+  </action>
+  <action name="actionCrop_to_Current_View">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
+   <property name="text">
+    <string>Crop to Current View</string>
+   </property>
+  </action>
+  <action name="actionClear_Selection">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
+   <property name="text">
+    <string>Select None</string>
+   </property>
+  </action>
+  <action name="actionZoom_Out">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
+   <property name="text">
+    <string>Zoom Out</string>
+   </property>
+  </action>
+  <action name="actionZoom_In">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
+   <property name="text">
+    <string>Zoom In</string>
+   </property>
+  </action>
+  <action name="actionReport_a_Problem">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
+   <property name="text">
+    <string>Report a Problem...</string>
    </property>
   </action>
  </widget>
