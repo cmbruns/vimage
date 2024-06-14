@@ -71,11 +71,12 @@ class RectangularSelection(QtCore.QObject):
         self.adjusting = AdjustType.NONE
         self.selection_shown.emit(False)  # noqa
 
-    def context_menu_actions(self, p_omp: LocationOmp) -> list:
+    def context_menu_actions(self, p_omp: LocationOmp, is_360: bool) -> list:
         result = []
-        start_action = StartRectAction()
-        start_action.triggered.connect(lambda: self.begin(p_omp))  # noqa
-        result.append(start_action)
+        if not is_360:
+            start_action = StartRectAction()
+            start_action.triggered.connect(lambda: self.begin(p_omp))  # noqa
+            result.append(start_action)
         return result
 
     @property

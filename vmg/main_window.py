@@ -207,7 +207,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         self.actionSave_As.setEnabled(True)
         self.actionSave_Current_View_As.setEnabled(True)
         self.actionCopy.setEnabled(True)
-        self.actionSelect_Rectangle.setEnabled(True)
+        self.actionSelect_Rectangle.setEnabled(not self.imageWidgetGL.view_state.is_360)
         self.actionSelect_None.trigger()
         return True
 
@@ -301,6 +301,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
     def set_is_360(self, is_360: bool) -> None:
         self.projectionComboBox.setEnabled(is_360)
         self.menu360_Projection.setEnabled(is_360)
+        self.actionSelect_Rectangle.setEnabled(not is_360)
 
     def update_previous_next(self):
         # Update progress label

@@ -161,7 +161,7 @@ class ViewState(QObject):
     def context_menu_actions(self, qpoint: QPoint) -> list:
         result = []
         p_omp = self.omp_for_qpoint(qpoint)
-        result.extend(self.sel_rect.context_menu_actions(p_omp))
+        result.extend(self.sel_rect.context_menu_actions(p_omp, self.is_360))
         return result
 
     cursor_changed = QtCore.Signal(CursorHolder)
