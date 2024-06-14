@@ -102,7 +102,7 @@
     <addaction name="actionPaste"/>
     <addaction name="separator"/>
     <addaction name="actionSelect_Rectangle"/>
-    <addaction name="actionClear_Selection"/>
+    <addaction name="actionSelect_None"/>
    </widget>
    <addaction name="menuFile"/>
    <addaction name="menuEdit"/>
@@ -295,6 +295,9 @@
    </property>
   </action>
   <action name="actionSelect_Rectangle">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
    <property name="text">
     <string>Select Rectangle</string>
    </property>
@@ -318,7 +321,7 @@
     <string>Crop to Current View</string>
    </property>
   </action>
-  <action name="actionClear_Selection">
+  <action name="actionSelect_None">
    <property name="enabled">
     <bool>false</bool>
    </property>

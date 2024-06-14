@@ -32,6 +32,7 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         self.view_state = ViewState(window_size=self.size())
         self.view_state.cursorChanged.connect(self.change_cursor)
         self.view_state.request_message.connect(self.request_message)
+        self.view_state.sel_rect.selection_shown.connect(self.update)
         self.is_360 = False
         self.raw_rot_ont2 = numpy.eye(2, dtype=numpy.float32)  # For flatty images
         self.raw_rot_ont3 = numpy.eye(3, dtype=numpy.float32)  # For spherical panos

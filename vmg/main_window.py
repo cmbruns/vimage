@@ -67,6 +67,9 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         self.actionSave_As.setIcon(self.style().standardIcon(
             QtWidgets.QStyle.SP_DialogSaveButton))
         self.actionSave_As.setShortcut(QtGui.QKeySequence.SaveAs)
+        sel_rect = self.imageWidgetGL.view_state.sel_rect
+        sel_rect.selection_shown.connect(self.actionSelect_None.setEnabled)
+        self.actionSelect_None.triggered.connect(sel_rect.clear)
         rect_icon_file = pkg_resources.resource_filename("vmg.images", "box_icon.png")
         self.actionSelect_Rectangle.setIcon(QtGui.QIcon(rect_icon_file))
         self.actionSelect_Rectangle.triggered.connect(self.imageWidgetGL.start_rect_with_no_point)
@@ -202,6 +205,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         self.actionSave_As.setEnabled(True)
         self.actionSave_Current_View_As.setEnabled(True)
         self.actionCopy.setEnabled(True)
+        self.actionSelect_Rectangle.setEnabled(True)
         return True
 
     def load_image(self, file_name: str) -> bool:

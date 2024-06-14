@@ -34,7 +34,6 @@ class RectangularSelection(QtCore.QObject):
         self._first_point_omp = [0, 0]
         self._second_point_omp = [0, 0]
         self.state = SelState.INACTIVE
-        self._next_start_omp: Optional[LocationOmp] = None
         self.adjusting = AdjustType.NONE
 
     cursorChanged = QtCore.Signal(QtGui.QCursor)
@@ -55,11 +54,17 @@ class RectangularSelection(QtCore.QObject):
     def bottom(self, value):
         self.left_top_right_bottom[3] = int(value + 0.5)
 
+    @QtCore.Slot()
+    def clear(self):
+        self.state = SelState.INACTIVE
+        self.left_top_right_bottom[:] = (0, 0, 0, 0)
+        self.adjusting = AdjustType.NONE
+        self.selection_shown.emit(False)
+
     def context_menu_actions(self, p_omp: LocationOmp) -> list:
         result = []
         start_action = StartRectAction()
-        self._next_start_omp = p_omp
-        start_action.triggered.connect(self.start_rect_with_cached_point)  # noqa
+        start_action.triggered.connect(lambda: self.begin(p_omp))  # noqa
         result.append(start_action)
         return result
 
@@ -141,6 +146,7 @@ class RectangularSelection(QtCore.QObject):
             self.second_point_omp = p_omp
             self.state = SelState.COMPLETE
             self.cursorChanged.emit(None)  # noqa
+            self.selection_shown.emit(True)
             event_consumed = True
         elif self.state == SelState.COMPLETE:
             self.adjusting = self._is_near_edge(p_omp, hover_min_omp)
@@ -154,6 +160,7 @@ class RectangularSelection(QtCore.QObject):
             self.second_point_omp = p_omp
             self.state = SelState.COMPLETE
             self.cursorChanged.emit(None)  # noqa
+            self.selection_shown.emit(True)
 
     @property
     def right(self) -> int:
@@ -162,10 +169,6 @@ class RectangularSelection(QtCore.QObject):
     @right.setter
     def right(self, value):
         self.left_top_right_bottom[2] = int(value + 0.5)
-
-    @QtCore.Slot()  # noqa
-    def start_rect_with_cached_point(self):
-        self.begin(self._next_start_omp)
 
     @QtCore.Slot()  # noqa
     def start_rect_with_no_point(self):
@@ -179,6 +182,8 @@ class RectangularSelection(QtCore.QObject):
     def second_point_omp(self, xy):
         self._second_point_omp[:] = xy[:]
         self._update_shape()
+
+    selection_shown = QtCore.Signal(bool)
 
     @property
     def top(self) -> int:
