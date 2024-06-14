@@ -36,7 +36,6 @@ class RectangularSelection(QtCore.QObject):
         self.state = SelState.INACTIVE
         self._next_start_omp: Optional[LocationOmp] = None
         self.adjusting = AdjustType.NONE
-        self.previous_omp = None
 
     cursorChanged = QtCore.Signal(QtGui.QCursor)
 
@@ -54,7 +53,7 @@ class RectangularSelection(QtCore.QObject):
 
     @bottom.setter
     def bottom(self, value):
-        self.left_top_right_bottom[3] = value
+        self.left_top_right_bottom[3] = int(value + 0.5)
 
     def context_menu_actions(self, p_omp: LocationOmp) -> list:
         result = []
@@ -95,7 +94,7 @@ class RectangularSelection(QtCore.QObject):
 
     @left.setter
     def left(self, value):
-        self.left_top_right_bottom[0] = value
+        self.left_top_right_bottom[0] = int(value + 0.5)
 
     def mouse_move_event(self, _event, p_omp, hover_min_omp) -> tuple[bool, bool]:
         update_display = False
@@ -103,6 +102,7 @@ class RectangularSelection(QtCore.QObject):
         if self.state == SelState.FINDING_SECOND_POINT:
             self.second_point_omp = p_omp
             update_display = True
+            event_consumed = True
         elif self.state == SelState.COMPLETE:
             if self.adjusting == AdjustType.NONE:
                 # Show correct cursor when hovering
@@ -118,19 +118,16 @@ class RectangularSelection(QtCore.QObject):
                 else:
                     self.cursorChanged.emit(None)
             else:
-                d_omp = p_omp - self.previous_omp
                 if self.adjusting == AdjustType.LEFT:
-                    self.left += d_omp.x
+                    self.left = p_omp.x
                 elif self.adjusting == AdjustType.RIGHT:
-                    self.right += d_omp.x
+                    self.right = p_omp.x
                 elif self.adjusting == AdjustType.TOP:
-                    self.top += d_omp.y
+                    self.top = p_omp.y
                 elif self.adjusting == AdjustType.BOTTOM:
-                    self.bottom += d_omp.y
-                self.previous_omp = p_omp
+                    self.bottom = p_omp.y
                 update_display = True
                 event_consumed = True
-        self.previous_omp = p_omp
         return event_consumed, update_display
 
     def mouse_press_event(self, _event: QtGui.QMouseEvent, p_omp, hover_min_omp) -> bool:
@@ -148,20 +145,15 @@ class RectangularSelection(QtCore.QObject):
         elif self.state == SelState.COMPLETE:
             self.adjusting = self._is_near_edge(p_omp, hover_min_omp)
             event_consumed = True
-        self.previous_omp = p_omp
         return event_consumed
 
-    def mouse_release_event(self, _event, p_omp) -> bool:
-        event_consumed = False
+    def mouse_release_event(self, _event, p_omp):
         if self.adjusting != AdjustType.NONE:
             self.adjusting = AdjustType.NONE
-            event_consumed = True
         elif self.state == SelState.FINDING_SECOND_POINT:
             self.second_point_omp = p_omp
             self.state = SelState.COMPLETE
             self.cursorChanged.emit(None)  # noqa
-        self.previous_omp = None
-        return event_consumed
 
     @property
     def right(self) -> int:
@@ -169,7 +161,7 @@ class RectangularSelection(QtCore.QObject):
 
     @right.setter
     def right(self, value):
-        self.left_top_right_bottom[2] = value
+        self.left_top_right_bottom[2] = int(value + 0.5)
 
     @QtCore.Slot()  # noqa
     def start_rect_with_cached_point(self):
@@ -194,23 +186,23 @@ class RectangularSelection(QtCore.QObject):
 
     @top.setter
     def top(self, value):
-        self.left_top_right_bottom[1] = value
+        self.left_top_right_bottom[1] = int(value + 0.5)
 
     def _update_shape(self):
         # Keep the values sorted
-        self.left_top_right_bottom[0] = min(
+        self.left = min(
             self._first_point_omp[0],
             self._second_point_omp[0],
         )
-        self.left_top_right_bottom[1] = min(
+        self.top = min(
             self._first_point_omp[1],
             self._second_point_omp[1],
         )
-        self.left_top_right_bottom[2] = max(
+        self.right = max(
             self._first_point_omp[0],
             self._second_point_omp[0],
         )
-        self.left_top_right_bottom[3] = max(
+        self.bottom = max(
             self._first_point_omp[1],
             self._second_point_omp[1],
         )

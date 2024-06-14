@@ -240,29 +240,25 @@ class ViewState(QObject):
                 )
         return update_display
 
-    def mouse_press_event(self, event) -> bool:
-        update_display = False
+    def mouse_press_event(self, event):
         event_consumed = self.sel_rect.mouse_press_event(
                 event,
                 self.omp_for_qpoint(event.pos()),
                 self.hover_min_omp,
         )
         if event_consumed:
-            return update_display
+            return
         else:
             self._is_dragging = True
             self._previous_mouse_position = event.pos()
             self.cursorChanged.emit(Qt.ClosedHandCursor)  # noqa
-            return update_display
 
-    def mouse_release_event(self, event) -> bool:
-        update_display = False
+    def mouse_release_event(self, event):
         self._is_dragging = False
         self._previous_mouse_position = None
         self.cursorChanged.emit(None)  # noqa
         p_omp = self.omp_for_qpoint(event.pos())
-        event_consumed = self.sel_rect.mouse_release_event(event, p_omp)
-        return update_display
+        self.sel_rect.mouse_release_event(event, p_omp)
 
     def nic_for_qwn(self, p_qwn: LocationQwn) -> LocationNic:
         w_qwn, h_qwn = self._size_qwn
