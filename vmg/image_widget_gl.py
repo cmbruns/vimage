@@ -6,6 +6,7 @@ import PIL.Image
 from PySide6 import QtCore, QtGui, QtOpenGLWidgets, QtWidgets
 from PySide6.QtCore import QEvent, Qt, QPoint
 
+from vmg.rect_sel import CursorHolder
 from vmg.state import ImageState, ViewState
 from vmg.shader import RectangularShader, IImageShader, SphericalShader
 
@@ -30,7 +31,7 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         self.sphere_shader = SphericalShader()
         self.program: IImageShader = self.rect_shader
         self.view_state = ViewState(window_size=self.size())
-        self.view_state.cursorChanged.connect(self.change_cursor)
+        self.view_state.cursor_changed.connect(self.change_cursor)
         self.view_state.request_message.connect(self.request_message)
         self.view_state.sel_rect.selection_shown.connect(self.update)
         self.is_360 = False
@@ -39,11 +40,14 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
 
     request_message = QtCore.Signal(str, int)
 
-    @QtCore.Slot(QtGui.QCursor)  # noqa
-    def change_cursor(self, cursor: QtGui.QCursor):
-        if cursor is None:
+    @QtCore.Slot(CursorHolder)  # noqa
+    def change_cursor(self, cursor_holder: CursorHolder):
+        if cursor_holder.cursor == Qt.ArrowCursor:
+            x = 3
+        if cursor_holder.cursor is None:
             self.unsetCursor()
-        self.setCursor(cursor)
+        else:
+            self.setCursor(cursor_holder.cursor)
 
     def event(self, event: QEvent):
         if event.type() == QEvent.Gesture:

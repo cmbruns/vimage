@@ -12,7 +12,7 @@ from vmg.frame import DimensionsOmp, DimensionsQwn, LocationHpd, LocationObq, Lo
     LocationPrj, LocationQwn, LocationRelative
 from vmg.pixel_filter import PixelFilter
 from vmg.projection_360 import Projection360
-from vmg.rect_sel import RectangularSelection
+from vmg.rect_sel import RectangularSelection, CursorHolder
 
 
 class ImageState(object):
@@ -126,7 +126,7 @@ class ViewState(QObject):
         self.raw_rot_ont = numpy.eye(3, dtype=numpy.float32)
         self.pixel_filter = PixelFilter.CATMULL_ROM
         self.sel_rect = RectangularSelection()
-        self.sel_rect.cursorChanged.connect(self.cursorChanged)
+        self.sel_rect.cursor_changed.connect(self.on_rect_cursor_changed)
         self._is_dragging = False
         self._previous_mouse_position = None
 
@@ -164,7 +164,17 @@ class ViewState(QObject):
         result.extend(self.sel_rect.context_menu_actions(p_omp))
         return result
 
-    cursorChanged = QtCore.Signal(QtGui.QCursor)
+    cursor_changed = QtCore.Signal(CursorHolder)
+
+    @QtCore.Slot(CursorHolder)
+    def on_rect_cursor_changed(self, cursor_holder: CursorHolder):
+        if cursor_holder.cursor is None:
+            if self._is_dragging:
+                self.cursor_changed.emit(CursorHolder(Qt.ClosedHandCursor))
+            else:
+                self.cursor_changed.emit(CursorHolder(Qt.OpenHandCursor))
+        else:
+            self.cursor_changed.emit(cursor_holder)
 
     def drag_relative(self, prev: QPoint, curr: QPoint):
         prev_qwn = LocationQwn.from_qpoint(prev)
@@ -249,12 +259,12 @@ class ViewState(QObject):
         self._is_dragging = True
         self._previous_mouse_position = event.pos()
         if not keep_cursor:
-            self.cursorChanged.emit(Qt.ClosedHandCursor)  # noqa
+            self.cursor_changed.emit(CursorHolder(Qt.ClosedHandCursor))  # noqa
 
     def mouse_release_event(self, event):
         self._is_dragging = False
         self._previous_mouse_position = None
-        self.cursorChanged.emit(None)  # noqa
+        self.cursor_changed.emit(CursorHolder(Qt.OpenHandCursor))  # noqa
         p_omp = self.omp_for_qpoint(event.pos())
         self.sel_rect.mouse_release_event(event, p_omp)
 

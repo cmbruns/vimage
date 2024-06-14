@@ -14,6 +14,7 @@ from PySide6.QtGui import QUndoStack
 from PySide6.QtWidgets import QFileDialog, QMessageBox
 
 from vmg.circular_combo_box import CircularComboBox
+from vmg.command import CropToSelection
 from vmg.natural_sort import natural_sort_key
 from vmg.pixel_filter import PixelFilter
 from vmg.projection_360 import Projection360
@@ -207,6 +208,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         self.actionSave_Current_View_As.setEnabled(True)
         self.actionCopy.setEnabled(True)
         self.actionSelect_Rectangle.setEnabled(True)
+        self.actionSelect_None.trigger()
         return True
 
     def load_image(self, file_name: str) -> bool:
@@ -334,7 +336,13 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
     @QtCore.Slot()  # noqa
     def on_actionCopy_triggered(self):  # noqa
         # TODO - create a separate container for images...
-        temp = self.image.convert("RGBA")
+        # Copy selection only, if available
+        sel_rect = self.imageWidgetGL.view_state.sel_rect
+        if sel_rect.is_active:
+            img = self.image.crop(sel_rect.left_top_right_bottom)
+        else:
+            img = self.image
+        temp = img.convert("RGBA")
         qimage = QtGui.QImage(
             temp.tobytes("raw", "RGBA"),
             temp.size[0],
@@ -348,14 +356,12 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         # TODO: Undoable command
         # TODO: virtual crop, metdata only
         # TODO: what about existing image list?
-        sel_rect = self.imageWidgetGL.view_state.sel_rect
-        if sel_rect.left == sel_rect.right:
-            return  # TODO: log warning
-        backup = self.image.copy()
-        cropped = self.image.crop(sel_rect.left_top_right_bottom)
-        if self.load_image_from_memory(image=cropped, name="Cropped"):
-            self.undo_stack.resetClean()  # clipboard image has not been saved
-            sel_rect.clear()
+        self.undo_stack.push(CropToSelection(
+            self.image,
+            self.imageWidgetGL.view_state.sel_rect,
+            self,
+            self.image_list[self.image_index],
+        ))
 
     @QtCore.Slot(bool)  # noqa
     def on_actionEquidistant_toggled(self, is_checked: bool):  # noqa
