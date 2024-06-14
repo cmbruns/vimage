@@ -185,7 +185,7 @@ class Ui_MainWindow(object):
     def retranslateUi(self, MainWindow):
         self.actionOpen.setText(QCoreApplication.translate("MainWindow", u"Open...", None))
         self.actionExit.setText(QCoreApplication.translate("MainWindow", u"Exit", None))
-        self.actionSave_As.setText(QCoreApplication.translate("MainWindow", u"Save Original Image As...", None))
+        self.actionSave_As.setText(QCoreApplication.translate("MainWindow", u"Save As...", None))
         self.actionNext.setText(QCoreApplication.translate("MainWindow", u"Next Image", None))
 #if QT_CONFIG(shortcut)
         self.actionNext.setShortcut(QCoreApplication.translate("MainWindow", u"Right", None))

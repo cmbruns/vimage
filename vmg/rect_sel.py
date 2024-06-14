@@ -136,22 +136,23 @@ class RectangularSelection(QtCore.QObject):
         return event_consumed, update_display
 
     def mouse_press_event(self, _event: QtGui.QMouseEvent, p_omp, hover_min_omp) -> bool:
-        event_consumed = False
+        keep_cursor = False
         if self.state == SelState.FINDING_FIRST_POINT:
             self.first_point_omp = p_omp
             self.second_point_omp = p_omp
             self.state = SelState.FINDING_SECOND_POINT
-            event_consumed = True
+            keep_cursor = True
         elif self.state == SelState.FINDING_SECOND_POINT:
             self.second_point_omp = p_omp
             self.state = SelState.COMPLETE
             self.cursorChanged.emit(None)  # noqa
             self.selection_shown.emit(True)
-            event_consumed = True
+            keep_cursor = True
         elif self.state == SelState.COMPLETE:
             self.adjusting = self._is_near_edge(p_omp, hover_min_omp)
-            event_consumed = True
-        return event_consumed
+            if self.adjusting != AdjustType.NONE:
+                keep_cursor = True
+        return keep_cursor
 
     def mouse_release_event(self, _event, p_omp):
         if self.adjusting != AdjustType.NONE:

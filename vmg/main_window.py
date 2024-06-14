@@ -56,6 +56,8 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
             settings_key="recent_files",
             menu=self.menuOpen_Recent,
         )
+        sel_rect = self.imageWidgetGL.view_state.sel_rect
+        sel_rect.selection_shown.connect(self.actionCrop_to_Selection.setEnabled)
         self.actionNext.setIcon(self.style().standardIcon(
             QtWidgets.QStyle.SP_MediaSeekForward))
         self.actionOpen.setShortcut(QtGui.QKeySequence.Open)
@@ -67,7 +69,6 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         self.actionSave_As.setIcon(self.style().standardIcon(
             QtWidgets.QStyle.SP_DialogSaveButton))
         self.actionSave_As.setShortcut(QtGui.QKeySequence.SaveAs)
-        sel_rect = self.imageWidgetGL.view_state.sel_rect
         sel_rect.selection_shown.connect(self.actionSelect_None.setEnabled)
         self.actionSelect_None.triggered.connect(sel_rect.clear)
         rect_icon_file = pkg_resources.resource_filename("vmg.images", "box_icon.png")
@@ -341,6 +342,20 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
             QtGui.QImage.Format.Format_RGBA8888,
         )
         self.clipboard.setImage(qimage)
+
+    @QtCore.Slot()  # noqa
+    def on_actionCrop_to_Selection_triggered(self):  # noqa
+        # TODO: Undoable command
+        # TODO: virtual crop, metdata only
+        # TODO: what about existing image list?
+        sel_rect = self.imageWidgetGL.view_state.sel_rect
+        if sel_rect.left == sel_rect.right:
+            return  # TODO: log warning
+        backup = self.image.copy()
+        cropped = self.image.crop(sel_rect.left_top_right_bottom)
+        if self.load_image_from_memory(image=cropped, name="Cropped"):
+            self.undo_stack.resetClean()  # clipboard image has not been saved
+            sel_rect.clear()
 
     @QtCore.Slot(bool)  # noqa
     def on_actionEquidistant_toggled(self, is_checked: bool):  # noqa
