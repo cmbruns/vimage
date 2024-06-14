@@ -194,6 +194,11 @@ class ViewState(QObject):
             self._clamp_center()
             # print(f"new way image center {self._center_rel}")
 
+    @property
+    def hover_min_omp(self):
+        hover_min_qwn = 5  # How close do we need to be to start dragging?
+        return self.omp_for_qwn(LocationQwn(hover_min_qwn, hover_min_qwn, 0)).x
+
     @staticmethod
     def hpd_for_ont(p_ont: LocationOnt) -> LocationHpd:
         return LocationHpd(
@@ -213,12 +218,13 @@ class ViewState(QObject):
 
     def mouse_move_event(self, event) -> bool:
         p_omp = self.omp_for_qpoint(event.pos())
-        if self.sel_rect.mouse_move_event(event, p_omp):
-            return True
+        event_consumed, update_display = self.sel_rect.mouse_move_event(event, p_omp, self.hover_min_omp)
+        if event_consumed:
+            pass
         elif self._is_dragging:
             self.drag_relative(event.pos(), self._previous_mouse_position)
             self._previous_mouse_position = event.pos()
-            return True
+            update_display = True
         else:
             p_qwn = LocationQwn.from_qpoint(event.pos())
             if self.is_360:
@@ -232,24 +238,31 @@ class ViewState(QObject):
                     f"image pixel = [{int(p_omp.x)}, {int(p_omp.y)}]",
                     2000,
                 )
-            return False
+        return update_display
 
     def mouse_press_event(self, event) -> bool:
-        p_omp = self.omp_for_qpoint(event.pos())
-        if self.sel_rect.mouse_press_event(event, p_omp):
-            return True
+        update_display = False
+        event_consumed = self.sel_rect.mouse_press_event(
+                event,
+                self.omp_for_qpoint(event.pos()),
+                self.hover_min_omp,
+        )
+        if event_consumed:
+            return update_display
         else:
             self._is_dragging = True
             self._previous_mouse_position = event.pos()
             self.cursorChanged.emit(Qt.ClosedHandCursor)  # noqa
-            return True
+            return update_display
 
     def mouse_release_event(self, event) -> bool:
+        update_display = False
         self._is_dragging = False
         self._previous_mouse_position = None
         self.cursorChanged.emit(None)  # noqa
         p_omp = self.omp_for_qpoint(event.pos())
-        return self.sel_rect.mouse_release_event(event, p_omp)
+        event_consumed = self.sel_rect.mouse_release_event(event, p_omp)
+        return update_display
 
     def nic_for_qwn(self, p_qwn: LocationQwn) -> LocationNic:
         w_qwn, h_qwn = self._size_qwn

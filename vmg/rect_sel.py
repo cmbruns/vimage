@@ -16,6 +16,14 @@ class SelState(enum.Enum):
     COMPLETE = 3
 
 
+class AdjustType(enum.Enum):
+    NONE = 0
+    LEFT = 1
+    RIGHT = 2
+    TOP = 3
+    BOTTOM = 4
+
+
 class RectangularSelection(QtCore.QObject):
     def __init__(self):
         super().__init__()
@@ -27,6 +35,8 @@ class RectangularSelection(QtCore.QObject):
         self._second_point_omp = [0, 0]
         self.state = SelState.INACTIVE
         self._next_start_omp: Optional[LocationOmp] = None
+        self.adjusting = AdjustType.NONE
+        self.previous_omp = None
 
     cursorChanged = QtCore.Signal(QtGui.QCursor)
 
@@ -37,6 +47,14 @@ class RectangularSelection(QtCore.QObject):
             self.first_point_omp = p_omp
             self.state = SelState.FINDING_SECOND_POINT
         self.cursorChanged.emit(Qt.CrossCursor)  # noqa
+
+    @property
+    def bottom(self) -> int:
+        return self.left_top_right_bottom[3]
+
+    @bottom.setter
+    def bottom(self, value):
+        self.left_top_right_bottom[3] = value
 
     def context_menu_actions(self, p_omp: LocationOmp) -> list:
         result = []
@@ -55,6 +73,104 @@ class RectangularSelection(QtCore.QObject):
         self._first_point_omp[:] = xy[:]
         self._update_shape()
 
+    def _is_near_edge(self, p_omp, hover_min_omp) -> AdjustType:
+        best = AdjustType.LEFT
+        min_dist = abs(p_omp.x - self.left)
+        if min_dist > abs(p_omp.x - self.right):
+            min_dist = abs(p_omp.x - self.right)
+            best = AdjustType.RIGHT
+        if min_dist > abs(p_omp.y - self.top):
+            min_dist = abs(p_omp.y - self.top)
+            best = AdjustType.TOP
+        if min_dist > abs(p_omp.y - self.bottom):
+            min_dist = abs(p_omp.y - self.bottom)
+            best = AdjustType.BOTTOM
+        if min_dist > hover_min_omp:
+            return AdjustType.NONE
+        return best
+
+    @property
+    def left(self) -> int:
+        return self.left_top_right_bottom[0]
+
+    @left.setter
+    def left(self, value):
+        self.left_top_right_bottom[0] = value
+
+    def mouse_move_event(self, _event, p_omp, hover_min_omp) -> tuple[bool, bool]:
+        update_display = False
+        event_consumed = False
+        if self.state == SelState.FINDING_SECOND_POINT:
+            self.second_point_omp = p_omp
+            update_display = True
+        elif self.state == SelState.COMPLETE:
+            if self.adjusting == AdjustType.NONE:
+                # Show correct cursor when hovering
+                adj = self._is_near_edge(p_omp, hover_min_omp)
+                if adj == AdjustType.LEFT:
+                    self.cursorChanged.emit(Qt.SizeHorCursor)
+                elif adj == AdjustType.RIGHT:
+                    self.cursorChanged.emit(Qt.SizeHorCursor)
+                elif adj == AdjustType.TOP:
+                    self.cursorChanged.emit(Qt.SizeVerCursor)
+                elif adj == AdjustType.BOTTOM:
+                    self.cursorChanged.emit(Qt.SizeVerCursor)
+                else:
+                    self.cursorChanged.emit(None)
+            else:
+                d_omp = p_omp - self.previous_omp
+                if self.adjusting == AdjustType.LEFT:
+                    self.left += d_omp.x
+                elif self.adjusting == AdjustType.RIGHT:
+                    self.right += d_omp.x
+                elif self.adjusting == AdjustType.TOP:
+                    self.top += d_omp.y
+                elif self.adjusting == AdjustType.BOTTOM:
+                    self.bottom += d_omp.y
+                self.previous_omp = p_omp
+                update_display = True
+                event_consumed = True
+        self.previous_omp = p_omp
+        return event_consumed, update_display
+
+    def mouse_press_event(self, _event: QtGui.QMouseEvent, p_omp, hover_min_omp) -> bool:
+        event_consumed = False
+        if self.state == SelState.FINDING_FIRST_POINT:
+            self.first_point_omp = p_omp
+            self.second_point_omp = p_omp
+            self.state = SelState.FINDING_SECOND_POINT
+            event_consumed = True
+        elif self.state == SelState.FINDING_SECOND_POINT:
+            self.second_point_omp = p_omp
+            self.state = SelState.COMPLETE
+            self.cursorChanged.emit(None)  # noqa
+            event_consumed = True
+        elif self.state == SelState.COMPLETE:
+            self.adjusting = self._is_near_edge(p_omp, hover_min_omp)
+            event_consumed = True
+        self.previous_omp = p_omp
+        return event_consumed
+
+    def mouse_release_event(self, _event, p_omp) -> bool:
+        event_consumed = False
+        if self.adjusting != AdjustType.NONE:
+            self.adjusting = AdjustType.NONE
+            event_consumed = True
+        elif self.state == SelState.FINDING_SECOND_POINT:
+            self.second_point_omp = p_omp
+            self.state = SelState.COMPLETE
+            self.cursorChanged.emit(None)  # noqa
+        self.previous_omp = None
+        return event_consumed
+
+    @property
+    def right(self) -> int:
+        return self.left_top_right_bottom[2]
+
+    @right.setter
+    def right(self, value):
+        self.left_top_right_bottom[2] = value
+
     @QtCore.Slot()  # noqa
     def start_rect_with_cached_point(self):
         self.begin(self._next_start_omp)
@@ -62,36 +178,6 @@ class RectangularSelection(QtCore.QObject):
     @QtCore.Slot()  # noqa
     def start_rect_with_no_point(self):
         self.begin(None)
-
-    def mouse_move_event(self, _event, p_omp) -> bool:
-        if self.state == SelState.FINDING_SECOND_POINT:
-            self.second_point_omp = p_omp
-            return True
-        else:
-            return False
-
-    def mouse_press_event(self, _event, p_omp) -> bool:
-        if self.state == SelState.FINDING_FIRST_POINT:
-            self.first_point_omp = p_omp
-            self.second_point_omp = p_omp
-            self.state = SelState.FINDING_SECOND_POINT
-            return True
-        elif self.state == SelState.FINDING_SECOND_POINT:
-            self.second_point_omp = p_omp
-            self.state = SelState.COMPLETE
-            self.cursorChanged.emit(None)  # noqa
-            return True
-        else:
-            return False
-
-    def mouse_release_event(self, _event, p_omp) -> bool:
-        if self.state == SelState.FINDING_SECOND_POINT:
-            self.second_point_omp = p_omp
-            self.state = SelState.COMPLETE
-            self.cursorChanged.emit(None)  # noqa
-            return False  # no update needed
-        else:
-            return False
 
     @property
     def second_point_omp(self):
@@ -101,6 +187,14 @@ class RectangularSelection(QtCore.QObject):
     def second_point_omp(self, xy):
         self._second_point_omp[:] = xy[:]
         self._update_shape()
+
+    @property
+    def top(self) -> int:
+        return self.left_top_right_bottom[1]
+
+    @top.setter
+    def top(self, value):
+        self.left_top_right_bottom[1] = value
 
     def _update_shape(self):
         # Keep the values sorted
