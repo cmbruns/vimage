@@ -18,11 +18,18 @@ find_program(PYINSTALLER pyinstaller
       /Library/Frameworks/Python.framework/Versions/3.9/bin/
       /usr/local/bin/
 )
+if (WIN32)
+  set(SPEC_FILE vimage_win32.spec)
+elseif(APPLE)
+  set(SPEC_FILE vimage_macos.spec)
+elseif(UNIX)
+  set(SPEC_FILE vimage_linux.spec)
+endif()
 add_custom_target(RunPyInstaller ALL
     COMMAND ${CMAKE_COMMAND} -E remove_directory "${CMAKE_BINARY_DIR}/dist"
     COMMAND ${CMAKE_COMMAND} -E remove_directory "${CMAKE_BINARY_DIR}/build"
-    COMMAND ${PYINSTALLER} ${CMAKE_SOURCE_DIR}/scripts/vimage.spec
-    DEPENDS "${CMAKE_SOURCE_DIR}/scripts/vimage.spec" "${CMAKE_SOURCE_DIR}/vmg/ui_vimage.py"
+    COMMAND ${PYINSTALLER} ${CMAKE_SOURCE_DIR}/scripts/${SPEC_FILE}
+    DEPENDS "${CMAKE_SOURCE_DIR}/scripts/${SPEC_FILE}" "${CMAKE_SOURCE_DIR}/vmg/ui_vimage.py"
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
     COMMENT "Running PyInstaller"
 )
