@@ -1,7 +1,7 @@
 #pragma include "shared.frag"
 
 uniform sampler2D image;
-uniform int pixelFilter = NEAREST;
+uniform int pixelFilter = FILTER_NEAREST;
 uniform ivec4 sel_rect_omp = ivec4(100, 150, 200, 300);  // left top bottom right
 
 in vec2 p_tex;
@@ -12,20 +12,7 @@ out vec4 image_color;
 
 void main()
 {
-    // clip to image boundary
-    if (p_tex.x < 0 || p_tex.y < 0 || p_tex.x > 1 || p_tex.y > 1) {
-        image_color = vec4(0);
-        return;
-    }
-
-    switch(pixelFilter) {
-    case NEAREST:
-        image_color = nearest(image, p_tex);
-        break;
-    case CATMULL_ROM:
-        image_color = catrom(image, p_tex);
-        break;
-    }
+    image_color = clip_n_filter(image, p_tex, pixelFilter, false);
 
     // selection box
     float line_width_qwn = 1.8;  // box outline line width in window pixels

@@ -75,8 +75,10 @@ class SphericalShader(IImageShader):
     def initialize_gl(self) -> None:
         vertex_shader = compileShader(pkg_resources.resource_string(
             "vmg", "sphere.vert", ), GL.GL_VERTEX_SHADER)
-        fragment_shader = compileShader(pkg_resources.resource_string(
-            "vmg", "sphere.frag", ), GL.GL_FRAGMENT_SHADER)
+        fragment_shader = compileShader(
+            pkg_resources.resource_string("vmg", "shared.frag") +
+            pkg_resources.resource_string("vmg", "sphere.frag"),
+            GL.GL_FRAGMENT_SHADER)
         self.shader = GL.glCreateProgram()
         GL.glAttachShader(self.shader, vertex_shader)
         GL.glAttachShader(self.shader, fragment_shader)
