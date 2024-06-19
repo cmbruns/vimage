@@ -42,8 +42,6 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
 
     @QtCore.Slot(CursorHolder)  # noqa
     def change_cursor(self, cursor_holder: CursorHolder):
-        if cursor_holder.cursor == Qt.ArrowCursor:
-            x = 3
         if cursor_holder.cursor is None:
             self.unsetCursor()
         else:
