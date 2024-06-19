@@ -41,5 +41,6 @@ void main() {
     vec2 p_tex = equirect_tex_coord(p_raw);
     color = clip_n_filter(image, p_tex, pixelFilter, true);
 
-    color = sqrt(color);
+    // sRGB conversion should be the FINAL step of the fragment shader
+    color = srgb_from_linear(color);
 }

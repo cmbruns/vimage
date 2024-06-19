@@ -117,6 +117,10 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         # TODO: do we ever need to check the size outside of ViewState?
         self.view_state.set_window_size(w, h)
 
+    @staticmethod
+    def _linear_from_srgb(image: numpy.array):
+        return numpy.where(image >= 0.04045, ((image + 0.055) / 1.055)**2.4, image/12.92)
+
     def set_image(self, image: PIL.Image.Image):
         self.image_state = ImageState(image)
         self.view_state.reset()
@@ -143,11 +147,10 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         # Convert srgb value scale to linear
         if len(self.image.shape) == 2:
             # Monochrome image
-            self.image = numpy.square(self.image)  # approximate srgb -> linear
+            self.image = self._linear_from_srgb(self.image)
         else:
             for rgb in range(3):
-                # square() method below crashes on Mac with numpy 1.25. OK with 1.26
-                self.image[:, :, rgb] = numpy.square(self.image[:, :, rgb])  # approximate srgb -> linear
+                self.image[:, :, rgb] = self._linear_from_srgb(self.image[:, :, rgb])  # approximate srgb -> linear
         # Use premultiplied alpha for better filtering
         if image.mode == "RGBA":
             a = self.image
