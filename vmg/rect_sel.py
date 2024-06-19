@@ -1,6 +1,6 @@
 import enum
 import pkg_resources
-from typing import Optional
+from typing import Optional, Tuple
 
 import numpy
 from PySide6 import QtCore, QtGui
@@ -141,7 +141,7 @@ class RectangularSelection(QtCore.QObject):
     def left(self, value):
         self.left_top_right_bottom[0] = int(value + 0.5)
 
-    def mouse_move_event(self, _event, p_omp, hover_min_omp) -> tuple[bool, bool]:
+    def mouse_move_event(self, _event, p_omp, hover_min_omp) -> Tuple[bool, bool]:
         update_display = False
         event_consumed = False
         if self.state == SelState.FINDING_SECOND_POINT:
