@@ -128,6 +128,8 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         else:
             self.is_360 = False
             self.program = self.rect_shader
+        if image.mode == "P":
+            image = image.convert("RGBA")
         self.image = numpy.array(image)
         # Normalize values to maximum 1.0 and convert to float32
         # TODO: test performance
