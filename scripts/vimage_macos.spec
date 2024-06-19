@@ -3,7 +3,7 @@
 
 a = Analysis(
     ['../scripts/vimage.py'],
-    pathex=[],
+    pathex=['../'],
     binaries=[],
     datas=[
         ("../vmg/*.vert", "vmg"),
