@@ -109,6 +109,8 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         self.update()
 
     def paintGL(self) -> None:
+        bg_color = self.palette().color(self.backgroundRole()).getRgbF()
+        GL.glClearColor(*bg_color)
         GL.glClear(GL.GL_COLOR_BUFFER_BIT)
         if self.image is None:
             return
