@@ -27,7 +27,10 @@ class VimageApp(object):
         f.setProfile(QSurfaceFormat.CoreProfile)
         f.setVersion(4, 1)
         QSurfaceFormat.setDefaultFormat(f)
+        # Respect dark mode setting on windows
+        sys.argv += ['-platform', 'windows:darkmode=2']
         app = VimageApplication(sys.argv)
+        app.setStyle("fusion")  # Maybe looks better than default Vista style?
         app.setAttribute(Qt.AA_EnableHighDpiScaling)  # No effect on custom cursor size
         app.setOrganizationName("rotatingpenguin.com")
         app.setApplicationName("vimage")

@@ -8,8 +8,8 @@ class RecentFile(QtGui.QAction):
     def __init__(self, file_name, open_file_slot, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.file_name = file_name
-        self.triggered.connect(self.on_triggered)
-        self.open_file_requested.connect(open_file_slot)
+        self.triggered.connect(self.on_triggered)  # noqa
+        self.open_file_requested.connect(open_file_slot)  # noqa
         self.setText(file_name)
 
     def __eq__(self, rhs):
@@ -21,20 +21,21 @@ class RecentFile(QtGui.QAction):
     open_file_requested = QtCore.Signal(str)
     file_not_found = QtCore.Signal(str)
 
-    @QtCore.Slot()
+    @QtCore.Slot()  # noqa
     def on_triggered(self):
         if os.path.exists(self.file_name):
-            self.open_file_requested.emit(self.file_name)
+            self.open_file_requested.emit(self.file_name)  # noqa
         else:
             print("recent file not found")
-            self.file_not_found.emit(self.file_name)
+            self.file_not_found.emit(self.file_name)  # noqa
 
 
 class RecentFileList(QtCore.QObject):
     """Memorized collection of recently opened files"""
 
-    def __init__(self, open_file_slot, settings_key, menu):
+    def __init__(self, open_file_slot, settings_key, menu, max_items=15):
         super().__init__()
+        self.max_items = max_items
         self.list = list()
         self.open_file_slot = open_file_slot
         self.settings_key = settings_key
@@ -45,7 +46,7 @@ class RecentFileList(QtCore.QObject):
             for file_name in file_list:
                 recent_file = RecentFile(file_name, self.open_file_slot)
                 self.list.append(recent_file)
-                recent_file.file_not_found.connect(self.on_file_not_found)
+                recent_file.file_not_found.connect(self.on_file_not_found)  # noqa
         self.update()
 
     def add_file(self, file_name):
@@ -54,17 +55,17 @@ class RecentFileList(QtCore.QObject):
             return  # No action; it's already there
         if item in self.list:
             self.list.remove(item)  # it might be later in the list
-        item.file_not_found.connect(self.on_file_not_found)
+        item.file_not_found.connect(self.on_file_not_found)  # noqa
         self.list.insert(0, item)  # make it the first in this list
-        if len(self.list) > 10:
-            self.list[:] = self.list[:10]
+        if len(self.list) > self.max_items:
+            self.list[:] = self.list[:self.max_items]
         # List changed, so save it to the registry
         settings = QtCore.QSettings()
         file_list = [x.file_name for x in self.list]
         settings.setValue(self.settings_key, file_list)
         self.update()
 
-    @QtCore.Slot(str)
+    @QtCore.Slot(str)  # noqa
     def on_file_not_found(self, file_path):
         print("on_file_not_found")
         self.list.remove(file_path)
