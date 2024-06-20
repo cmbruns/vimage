@@ -19,7 +19,7 @@ void main() {
             break;
         case AZ_EQ_PROJECTION:
             if (! azeqd_valid(p_nic)) {
-                color = vec4(1, 0, 0, 0);
+                color = vec4(0);
                 return;
             }
             p_obq = azimuthal_equidistant_xyz(p_nic);
@@ -30,7 +30,7 @@ void main() {
         case EQUIRECT_PROJECTION:
         default :
             if (! equirect_valid(p_nic)) {
-                color = vec4(1, 0, 0, 0);
+                color = vec4(0);
                 return;
             }
             p_obq = equirect_xyz(p_nic);
