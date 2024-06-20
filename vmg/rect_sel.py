@@ -133,6 +133,14 @@ class RectangularSelection(QtCore.QObject):
             # TODO: other corners
         return best
 
+    def key_press_event(self, event: QtGui.QKeyEvent):
+        if event.key() == Qt.Key_Shift:
+            self.cursor_changed.emit(CursorHolder(Qt.CrossCursor))
+
+    def key_release_event(self, event: QtGui.QKeyEvent):
+        if event.key() == Qt.Key_Shift:
+            self.cursor_changed.emit(CursorHolder(None))
+
     @property
     def left(self) -> int:
         return self.left_top_right_bottom[0]
@@ -141,10 +149,14 @@ class RectangularSelection(QtCore.QObject):
     def left(self, value):
         self.left_top_right_bottom[0] = int(value + 0.5)
 
-    def mouse_move_event(self, _event, p_omp, hover_min_omp) -> Tuple[bool, bool]:
+    def mouse_move_event(self, event, p_omp, hover_min_omp) -> Tuple[bool, bool]:
         update_display = False
         event_consumed = False
-        if self.state == SelState.FINDING_SECOND_POINT:
+        # Shift-dragging a new box takes priority over adjusting an old box
+        # Is the user ready to shift-drag a new box?
+        if self.state in (SelState.COMPLETE, SelState.INACTIVE) and event.modifiers() & Qt.ShiftModifier:
+            pass
+        elif self.state == SelState.FINDING_SECOND_POINT:
             self.second_point_omp = p_omp
             update_display = True
             event_consumed = True
@@ -195,23 +207,32 @@ class RectangularSelection(QtCore.QObject):
                 event_consumed = True
         return event_consumed, update_display
 
-    def mouse_press_event(self, _event: QtGui.QMouseEvent, p_omp, hover_min_omp) -> bool:
+    def mouse_press_event(self, event: QtGui.QMouseEvent, p_omp, hover_min_omp) -> bool:
         keep_cursor = False
-        if self.state == SelState.FINDING_FIRST_POINT:
+        # Is the user trying to shift-drag a new box?
+        if self.state in (SelState.COMPLETE, SelState.INACTIVE) and event.modifiers() & Qt.ShiftModifier:
             self.first_point_omp = p_omp
             self.second_point_omp = p_omp
             self.state = SelState.FINDING_SECOND_POINT
             keep_cursor = True
+        # Is the user trying to adjust the box?
+        elif self.state == SelState.COMPLETE and self._is_near_edge(p_omp, hover_min_omp) != AdjustType.NONE:
+            self.adjusting = self._is_near_edge(p_omp, hover_min_omp)
+            keep_cursor = True
+        # Is the user trying to place the first box corner after triggering selection mode?
+        elif self.state == SelState.FINDING_FIRST_POINT:
+            # Click on image after activating box select mode
+            self.first_point_omp = p_omp
+            self.second_point_omp = p_omp
+            self.state = SelState.FINDING_SECOND_POINT
+            keep_cursor = True
+        # Is the user trying to place the final box corner?
         elif self.state == SelState.FINDING_SECOND_POINT:
             self.second_point_omp = p_omp
             self.state = SelState.COMPLETE
             self.cursor_changed.emit(CursorHolder(None))  # noqa
             self.selection_shown.emit(True)
             keep_cursor = True
-        elif self.state == SelState.COMPLETE:
-            self.adjusting = self._is_near_edge(p_omp, hover_min_omp)
-            if self.adjusting != AdjustType.NONE:
-                keep_cursor = True
         return keep_cursor
 
     def mouse_release_event(self, _event, p_omp):

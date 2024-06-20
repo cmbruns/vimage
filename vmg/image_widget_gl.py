@@ -74,6 +74,12 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         self.sphere_shader.initialize_gl()
         self.texture = GL.glGenTextures(1)
 
+    def keyPressEvent(self, event):
+        self.view_state.key_press_event(event)
+
+    def keyReleaseEvent(self, event):
+        self.view_state.key_release_event(event)
+
     def mouseMoveEvent(self, event):
         if event.pos() is None:
             return

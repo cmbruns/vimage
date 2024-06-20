@@ -101,8 +101,8 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         self.list_label.setMinimumWidth(40)
         self.toolBar.addWidget(self.list_label)
         self.toolBar.addSeparator()
-        self.toolBar.addAction(self.actionSelect_Rectangle)
-        self.toolBar.addSeparator()
+        # self.toolBar.addAction(self.actionSelect_Rectangle)
+        # self.toolBar.addSeparator()
         self.toolBar.addWidget(self.projectionComboBox)
         self.toolBar.toggleViewAction().setEnabled(False)  # I did not like accidentally hiding it
         # Add image dimensions to status bar
@@ -355,7 +355,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
     @QtCore.Slot()  # noqa
     def on_actionCrop_to_Selection_triggered(self):  # noqa
         # TODO: Undoable command
-        # TODO: virtual crop, metdata only
+        # TODO: virtual crop, metadata only
         # TODO: what about existing image list?
         self.undo_stack.push(CropToSelection(
             self.image,

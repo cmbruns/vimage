@@ -166,15 +166,15 @@ class ViewState(QObject):
 
     cursor_changed = QtCore.Signal(CursorHolder)
 
-    @QtCore.Slot(CursorHolder)
+    @QtCore.Slot(CursorHolder)  # noqa
     def on_rect_cursor_changed(self, cursor_holder: CursorHolder):
         if cursor_holder.cursor is None:
             if self._is_dragging:
-                self.cursor_changed.emit(CursorHolder(Qt.ClosedHandCursor))
+                self.cursor_changed.emit(CursorHolder(Qt.ClosedHandCursor))  # noqa
             else:
-                self.cursor_changed.emit(CursorHolder(Qt.OpenHandCursor))
+                self.cursor_changed.emit(CursorHolder(Qt.OpenHandCursor))  # noqa
         else:
-            self.cursor_changed.emit(cursor_holder)
+            self.cursor_changed.emit(cursor_holder)  # noqa
 
     def drag_relative(self, prev: QPoint, curr: QPoint):
         prev_qwn = LocationQwn.from_qpoint(prev)
@@ -226,9 +226,21 @@ class ViewState(QObject):
         """
         return self._is_360
 
+    def key_press_event(self, event: QtGui.QKeyEvent):
+        if not self.is_360:
+            self.sel_rect.key_press_event(event)
+
+    def key_release_event(self, event: QtGui.QKeyEvent):
+        if not self.is_360:
+            self.sel_rect.key_release_event(event)
+
     def mouse_move_event(self, event) -> bool:
+        # Rectangular selection is only valid in non-360 mode
+        update_display = False
+        event_consumed = False
         p_omp = self.omp_for_qpoint(event.pos())
-        event_consumed, update_display = self.sel_rect.mouse_move_event(event, p_omp, self.hover_min_omp)
+        if not self.is_360:
+            event_consumed, update_display = self.sel_rect.mouse_move_event(event, p_omp, self.hover_min_omp)
         if event_consumed:
             pass
         elif self._is_dragging:
