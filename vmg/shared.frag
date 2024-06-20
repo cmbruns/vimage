@@ -83,7 +83,9 @@ vec4 clip_n_filter(sampler2D image, vec2 tc, int pixelFilter, bool wrap)
         return vec4(0);
     }
 
-    if (pixelFilter == FILTER_NEAREST) {
+    float mipmapLevel = textureQueryLod(image, tc).x;
+    if (mipmapLevel > 0 || pixelFilter == FILTER_NEAREST)
+    {
         if (wrap)
            return nearest_wrap(image, tc);
         else

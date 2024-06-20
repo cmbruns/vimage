@@ -463,8 +463,8 @@ class ViewState(QObject):
         old_zoom = self._zoom
         new_zoom = self._zoom * zoom_factor
         # Limit zoom-out because you never need more than twice the image dimension to move around
-        if new_zoom <= 1:
-            new_zoom = 1
+        if new_zoom <= 0.45:
+            new_zoom = 0.45
         self._zoom = new_zoom
         if zoom_center is not None:
             p_qwn = LocationQwn(zoom_center.x(), zoom_center.y(), 1)
