@@ -443,6 +443,8 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
                 time_str = time.strftime("%Y%m%d_%H%M%S")
                 file_name = f"Clipboard{time_str}"
             if self.load_image_from_memory(image=clip, name=file_name):
+                self.image_list[:] = [file_name,]
+                self.image_index = 0
                 self.undo_stack.resetClean()  # clipboard image has not been saved
 
     @QtCore.Slot(bool)  # noqa
