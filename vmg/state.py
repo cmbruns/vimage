@@ -146,16 +146,6 @@ class ViewState(QObject):
         cy = max(0.0, cy)
         cx = min(1.0, cx)
         cy = min(1.0, cy)
-        if not self.is_360:
-            z = self.zoom
-            if z <= 1:
-                cx = 0.5
-                cy = 0.5
-            else:
-                cx = min(cx, 1 - 0.5 / z)
-                cx = max(cx, 0.5 / z)
-                cy = min(cy, 1 - 0.5 / z)
-                cy = max(cy, 0.5 / z)
         self._center_rel = LocationRelative(cx, cy)
 
     def context_menu_actions(self, qpoint: QPoint) -> list:
