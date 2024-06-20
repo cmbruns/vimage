@@ -35,16 +35,16 @@ class VimageApp(object):
         app.setOrganizationName("rotatingpenguin.com")
         app.setApplicationName("vimage")
         app.setApplicationDisplayName("vimage")
-        window = VimageMainWindow()
-        image_list = app.arguments()[1:]
-        if len(image_list) == 1:
-            window.load_main_image(image_list[0])
-        else:
-            window.set_image_list(app.arguments()[1:], 0)
-        window.show()
-        icon_file = pkg_resources.resource_filename("vmg", "images/vimage2.ico")
-        icon = QIcon(icon_file)
-        app.setWindowIcon(icon)
-        window.setWindowIcon(icon)
-        app.on_file_open_event.connect(window.file_open_event)
-        sys.exit(app.exec())
+        with VimageMainWindow() as window:
+            image_list = app.arguments()[1:]
+            if len(image_list) == 1:
+                window.load_main_image(image_list[0])
+            else:
+                window.set_image_list(app.arguments()[1:], 0)
+            window.show()
+            icon_file = pkg_resources.resource_filename("vmg", "images/vimage2.ico")
+            icon = QIcon(icon_file)
+            app.setWindowIcon(icon)
+            window.setWindowIcon(icon)
+            app.on_file_open_event.connect(window.file_open_event)
+            sys.exit(app.exec())

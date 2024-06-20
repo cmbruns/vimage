@@ -15,6 +15,7 @@ from PySide6.QtWidgets import QFileDialog, QMessageBox
 
 from vmg.circular_combo_box import CircularComboBox
 from vmg.command import CropToSelection
+from vmg.image_loader import ImageLoader
 from vmg.natural_sort import natural_sort_key
 from vmg.pixel_filter import PixelFilter
 from vmg.projection_360 import Projection360
@@ -129,6 +130,12 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         self.menuEdit.insertAction(top_action, self.action_undo)
         self.menuEdit.insertAction(top_action, self.action_redo)
         self.menuEdit.insertSeparator(top_action)
+        # File loading thread
+        self.loading_thread = QtCore.QThread()
+        self.image_loader = ImageLoader()
+        self.image_loader.moveToThread(self.loading_thread)
+        self.loading_thread.start()
+        self.image_load_requested.connect(self.image_loader.load_file_name)
 
     def activate_indexed_image(self):
         try:
@@ -195,6 +202,15 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         event.acceptProposedAction()
         self.activateWindow()  # Take focus immediately after successful drop
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, _type, _value, _traceback):
+        self.loading_thread.quit()
+        self.loading_thread.wait()
+
+    image_load_requested = QtCore.Signal(str)
+
     def load_image_from_memory(self, image: PIL.Image.Image, name: str) -> bool:
         if image.width < 1:
             return False
@@ -213,11 +229,14 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
 
     def load_image(self, file_name: str) -> bool:
         with ScopedWaitCursor():
-            image = Image.open(str(file_name))
-            if self.load_image_from_memory(image=image, name=file_name):
-                self.undo_stack.clear()
-                self.undo_stack.setClean()  # clear() does not always set clean
-                return True
+            fn = str(file_name)
+            print(f"Requesting image {fn}")
+            self.image_load_requested.emit(fn)
+            # image = Image.open(str(file_name))
+            # if self.load_image_from_memory(image=image, name=file_name):
+            #     self.undo_stack.clear()
+            #     self.undo_stack.setClean()  # clear() does not always set clean
+            #     return True
         return False
 
     def load_main_image(self, file_name: str):
