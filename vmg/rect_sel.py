@@ -39,7 +39,7 @@ class RectangularSelection(QtCore.QObject):
         super().__init__()
         self.left_top_right_bottom = numpy.array(
             [0, 0, 0, 0],
-            dtype=numpy.uint32,
+            dtype=numpy.int32,
         )
         self._first_point_omp = [0, 0]
         self._second_point_omp = [0, 0]

@@ -15,7 +15,12 @@ class CropToSelection(QUndoCommand):
         super().__init__()
         self.setText("Crop to selection")
         self.image = image.copy()
-        self.bounds = (rect.left, rect.top, rect.right, rect.bottom)
+        self.bounds = (
+            max(rect.left, 0),
+            max(rect.top, 0),
+            min(rect.right, image.width),
+            min(rect.bottom, image.height),
+        )
         self.window = window
         self.file_name = file_name
 

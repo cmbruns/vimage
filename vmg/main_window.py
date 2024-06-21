@@ -228,7 +228,6 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         if QtWidgets.QApplication.overrideCursor() is None:
             QtWidgets.QApplication.setOverrideCursor(Qt.WaitCursor)
         fn = str(file_name)
-        print(f"Requesting image {fn}")
         self._current_file_name = fn
         self.image_load_requested.emit(fn)  # noqa
 
@@ -559,5 +558,4 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
 
     @QtCore.Slot(bool)  # noqa
     def undo_stack_clean_changed(self, clean: bool):
-        print(clean)
         self.setWindowModified(not clean)
