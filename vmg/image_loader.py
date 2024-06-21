@@ -12,9 +12,11 @@ from vmg.frame import DimensionsOmp
 
 
 class Performance(object):
-    def __init__(self, indent=0):
+    def __init__(self, indent=0, message="", do_report=True):
         self.indent = indent
         self.begin = time.time()
+        self.message = message
+        self.do_report = do_report
 
     def __enter__(self):
         return self
@@ -22,14 +24,14 @@ class Performance(object):
     def __exit__(self, _type, _value, _traceback):
         end = time.time()
         _elapsed = end - self.begin
-        # print(f"{self.indent * ' '}elapsed time = {_elapsed:.3f}")
+        if self.do_report:
+            print(f"{self.indent * ' '}{self.message} elapsed time = {_elapsed * 1000:.1f} ms")
 
 
 class ImageData(QtCore.QObject):
-    def __init__(self, parent, file_name: str):
+    def __init__(self, file_name: str, parent=None):
         super().__init__(parent=parent)
         self.file_name = str(file_name)
-        self.existence_checked = False
         self.pil_image = None
         self.numpy_image = None
         self.exif = {}
@@ -40,9 +42,24 @@ class ImageData(QtCore.QObject):
         self._raw_rot_omp = numpy.eye(2, dtype=numpy.float32)
         self._is_360 = False
 
+    def file_is_readable(self) -> bool:
+        file_name = self.file_name
+        if not isfile(file_name):
+            return False
+        if not access(file_name, R_OK):
+            return False
+        return True
+
     @property
     def is_360(self) -> bool:
         return self._is_360
+
+    def open_pil_image(self) -> bool:
+        try:
+            self.pil_image = Image.open(self.file_name)
+            return True
+        except ...:
+            return False
 
     @property
     def raw_rot_omp(self) -> numpy.array:
@@ -92,7 +109,7 @@ class ImageLoader(QtCore.QObject):
     @QtCore.Slot(str)  # noqa
     def load_file_name(self, file_name: str):
         # print(f" load_file_name {file_name}")
-        image_data = ImageData(self, file_name)
+        image_data = ImageData(file_name, parent=self)
         self.file_name = file_name
         self.file_name_changed.emit(image_data)  # noqa
 
@@ -100,17 +117,9 @@ class ImageLoader(QtCore.QObject):
 
     @QtCore.Slot(ImageData)  # noqa
     def check_existence(self, image_data: ImageData):
-        file_name = image_data.file_name
-        if not self._name_matches(file_name):
-            return  # Latest file is something else
-        # print(f"  Checking existence of {file_name}")
-        if not isfile(file_name):
-            self.load_failed.emit(file_name)  # noqa
+        if not image_data.file_is_readable():
+            self.load_failed.emit(image_data.file_name)  # noqa
             return
-        if not access(file_name, R_OK):
-            self.load_failed.emit(file_name)  # noqa
-            return
-        image_data.existence_checked = True
         self.existence_checked.emit(image_data)  # noqa
 
     existence_checked = QtCore.Signal(ImageData)
@@ -121,9 +130,10 @@ class ImageLoader(QtCore.QObject):
         if not self._name_matches(file_name):
             return  # Latest file is something else
         # print(f"   Creating PIL Image for {file_name}")
-        with Performance(indent=3):
-            pil_image = Image.open(file_name)
-            image_data.pil_image = pil_image
+        with Performance(indent=3, do_report=False):
+            if not image_data.open_pil_image():
+                self.load_failed.emit(image_data.file_name)  # noqa
+                return
         self.pil_image_opened.emit(image_data)  # noqa
 
     pil_image_opened = QtCore.Signal(ImageData)
@@ -131,7 +141,7 @@ class ImageLoader(QtCore.QObject):
     @QtCore.Slot(Image.Image, str)  # noqa
     def assign_pil_image(self, pil_image: Image.Image, file_name: str):
         """Load a PIL image without a corresponding file"""
-        image_data = ImageData(self, file_name)
+        image_data = ImageData(file_name, parent=self)
         self.file_name = file_name
         image_data.pil_image = pil_image
         self.pil_image_assigned.emit(image_data)  # noqa
@@ -236,7 +246,7 @@ class ImageLoader(QtCore.QObject):
         if not self._name_matches(file_name):
             return  # Latest file is something else
         # print(f"     Creating numpy data for {file_name}")
-        with Performance(5):
+        with Performance(indent=5, do_report=False):
             # TODO: Should this be earlier?
             if image_data.pil_image.mode == "P":
                 image_data.pil_image = image_data.pil_image.convert("RGBA")
