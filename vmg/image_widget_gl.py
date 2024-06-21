@@ -66,8 +66,19 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         bg_color = self.palette().color(self.backgroundRole()).getRgbF()
         GL.glClearColor(*bg_color)
         # Make transparent images transparent
+        # Framebuffer is premultiplied alpha
+        # but textures are straight alpha
         GL.glEnable(GL.GL_BLEND)
-        GL.glBlendFunc(GL.GL_ONE, GL.GL_ONE_MINUS_SRC_ALPHA)  # Using premultiplied alpha
+        # traditional glBlendFunc has poor hardware filtering of transparent pixels
+        # GL.glBlendFunc(GL.GL_SRC_ALPHA, GL.GL_ONE_MINUS_SRC_ALPHA)  # poor filtering
+        # GL.glBlendFunc(GL.GL_ONE, GL.GL_ONE_MINUS_SRC_ALPHA)  # with premultiplied alpha
+        # Use glBlendFuncSeparate to simulate premultiplied alpha, without needing to munge pixels
+        GL.glBlendFuncSeparate(
+            GL.GL_SRC_ALPHA,  # simulate premultiplied alpha on srcRGB
+            GL.GL_ONE_MINUS_SRC_ALPHA,  # blend dstRGB
+            GL.GL_ONE,  # combine srcAlpha as-is
+            GL.GL_ONE_MINUS_SRC_ALPHA  # blend dstAlpha
+        )
         self.vao = GL.glGenVertexArrays(1)
         GL.glBindVertexArray(self.vao)
         self.rect_shader.initialize_gl()

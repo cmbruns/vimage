@@ -40,5 +40,5 @@ void main()
     }
 
     // sRGB conversion should be the FINAL step of the fragment shader
-    image_color = srgb_from_linear(image_color);
+    // image_color = srgb_from_linear(image_color);
 }

@@ -42,5 +42,5 @@ void main() {
     color = clip_n_filter(image, p_tex, pixelFilter, true);
 
     // sRGB conversion should be the FINAL step of the fragment shader
-    color = srgb_from_linear(color);
+    // color = srgb_from_linear(color);
 }

@@ -44,18 +44,24 @@ vec4 catrom(sampler2D image, vec2 textureCoordinate, bool wrap) {
     vec4 weightsX = catrom_weights(param.x);
     vec4 weightsY = catrom_weights(param.y);
     vec4 combined = vec4(0);
+    float rgb_weight = 0;  // for pseudo pre/post multiply alpha
     for (int y = 0; y < 4; ++y) {
         float wy = weightsY[y];
         for (int x = 0; x < 4; ++x) {
             float wx = weightsX[x];
             vec2 texel2 = vec2(x , y) + texel1 - vec2(0.5);
             vec2 tc = texel2 / textureSize(image, 0);
+            vec4 rgba;
             if (wrap)
-                combined += wx * wy * equirect_color(image, tc);
+                rgba = equirect_color(image, tc);
             else
-                combined += wx * wy * texture(image, tc);
+                rgba = texture(image, tc);
+            rgb_weight += wx * wy * rgba.a;
+            combined += wx * wy * vec4(rgba.rgb * rgba.a, rgba.a);  // premultiply alpha
         }
     }
+    if (rgb_weight > 0)
+        combined.rgb /= rgb_weight;  // un-premultiply alpha
     return combined;
 }
 

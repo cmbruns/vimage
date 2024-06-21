@@ -252,18 +252,18 @@ class ImageLoader(QtCore.QObject):
             }
             numpy_image = numpy_image.astype(numpy.float32) / max_values[numpy_image.dtype]
             # Convert srgb value scale to linear
-            if len(numpy_image.shape) == 2:
-                # Monochrome image
-                numpy_image = self._linear_from_srgb(numpy_image)
-            else:
-                for rgb in range(3):
-                    numpy_image[:, :, rgb] = self._linear_from_srgb(numpy_image[:, :, rgb])  # approximate srgb -> linear
+            # if len(numpy_image.shape) == 2:
+            #     # Monochrome image
+            #     numpy_image = self._linear_from_srgb(numpy_image)
+            # else:
+            #     for rgb in range(3):
+            #         numpy_image[:, :, rgb] = self._linear_from_srgb(numpy_image[:, :, rgb])  # approximate srgb -> linear
             # Use premultiplied alpha for better filtering
-            if pil_image.mode == "RGBA":
-                a = numpy_image
-                alpha_layer = a[:, :, 3]
-                for rgb in range(3):
-                    a[:, :, rgb] = (a[:, :, rgb] * alpha_layer).astype(a.dtype)
+            # if pil_image.mode == "RGBA":
+            #     a = numpy_image
+            #     alpha_layer = a[:, :, 3]
+            #     for rgb in range(3):
+            #         a[:, :, rgb] = (a[:, :, rgb] * alpha_layer).astype(a.dtype)
             image_data.numpy_image = numpy_image
         self.numpy_image_created.emit(image_data)  # noqa
 
