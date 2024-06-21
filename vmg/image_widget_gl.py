@@ -6,6 +6,7 @@ import PIL.Image
 from PySide6 import QtCore, QtGui, QtOpenGLWidgets, QtWidgets
 from PySide6.QtCore import QEvent, Qt, QPoint
 
+from vmg.image_loader import ImageData
 from vmg.rect_sel import CursorHolder
 from vmg.state import ImageState, ViewState
 from vmg.shader import RectangularShader, IImageShader, SphericalShader
@@ -127,8 +128,8 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
     def _linear_from_srgb(image: numpy.array):
         return numpy.where(image >= 0.04045, ((image + 0.055) / 1.055)**2.4, image/12.92)
 
-    def set_image(self, image: PIL.Image.Image):
-        self.image_state = ImageState(image)
+    def set_image_data(self, image_data: ImageData):
+        self.image_state = ImageState(image_data.pil_image)
         self.view_state.reset()
         self.view_state.set_360(self.image_state.is_360)
         self.view_state.set_image_state(self.image_state)
@@ -138,31 +139,7 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         else:
             self.is_360 = False
             self.program = self.rect_shader
-        if image.mode == "P":
-            image = image.convert("RGBA")
-        self.image = numpy.array(image)
-        # Normalize values to maximum 1.0 and convert to float32
-        # TODO: test performance
-        max_values = {
-            numpy.dtype("bool"): 1,
-            numpy.dtype("uint8"): 255,
-            numpy.dtype("uint16"): 65535,
-            numpy.dtype("float32"): 1.0,
-        }
-        self.image = self.image.astype(numpy.float32) / max_values[self.image.dtype]
-        # Convert srgb value scale to linear
-        if len(self.image.shape) == 2:
-            # Monochrome image
-            self.image = self._linear_from_srgb(self.image)
-        else:
-            for rgb in range(3):
-                self.image[:, :, rgb] = self._linear_from_srgb(self.image[:, :, rgb])  # approximate srgb -> linear
-        # Use premultiplied alpha for better filtering
-        if image.mode == "RGBA":
-            a = self.image
-            alpha_layer = a[:, :, 3]
-            for rgb in range(3):
-                a[:, :, rgb] = (a[:, :, rgb] * alpha_layer).astype(a.dtype)
+        self.image = image_data.numpy_image
         self.image_needs_upload = True
         self.signal_360.emit(self.is_360)  # noqa
         w, h = self.image_state.size

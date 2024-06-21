@@ -15,7 +15,7 @@ from PySide6.QtWidgets import QFileDialog, QMessageBox
 
 from vmg.circular_combo_box import CircularComboBox
 from vmg.command import CropToSelection
-from vmg.image_loader import ImageLoader
+from vmg.image_loader import ImageLoader, ImageData
 from vmg.natural_sort import natural_sort_key
 from vmg.pixel_filter import PixelFilter
 from vmg.projection_360 import Projection360
@@ -131,11 +131,14 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         self.menuEdit.insertAction(top_action, self.action_redo)
         self.menuEdit.insertSeparator(top_action)
         # File loading thread
+        self._current_file_name = None
         self.loading_thread = QtCore.QThread()
         self.image_loader = ImageLoader()
         self.image_loader.moveToThread(self.loading_thread)
         self.loading_thread.start()
         self.image_load_requested.connect(self.image_loader.load_file_name)
+        self.image_loader.numpy_image_created.connect(self.image_data_loaded)
+        self.image_loader.load_failed.connect(self.image_load_failed)
 
     def activate_indexed_image(self):
         try:
@@ -228,16 +231,36 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         return True
 
     def load_image(self, file_name: str) -> bool:
-        with ScopedWaitCursor():
-            fn = str(file_name)
-            print(f"Requesting image {fn}")
-            self.image_load_requested.emit(fn)
-            # image = Image.open(str(file_name))
-            # if self.load_image_from_memory(image=image, name=file_name):
-            #     self.undo_stack.clear()
-            #     self.undo_stack.setClean()  # clear() does not always set clean
-            #     return True
-        return False
+        if QtWidgets.QApplication.overrideCursor() is None:
+            QtWidgets.QApplication.setOverrideCursor(Qt.WaitCursor)
+        fn = str(file_name)
+        print(f"Requesting image {fn}")
+        self._current_file_name = fn
+        self.image_load_requested.emit(fn)
+
+    @QtCore.Slot(ImageData)
+    def image_data_loaded(self, image_data: ImageData):
+        if image_data.file_name != self._current_file_name:
+            return
+        if QtWidgets.QApplication.overrideCursor() is not None:
+            QtWidgets.QApplication.restoreOverrideCursor()
+        self.imageWidgetGL.set_image_data(image_data)
+        fn = image_data.file_name
+        self.set_current_image_path(fn)
+        self.statusbar.showMessage(f"Loaded image {fn}", 5000)
+        self.actionSave_As.setEnabled(True)
+        self.actionSave_Current_View_As.setEnabled(True)
+        self.actionCopy.setEnabled(True)
+        self.actionSelect_Rectangle.setEnabled(not self.imageWidgetGL.view_state.is_360)
+        self.actionSelect_None.trigger()
+
+    @QtCore.Slot(str)
+    def image_load_failed(self, file_name: str):
+        if file_name != self._current_file_name:
+            return
+        if QtWidgets.QApplication.overrideCursor() is not None:
+            QtWidgets.QApplication.restoreOverrideCursor()
+        self._current_file_name = None
 
     def load_main_image(self, file_name: str):
         path = Path(file_name)

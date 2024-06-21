@@ -1,3 +1,4 @@
+from math import floor
 from os import access, R_OK
 from os.path import isfile
 import time
@@ -6,6 +7,7 @@ import numpy
 from PIL import ExifTags, Image
 from PySide6 import QtCore
 from PySide6.QtCore import Qt
+from skimage.transform import resize
 
 
 class Performance(object):
@@ -43,13 +45,16 @@ class ImageLoader(QtCore.QObject):
         self.existence_checked.connect(self.open_pil_image, Qt.QueuedConnection)
         self.pil_image_opened.connect(self.load_metadata, Qt.QueuedConnection)
         self.metadata_loaded.connect(self.create_numpy_image, Qt.QueuedConnection)
-        self.numpy_image_created.connect(self.create_mipmaps, Qt.QueuedConnection)
+        # maybe later...
+        # self.numpy_image_created.connect(self.create_mipmaps, Qt.QueuedConnection)
 
     def _name_matches(self, file_name) -> bool:
         if self.file_name != file_name:
             print(" Name changed!")
             return False
         return True
+
+    load_failed = QtCore.Signal(str)
 
     @QtCore.Slot(str)  # noqa
     def load_file_name(self, file_name: str):
@@ -171,13 +176,28 @@ class ImageLoader(QtCore.QObject):
 
     numpy_image_created = QtCore.Signal(ImageData)
 
+    @staticmethod
+    def _mipmap_dim(base: int, level: int) -> int:
+        return max(1, int(floor(base / 2**level)))
+
     @QtCore.Slot(ImageData)
     def create_mipmaps(self, image_data: ImageData):
         file_name = image_data.file_name
         if not self._name_matches(file_name):
             return  # Latest file is something else
         print(f"      Creating mipmaps for {file_name}")
-        # TODO:
+        h, w = image_data.numpy_image.shape[:2]
+        base_size = (w, h)
+        size = [w, h]
+        level = 0
+        mipmap = image_data.numpy_image
+        image_data.mipmaps = []
+        while size[0] > 1 or size[1] > 1:
+            level += 1
+            size = [self._mipmap_dim(x, level) for x in base_size]
+            mipmap = resize(mipmap, size)
+            image_data.mipmaps.append(mipmap)
+        self.mipmaps_created.emit(image_data)
 
-    loaded = QtCore.Signal(ImageData)
-    load_failed = QtCore.Signal(str)
+    mipmaps_created = QtCore.Signal(ImageData)
+
