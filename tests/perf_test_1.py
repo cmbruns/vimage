@@ -9,7 +9,7 @@ def perf_test_1(window):
     with cProfile.Profile() as p:
         for image in images:
             # print(image)
-            window.load_image(image)
+            window.load_image_from_file(image)
             window.repaint()
             # GL.glFlush()
     ps = Stats(p).sort_stats(SortKey.CUMULATIVE)

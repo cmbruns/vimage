@@ -2,13 +2,12 @@ from typing import Optional
 
 import numpy
 from OpenGL import GL
-import PIL.Image
 from PySide6 import QtCore, QtGui, QtOpenGLWidgets, QtWidgets
 from PySide6.QtCore import QEvent, Qt, QPoint
 
 from vmg.image_loader import ImageData
 from vmg.rect_sel import CursorHolder
-from vmg.state import ImageState, ViewState
+from vmg.state import ViewState
 from vmg.shader import RectangularShader, IImageShader, SphericalShader
 
 
@@ -23,7 +22,7 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         # self.grabGesture(Qt.PanGesture)
         self.grabGesture(Qt.SwipeGesture)
         self.image: Optional[numpy.ndarray] = None
-        self.image_state = None
+        self.image_data = None
         self.setMinimumSize(10, 10)
         self.vao = None
         self.texture = None
@@ -129,10 +128,10 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         return numpy.where(image >= 0.04045, ((image + 0.055) / 1.055)**2.4, image/12.92)
 
     def set_image_data(self, image_data: ImageData):
-        self.image_state = ImageState(image_data.pil_image)
+        self.image_data = image_data
         self.view_state.reset()
-        self.view_state.set_360(self.image_state.is_360)
-        self.view_state.set_image_state(self.image_state)
+        self.view_state.set_360(self.image_data.is_360)
+        self.view_state.set_image_data(self.image_data)
         if self.view_state.is_360:
             self.is_360 = True
             self.program = self.sphere_shader
@@ -142,7 +141,7 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         self.image = image_data.numpy_image
         self.image_needs_upload = True
         self.signal_360.emit(self.is_360)  # noqa
-        w, h = self.image_state.size
+        w, h = self.image_data.size
         self.image_size_changed.emit(int(w), int(h))  # noqa
         self.update()
 

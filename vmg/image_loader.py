@@ -1,4 +1,4 @@
-from math import floor
+from math import cos, radians, sin
 from os import access, R_OK
 from os.path import isfile
 import time
@@ -7,7 +7,8 @@ import numpy
 from PIL import ExifTags, Image
 from PySide6 import QtCore
 from PySide6.QtCore import Qt
-from skimage.transform import resize
+
+from vmg.frame import DimensionsOmp
 
 
 class Performance(object):
@@ -20,8 +21,8 @@ class Performance(object):
 
     def __exit__(self, _type, _value, _traceback):
         end = time.time()
-        elapsed = end - self.begin
-        print(f"{self.indent * ' '}elapsed time = {elapsed:.3f}")
+        _elapsed = end - self.begin
+        # print(f"{self.indent * ' '}elapsed time = {_elapsed:.3f}")
 
 
 class ImageData(QtCore.QObject):
@@ -33,6 +34,38 @@ class ImageData(QtCore.QObject):
         self.numpy_image = None
         self.exif = {}
         self.xmp = {}
+        self.size_raw = [0, 0]
+        self.size_omp = DimensionsOmp(0, 0)
+        self._raw_rot_ont = numpy.eye(3, dtype=numpy.float32)
+        self._raw_rot_omp = numpy.eye(2, dtype=numpy.float32)
+        self._is_360 = False
+
+    @property
+    def is_360(self) -> bool:
+        return self._is_360
+
+    @property
+    def raw_rot_omp(self) -> numpy.array:
+        return self._raw_rot_omp
+
+    @property
+    def raw_rot_ont(self) -> numpy.array:
+        return self._raw_rot_ont
+
+    @property
+    def size(self) -> DimensionsOmp:
+        return self.size_omp
+
+    exif_orientation_to_matrix = {
+        1: numpy.array([[1, 0], [0, 1]], dtype=numpy.float32),
+        2: numpy.array([[-1, 0], [0, 1]], dtype=numpy.float32),
+        3: numpy.array([[-1, 0], [0, -1]], dtype=numpy.float32),
+        4: numpy.array([[1, 0], [0, -1]], dtype=numpy.float32),
+        5: numpy.array([[0, 1], [1, 0]], dtype=numpy.float32),
+        6: numpy.array([[0, 1], [-1, 0]], dtype=numpy.float32),
+        7: numpy.array([[0, -1], [-1, 0]], dtype=numpy.float32),
+        8: numpy.array([[0, -1], [1, 0]], dtype=numpy.float32),
+    }
 
 
 class ImageLoader(QtCore.QObject):
@@ -41,16 +74,16 @@ class ImageLoader(QtCore.QObject):
         self.file_name = None
         # Connect the loading process via a series of signals,
         # so the process can be interrupted when a new file is requested
-        self.file_name_changed.connect(self.check_existence, Qt.QueuedConnection)
-        self.existence_checked.connect(self.open_pil_image, Qt.QueuedConnection)
-        self.pil_image_opened.connect(self.load_metadata, Qt.QueuedConnection)
-        self.metadata_loaded.connect(self.create_numpy_image, Qt.QueuedConnection)
-        # maybe later...
-        # self.numpy_image_created.connect(self.create_mipmaps, Qt.QueuedConnection)
+        self.file_name_changed.connect(self.check_existence, Qt.QueuedConnection)  # noqa
+        self.existence_checked.connect(self.open_pil_image, Qt.QueuedConnection)  # noqa
+        self.pil_image_opened.connect(self.use_pil_image, Qt.QueuedConnection)  # noqa
+        self.pil_image_assigned.connect(self.use_pil_image, Qt.QueuedConnection)  # noqa
+        self.pil_image_used.connect(self.load_metadata, Qt.QueuedConnection)  # noqa
+        self.metadata_loaded.connect(self.create_numpy_image, Qt.QueuedConnection)  # noqa
 
     def _name_matches(self, file_name) -> bool:
         if self.file_name != file_name:
-            print(" Name changed!")
+            # print(" Name changed!")
             return False
         return True
 
@@ -58,10 +91,10 @@ class ImageLoader(QtCore.QObject):
 
     @QtCore.Slot(str)  # noqa
     def load_file_name(self, file_name: str):
-        print(f" load_file_name {file_name}")
+        # print(f" load_file_name {file_name}")
         image_data = ImageData(self, file_name)
         self.file_name = file_name
-        self.file_name_changed.emit(image_data)
+        self.file_name_changed.emit(image_data)  # noqa
 
     file_name_changed = QtCore.Signal(ImageData)
 
@@ -70,15 +103,15 @@ class ImageLoader(QtCore.QObject):
         file_name = image_data.file_name
         if not self._name_matches(file_name):
             return  # Latest file is something else
-        print(f"  Checking existence of {file_name}")
+        # print(f"  Checking existence of {file_name}")
         if not isfile(file_name):
-            self.load_failed.emit(file_name)
+            self.load_failed.emit(file_name)  # noqa
             return
         if not access(file_name, R_OK):
-            self.load_failed.emit(file_name)
+            self.load_failed.emit(file_name)  # noqa
             return
         image_data.existence_checked = True
-        self.existence_checked.emit(image_data)
+        self.existence_checked.emit(image_data)  # noqa
 
     existence_checked = QtCore.Signal(ImageData)
 
@@ -87,23 +120,46 @@ class ImageLoader(QtCore.QObject):
         file_name = image_data.file_name
         if not self._name_matches(file_name):
             return  # Latest file is something else
-        print(f"   Creating PIL Image for {file_name}")
+        # print(f"   Creating PIL Image for {file_name}")
         with Performance(indent=3):
             pil_image = Image.open(file_name)
-            if pil_image.width < 1 or pil_image.height < 1:
-                self.load_failed.emit(file_name)
-                return
             image_data.pil_image = pil_image
-        self.pil_image_opened.emit(image_data)
+        self.pil_image_opened.emit(image_data)  # noqa
 
     pil_image_opened = QtCore.Signal(ImageData)
 
-    @QtCore.Slot(ImageData)
+    @QtCore.Slot(Image.Image, str)  # noqa
+    def assign_pil_image(self, pil_image: Image.Image, file_name: str):
+        """Load a PIL image without a corresponding file"""
+        image_data = ImageData(self, file_name)
+        self.file_name = file_name
+        image_data.pil_image = pil_image
+        self.pil_image_assigned.emit(image_data)  # noqa
+
+    pil_image_assigned = QtCore.Signal(ImageData)
+
+    @QtCore.Slot(ImageData)  # noqa
+    def use_pil_image(self, image_data: ImageData):
+        file_name = image_data.file_name
+        if not self._name_matches(file_name):
+            return  # Latest file is something else
+        pil_image = image_data.pil_image
+        if pil_image.width < 1 or pil_image.height < 1:
+            self.load_failed.emit(file_name)  # noqa
+            return
+        raw_width, raw_height = pil_image.size  # Unrotated dimension
+        image_data.size_raw = (raw_width, raw_height)
+        image_data.pil_image = pil_image
+        self.pil_image_used.emit(image_data)  # noqa
+
+    pil_image_used = QtCore.Signal(ImageData)
+
+    @QtCore.Slot(ImageData)  # noqa
     def load_metadata(self, image_data: ImageData):
         file_name = image_data.file_name
         if not self._name_matches(file_name):
             return  # Latest file is something else
-        print(f"    Loading image metadata for {file_name}")
+        # print(f"    Loading image metadata for {file_name}")
         pil_image = image_data.pil_image
         exif0 = pil_image.getexif()
         exif = {
@@ -129,7 +185,44 @@ class ImageLoader(QtCore.QObject):
             xmp = {}
         image_data.xmp = xmp
         image_data.exif = exif
-        self.metadata_loaded.emit(image_data)
+        orientation_code: int = exif.get("Orientation", 1)
+        image_data._raw_rot_omp = image_data.exif_orientation_to_matrix.get(orientation_code, numpy.eye(2, dtype=numpy.float32))
+        image_data.size_omp = DimensionsOmp(*[abs(x) for x in (image_data.raw_rot_omp.T @ image_data.size_raw)])
+        if image_data.size_omp.x == 2 * image_data.size_omp.y:
+            try:
+                image_data._is_360 = True
+                try:
+                    # TODO: InitialViewHeadingDegrees
+                    desc = xmp["xmpmeta"]["RDF"]["Description"]
+                    heading = radians(float(desc["PoseHeadingDegrees"]))
+                    pitch = radians(float(desc["PosePitchDegrees"]))
+                    roll = radians(float(desc["PoseRollDegrees"]))
+                    m = numpy.array([
+                        [cos(roll), -sin(roll), 0],
+                        [sin(roll), cos(roll), 0],
+                        [0, 0, 1],
+                    ], dtype=numpy.float32)
+                    m = m @ [
+                        [1, 0, 0],
+                        [0, cos(pitch), sin(pitch)],
+                        [0, -sin(pitch), cos(pitch)],
+                    ]
+                    m = m @ [
+                        [cos(heading), 0, sin(heading)],
+                        [0, 1, 0],
+                        [-sin(heading), 0, cos(heading)],
+                    ]
+                    image_data._raw_rot_ont = m
+                except (KeyError, TypeError):
+                    pass
+                if exif["Model"].lower().startswith("ricoh theta"):
+                    # print("360")
+                    pass  # TODO 360 image
+            except KeyError:
+                pass
+        else:
+            image_data._is_360 = False
+        self.metadata_loaded.emit(image_data)  # noqa
 
     metadata_loaded = QtCore.Signal(ImageData)
 
@@ -137,12 +230,12 @@ class ImageLoader(QtCore.QObject):
     def _linear_from_srgb(image: numpy.array):
         return numpy.where(image >= 0.04045, ((image + 0.055) / 1.055)**2.4, image/12.92)
 
-    @QtCore.Slot(str, Image.Image)
+    @QtCore.Slot(str, Image.Image)  # noqa
     def create_numpy_image(self, image_data: ImageData):
         file_name = image_data.file_name
         if not self._name_matches(file_name):
             return  # Latest file is something else
-        print(f"     Creating numpy data for {file_name}")
+        # print(f"     Creating numpy data for {file_name}")
         with Performance(5):
             # TODO: Should this be earlier?
             if image_data.pil_image.mode == "P":
@@ -172,32 +265,6 @@ class ImageLoader(QtCore.QObject):
                 for rgb in range(3):
                     a[:, :, rgb] = (a[:, :, rgb] * alpha_layer).astype(a.dtype)
             image_data.numpy_image = numpy_image
-        self.numpy_image_created.emit(image_data)
+        self.numpy_image_created.emit(image_data)  # noqa
 
     numpy_image_created = QtCore.Signal(ImageData)
-
-    @staticmethod
-    def _mipmap_dim(base: int, level: int) -> int:
-        return max(1, int(floor(base / 2**level)))
-
-    @QtCore.Slot(ImageData)
-    def create_mipmaps(self, image_data: ImageData):
-        file_name = image_data.file_name
-        if not self._name_matches(file_name):
-            return  # Latest file is something else
-        print(f"      Creating mipmaps for {file_name}")
-        h, w = image_data.numpy_image.shape[:2]
-        base_size = (w, h)
-        size = [w, h]
-        level = 0
-        mipmap = image_data.numpy_image
-        image_data.mipmaps = []
-        while size[0] > 1 or size[1] > 1:
-            level += 1
-            size = [self._mipmap_dim(x, level) for x in base_size]
-            mipmap = resize(mipmap, size)
-            image_data.mipmaps.append(mipmap)
-        self.mipmaps_created.emit(image_data)
-
-    mipmaps_created = QtCore.Signal(ImageData)
-

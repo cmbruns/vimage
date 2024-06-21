@@ -2,109 +2,16 @@ from math import asin, atan2, cos, degrees, pi, radians, sin
 from typing import Optional
 
 import numpy
-import PIL.Image
-from PIL import ExifTags
 from PySide6 import QtCore, QtGui
 from PySide6.QtCore import QPoint, QSize, QObject
 from PySide6.QtGui import Qt
 
 from vmg.frame import DimensionsOmp, DimensionsQwn, LocationHpd, LocationObq, LocationNic, LocationOmp, LocationOnt, \
     LocationPrj, LocationQwn, LocationRelative
+from vmg.image_loader import ImageData
 from vmg.pixel_filter import PixelFilter
 from vmg.projection_360 import Projection360
 from vmg.rect_sel import RectangularSelection, CursorHolder
-
-
-class ImageState(object):
-    def __init__(self, pil_image: PIL.Image.Image):
-        raw_width, raw_height = pil_image.size  # Unrotated dimension
-        self.size_raw = (raw_width, raw_height)
-        self._raw_rot_ont = numpy.eye(3, dtype=numpy.float32)
-        exif0 = pil_image.getexif()
-        exif = {
-            PIL.ExifTags.TAGS[k]: v
-            for k, v in exif0.items()
-            if k in PIL.ExifTags.TAGS
-        }
-        for ifd_id in ExifTags.IFD:
-            try:
-                ifd = exif0.get_ifd(ifd_id)
-                if ifd_id == ExifTags.IFD.GPSInfo:
-                    resolve = ExifTags.GPSTAGS
-                else:
-                    resolve = ExifTags.TAGS
-                for k, v in ifd.items():
-                    tag = resolve.get(k, k)
-                    exif[tag] = v
-            except KeyError:
-                pass
-        try:
-            xmp = pil_image.getxmp()  # noqa
-        except AttributeError:
-            xmp = {}
-        orientation_code: int = exif.get("Orientation", 1)
-        self._raw_rot_omp = self._exif_orientation_to_matrix.get(orientation_code, numpy.eye(2, dtype=numpy.float32))
-        self.size_omp = DimensionsOmp(*[abs(x) for x in (self.raw_rot_omp.T @ self.size_raw)])
-        if self.size_omp.x == 2 * self.size_omp.y:
-            try:
-                self._is_360 = True
-                try:
-                    # TODO: InitialViewHeadingDegrees
-                    desc = xmp["xmpmeta"]["RDF"]["Description"]
-                    heading = radians(float(desc["PoseHeadingDegrees"]))
-                    pitch = radians(float(desc["PosePitchDegrees"]))
-                    roll = radians(float(desc["PoseRollDegrees"]))
-                    self._raw_rot_ont = numpy.array([
-                        [cos(roll), -sin(roll), 0],
-                        [sin(roll), cos(roll), 0],
-                        [0, 0, 1],
-                    ], dtype=numpy.float32)
-                    self._raw_rot_ont = self._raw_rot_ont @ [
-                        [1, 0, 0],
-                        [0, cos(pitch), sin(pitch)],
-                        [0, -sin(pitch), cos(pitch)],
-                    ]
-                    self._raw_rot_ont = self._raw_rot_ont @ [
-                        [cos(heading), 0, sin(heading)],
-                        [0, 1, 0],
-                        [-sin(heading), 0, cos(heading)],
-                    ]
-                except (KeyError, TypeError):
-                    pass
-                if exif["Model"].lower().startswith("ricoh theta"):
-                    # print("360")
-                    pass  # TODO 360 image
-            except KeyError:
-                pass
-        else:
-            self._is_360 = False
-
-    @property
-    def is_360(self) -> bool:
-        return self._is_360
-
-    @property
-    def raw_rot_omp(self) -> numpy.array:
-        return self._raw_rot_omp
-
-    @property
-    def raw_rot_ont(self) -> numpy.array:
-        return self._raw_rot_ont
-
-    @property
-    def size(self) -> DimensionsOmp:
-        return self.size_omp
-
-    _exif_orientation_to_matrix = {
-        1: numpy.array([[1, 0], [0, 1]], dtype=numpy.float32),
-        2: numpy.array([[-1, 0], [0, 1]], dtype=numpy.float32),
-        3: numpy.array([[-1, 0], [0, -1]], dtype=numpy.float32),
-        4: numpy.array([[1, 0], [0, -1]], dtype=numpy.float32),
-        5: numpy.array([[0, 1], [1, 0]], dtype=numpy.float32),
-        6: numpy.array([[0, 1], [-1, 0]], dtype=numpy.float32),
-        7: numpy.array([[0, -1], [-1, 0]], dtype=numpy.float32),
-        8: numpy.array([[0, -1], [1, 0]], dtype=numpy.float32),
-    }
 
 
 class ViewState(QObject):
@@ -380,10 +287,10 @@ class ViewState(QObject):
         self._is_360 = is_360
         self._update_aspect_scale()
 
-    def set_image_state(self, image_state: ImageState):
-        self._size_omp = image_state.size
-        self._raw_rot_omp = image_state.raw_rot_omp
-        self.raw_rot_ont = image_state.raw_rot_ont
+    def set_image_data(self, image_data: ImageData):
+        self._size_omp = image_data.size
+        self._raw_rot_omp = image_data.raw_rot_omp
+        self.raw_rot_ont = image_data.raw_rot_ont
         self._update_aspect_scale()
 
     def set_window_size(self, width, height):

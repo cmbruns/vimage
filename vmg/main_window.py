@@ -136,13 +136,14 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         self.image_loader = ImageLoader()
         self.image_loader.moveToThread(self.loading_thread)
         self.loading_thread.start()
-        self.image_load_requested.connect(self.image_loader.load_file_name)
+        self.image_load_requested.connect(self.image_loader.load_file_name)  # noqa
+        self.pil_load_requested.connect(self.image_loader.assign_pil_image)  # noqa
         self.image_loader.numpy_image_created.connect(self.image_data_loaded)
         self.image_loader.load_failed.connect(self.image_load_failed)
 
     def activate_indexed_image(self):
         try:
-            self.load_image(self.image_list[self.image_index])
+            self.load_image_from_file(self.image_list[self.image_index])
         except PIL.UnidentifiedImageError as uie:
             self.statusbar.showMessage(str(uie), 5000)
         self.update_previous_next()
@@ -214,36 +215,30 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
 
     image_load_requested = QtCore.Signal(str)
 
-    def load_image_from_memory(self, image: PIL.Image.Image, name: str) -> bool:
-        if image.width < 1:
-            return False
-        f = str(name)
-        self.image = image
-        # TODO: separate thread cancellable loading
-        self.imageWidgetGL.set_image(self.image)
-        self.set_current_image_path(f)
-        self.statusbar.showMessage(f"Loaded image {name}", 5000)
-        self.actionSave_As.setEnabled(True)
-        self.actionSave_Current_View_As.setEnabled(True)
-        self.actionCopy.setEnabled(True)
-        self.actionSelect_Rectangle.setEnabled(not self.imageWidgetGL.view_state.is_360)
-        self.actionSelect_None.trigger()
-        return True
+    def load_image_from_memory(self, image: PIL.Image.Image, name: str):
+        if QtWidgets.QApplication.overrideCursor() is None:
+            QtWidgets.QApplication.setOverrideCursor(Qt.WaitCursor)
+        fn = str(name)
+        self._current_file_name = fn
+        self.pil_load_requested.emit(image, fn)  # noqa
 
-    def load_image(self, file_name: str) -> bool:
+    pil_load_requested = QtCore.Signal(Image.Image, str)
+
+    def load_image_from_file(self, file_name: str) -> None:
         if QtWidgets.QApplication.overrideCursor() is None:
             QtWidgets.QApplication.setOverrideCursor(Qt.WaitCursor)
         fn = str(file_name)
         print(f"Requesting image {fn}")
         self._current_file_name = fn
-        self.image_load_requested.emit(fn)
+        self.image_load_requested.emit(fn)  # noqa
 
-    @QtCore.Slot(ImageData)
+    @QtCore.Slot(ImageData)  # noqa
     def image_data_loaded(self, image_data: ImageData):
         if image_data.file_name != self._current_file_name:
             return
         if QtWidgets.QApplication.overrideCursor() is not None:
             QtWidgets.QApplication.restoreOverrideCursor()
+        self.image = image_data.pil_image
         self.imageWidgetGL.set_image_data(image_data)
         fn = image_data.file_name
         self.set_current_image_path(fn)
@@ -254,7 +249,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         self.actionSelect_Rectangle.setEnabled(not self.imageWidgetGL.view_state.is_360)
         self.actionSelect_None.trigger()
 
-    @QtCore.Slot(str)
+    @QtCore.Slot(str)  # noqa
     def image_load_failed(self, file_name: str):
         if file_name != self._current_file_name:
             return
@@ -324,7 +319,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
             if item is current_item:
                 self.image_index = index
         assert self.image_index is not None
-        self.load_image(self.image_list[self.image_index])
+        self.load_image_from_file(self.image_list[self.image_index])
         self.update_previous_next()
 
     def set_360_projection(self, projection: Projection360, action: QtGui.QAction) -> None:
