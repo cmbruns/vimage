@@ -6,7 +6,10 @@ block_cipher = None
 
 a = Analysis(['vimage.py'],
              pathex=["..", ],
-             binaries=[],
+             binaries=[
+                 ('C:/libjpeg-turbo64/bin/jpeg62.dll', '.'),
+                 ('C:/libjpeg-turbo64/bin/turbojpeg.dll', '.'),
+             ],
              datas=[
                  ("../vmg/*.vert", "vmg"),
                  ("../vmg/*.frag", "vmg"),
@@ -26,7 +29,7 @@ pyz = PYZ(a.pure, a.zipped_data,
           cipher=block_cipher)
 
 exe = EXE(pyz,
-          a.scripts, 
+          a.scripts,
           [],
           exclude_binaries=True,
           name='vimage',
@@ -44,7 +47,7 @@ exe = EXE(pyz,
 coll = COLLECT(exe,
                a.binaries,
                a.zipfiles,
-               a.datas, 
+               a.datas,
                strip=False,
                upx=True,
                upx_exclude=[],
