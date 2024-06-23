@@ -1,4 +1,5 @@
 import pkg_resources
+import platform
 import sys
 
 from PySide6 import QtCore, QtGui, QtWidgets
@@ -28,7 +29,8 @@ class VimageApp(object):
         f.setVersion(4, 1)
         QSurfaceFormat.setDefaultFormat(f)
         # Respect dark mode setting on windows
-        sys.argv += ['-platform', 'windows:darkmode=2']
+        if platform.system == "Windows":
+            sys.argv += ['-platform', 'windows:darkmode=2']
         app = VimageApplication(sys.argv)
         app.setStyle("fusion")  # Maybe looks better than default Vista style?
         app.setAttribute(Qt.AA_EnableHighDpiScaling)  # No effect on custom cursor size
