@@ -232,6 +232,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
             QtWidgets.QApplication.setOverrideCursor(Qt.WaitCursor)
         fn = str(file_name)
         self._current_file_name = fn
+        self.undo_stack.clear()
         self.image_load_requested.emit(fn)  # noqa
 
     @QtCore.Slot(ImageData)  # noqa
@@ -432,10 +433,13 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
 
     @QtCore.Slot()  # noqa
     def on_actionNext_triggered(self):  # noqa
+        if not self.actionNext.isEnabled():
+            return
         if len(self.image_list) < 2:
             self.actionNext.setEnabled(False)
             return
         if self.image_index >= len(self.image_list) - 1:
+            self.actionNext.setEnabled(False)  # prevent further next actions until dialog is done
             box = QMessageBox()
             box.setIcon(QMessageBox.Question)
             box.setWindowTitle("Continue from first image?")
@@ -449,6 +453,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
             button_yes.setText("Continue")
             reply = box.exec()
             if reply != QMessageBox.Yes:
+                self.actionNext.setEnabled(True)
                 return
         self.image_index += 1
         if self.image_index >= len(self.image_list):
@@ -482,6 +487,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
             file_name = f"Clipboard{time_str}"
         self.image_list[:] = [file_name,]
         self.image_index = 0
+        self.undo_stack.clear()
         self.undo_stack.resetClean()  # clipboard image has not been saved
         self._current_file_name = file_name
         self.load_image_from_memory(image=clip, name=file_name)
@@ -493,10 +499,13 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
 
     @QtCore.Slot()  # noqa
     def on_actionPrevious_triggered(self):  # noqa
+        if not self.actionPrevious.isEnabled():
+            return
         if len(self.image_list) < 2:
             self.actionPrevious.setEnabled(False)
             return
         if self.image_index <= 0:
+            self.actionPrevious.setEnabled(False)
             box = QMessageBox()
             box.setIcon(QMessageBox.Question)
             box.setWindowTitle("Continue from final image?")
@@ -510,6 +519,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
             button_yes.setText("Continue")
             reply = box.exec()
             if reply != QMessageBox.Yes:
+                self.actionPrevious.setEnabled(True)
                 return
         self.image_index -= 1
         if self.image_index < 0:

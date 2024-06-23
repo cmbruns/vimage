@@ -3,6 +3,7 @@
 uniform sampler2D image;
 uniform int pixelFilter = FILTER_NEAREST;
 uniform ivec4 sel_rect_omp = ivec4(100, 150, 200, 300);  // left top bottom right
+uniform vec4 background_color = vec4(0.5);
 
 in vec2 p_tex;
 in vec2 p_omp;
@@ -28,15 +29,16 @@ void main()
           abs(p_omp.y - sel_rect_omp.w) <= hlw)  // on bottom edge
     ) {
         // invert color, similar to irfanview
-        vec4 box_color = vec4(1, 1, 1, 2) - image_color;
+        vec4 base_color = mix(background_color, image_color, image_color.a);
+        vec3 box_color = vec3(1) - base_color.rgb;
         // but inverted can be invisible on gray backgrounds
-        if (length(box_color.xyz - image_color.xyz) < 0.5) {
-            if (length(image_color.xyz) > 0.5)
-                box_color = vec4(0, 0, 0, 1);  // black box for light gray image
+        if (length(box_color.rgb - image_color.rgb) < 0.5) {
+            if (length(base_color.rgb) > 0.5)
+                box_color = vec3(0);  // black box for light gray image
             else
-                box_color = vec4(1, 1, 1, 1);  // white box for dark gray image
+                box_color = vec3(1);  // white box for dark gray image
         }
-        image_color = vec4(1, 1, 1, 2) - image_color;
+        image_color = vec4(box_color, 1);
     }
 
     // sRGB conversion should be the FINAL step of the fragment shader

@@ -1,3 +1,5 @@
+import pathlib
+
 import PIL.Image
 from PySide6.QtGui import QUndoCommand
 
@@ -26,7 +28,8 @@ class CropToSelection(QUndoCommand):
 
     def redo(self):
         cropped = self.image.crop(self.bounds)
-        if self.window.load_image_from_memory(image=cropped, name="Cropped"):
+        name = f"{pathlib.Path(self.file_name).stem}_Cropped"
+        if self.window.load_image_from_memory(image=cropped, name=name):
             rect = self.window.imageWidgetGL.view_state.sel_rect
             rect.clear()
 

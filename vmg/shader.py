@@ -27,6 +27,8 @@ class RectangularShader(IImageShader):
         self.pixelFilter_location = None
         self.raw_rot_omp_location = None
         self.sel_rect_omp_location = None
+        self.background_color_location = None
+        self.background_color = [0.5, 0.5, 0.5, 0.5]
 
     def initialize_gl(self) -> None:
         vertex_shader = compileShader(pkg_resources.resource_string(
@@ -45,19 +47,16 @@ class RectangularShader(IImageShader):
         self.pixelFilter_location = GL.glGetUniformLocation(self.shader, "pixelFilter")
         self.raw_rot_omp_location = GL.glGetUniformLocation(self.shader, "raw_rot_omp")
         self.sel_rect_omp_location = GL.glGetUniformLocation(self.shader, "sel_rect_omp")
+        self.background_color_location = GL.glGetUniformLocation(self.shader, "background_color")
 
     def paint_gl(self, state: ViewState) -> None:
-        # both nearest and catmull-rom use nearest at the moment.
-        GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_NEAREST)
-        GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_LINEAR_MIPMAP_NEAREST)
-        GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_S, GL.GL_CLAMP_TO_EDGE)
-        GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_T, GL.GL_CLAMP_TO_EDGE)
         GL.glUseProgram(self.shader)
         GL.glUniform1f(self.zoom_location, state.zoom)
         GL.glUniform2i(self.window_size_location, *state.window_size)
         GL.glUniform2f(self.image_center_img_location, *state.center_rel)
         GL.glUniform1i(self.pixelFilter_location, state.pixel_filter.value)
         GL.glUniform4i(self.sel_rect_omp_location, *state.sel_rect.left_top_right_bottom)
+        GL.glUniform4f(self.background_color_location, *self.background_color)
         GL.glUniformMatrix2fv(self.raw_rot_omp_location, 1, True, state.raw_rot_omp)
         GL.glDrawArrays(GL.GL_TRIANGLE_STRIP, 0, 4)
 
