@@ -6,7 +6,10 @@ block_cipher = None
 
 a = Analysis(['vimage.py'],
              pathex=["..", ],
-             binaries=[],
+             binaries=[
+                 ('/opt/libjpeg-turbo/lib64/libjpeg.so', '.'),
+                 ('/opt/libjpeg-turbo/lib64/libturbojpeg.so', '.'),
+             ],
              datas=[
                  ("../vmg/*.vert", "vmg"),
                  ("../vmg/*.frag", "vmg"),
