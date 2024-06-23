@@ -1,5 +1,3 @@
-from typing import Optional
-
 import numpy
 from OpenGL import GL
 from PySide6 import QtCore, QtGui, QtOpenGLWidgets, QtWidgets
