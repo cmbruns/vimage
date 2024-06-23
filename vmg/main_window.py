@@ -139,10 +139,10 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         self.image_loader = ImageLoader()
         self.image_loader.moveToThread(self.loading_thread)
         self.loading_thread.start()
-        self.image_load_requested.connect(self.image_loader.load_from_file_name)  # noqa
-        self.pil_load_requested.connect(self.image_loader.load_from_pil_image)  # noqa
-        self.image_loader.texture_created.connect(self.image_data_loaded)
-        self.image_loader.load_failed.connect(self.image_load_failed)
+        self.image_load_requested.connect(self.image_loader.load_from_file_name, Qt.QueuedConnection)  # noqa
+        self.pil_load_requested.connect(self.image_loader.load_from_pil_image, Qt.QueuedConnection)  # noqa
+        self.image_loader.texture_created.connect(self.image_texture_created, Qt.QueuedConnection)
+        self.image_loader.load_failed.connect(self.image_load_failed, Qt.QueuedConnection)
 
     def activate_indexed_image(self):
         try:
@@ -235,7 +235,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         self.image_load_requested.emit(fn)  # noqa
 
     @QtCore.Slot(ImageData)  # noqa
-    def image_data_loaded(self, image_data: ImageData):
+    def image_texture_created(self, image_data: ImageData):
         if image_data.file_name != self._current_file_name:
             return
         if QtWidgets.QApplication.overrideCursor() is not None:
@@ -472,19 +472,19 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
 
     @QtCore.Slot()  # noqa
     def on_actionPaste_triggered(self):  # noqa
-        with ScopedWaitCursor():
-            clip = ImageGrab.grabclipboard()
-            if clip.width < 1:
-                self.actionPaste.setEnabled(False)
-                return
-            file_name = clip.filename
-            if file_name is None:
-                time_str = time.strftime("%Y%m%d_%H%M%S")
-                file_name = f"Clipboard{time_str}"
-            if self.load_image_from_memory(image=clip, name=file_name):
-                self.image_list[:] = [file_name,]
-                self.image_index = 0
-                self.undo_stack.resetClean()  # clipboard image has not been saved
+        clip = ImageGrab.grabclipboard()
+        if clip.width < 1:
+            self.actionPaste.setEnabled(False)
+            return
+        file_name = clip.filename
+        if file_name is None:
+            time_str = time.strftime("%Y%m%d_%H%M%S")
+            file_name = f"Clipboard{time_str}"
+        self.image_list[:] = [file_name,]
+        self.image_index = 0
+        self.undo_stack.resetClean()  # clipboard image has not been saved
+        self._current_file_name = file_name
+        self.load_image_from_memory(image=clip, name=file_name)
 
     @QtCore.Slot(bool)  # noqa
     def on_actionPerspective_toggled(self, is_checked: bool):  # noqa

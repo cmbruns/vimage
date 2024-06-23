@@ -16,8 +16,7 @@ class ImageData(QtCore.QObject):
     def __init__(self, file_name: str, parent=None):
         super().__init__(parent=parent)
         self.file_name = str(file_name)
-        self.pil_image = Image.open(self.file_name)
-        self.numpy_image = None
+        self.pil_image = None
         self.texture = None
         self.exif = {}
         self.xmp = {}

@@ -52,6 +52,7 @@ class ImageLoader(QtCore.QObject):
     @QtCore.Slot(ImageData)  # noqa
     def load_metadata(self, image_data: ImageData):
         if self.current_image_data is not image_data:
+            image_data.setParent(None)
             return  # Latest file is something else
         assert image_data.pil_image is not None
         if image_data.pil_image.width < 1 or image_data.pil_image.height < 1:
@@ -66,6 +67,7 @@ class ImageLoader(QtCore.QObject):
     @QtCore.Slot(ImageData)  # noqa
     def texture_turbo_jpeg(self, image_data: ImageData):
         if self.current_image_data is not image_data:
+            image_data.setParent(None)
             return  # Latest file is something else
         assert image_data.file_name is not None
         with open(image_data.file_name, "rb") as in_file:
@@ -77,6 +79,7 @@ class ImageLoader(QtCore.QObject):
     @QtCore.Slot(ImageData)  # noqa
     def texture_pil(self, image_data: ImageData):
         if self.current_image_data is not image_data:
+            image_data.setParent(None)
             return  # Latest file is something else
         img = image_data.pil_image
         assert img is not None
