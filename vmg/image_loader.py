@@ -81,11 +81,22 @@ class ImageLoader(QtCore.QObject):
             return  # Latest file is something else
         img = image_data.pil_image
         assert img is not None
-        data = img.tobytes()
-        if img.mode in ["RGB",]:
+        if img.mode in ["P",]:
+            image_data.pil_image = image_data.pil_image.convert("RGBA")  # TODO: palette shader
+            img = image_data.pil_image
+            channel_count = 4
+        elif img.mode in ["1", "L", "I", "I;16", "I;16L", "I;16B", "I;16N", "F"]:
+            channel_count = 1
+        elif img.mode in ["LA", "La", "PA"]:
+            channel_count = 2
+        elif img.mode in ["RGB", "CMYK", "YCbCr", "LAB", "HSV", "BGR;15", "BGR;16", "BGR;24"]:
             channel_count = 3
+        elif img.mode in ["RGBA", "RGBa"]:
+            channel_count = 4
         else:
-            assert False
+            self.load_failed.emit(image_data.file_name)
+            return
+        data = img.tobytes()
         image_data.texture = Texture(
             channel_count=channel_count,
             size=img.size,
