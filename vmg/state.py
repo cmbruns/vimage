@@ -8,7 +8,7 @@ from PySide6.QtGui import Qt
 
 from vmg.frame import DimensionsOmp, DimensionsQwn, LocationHpd, LocationObq, LocationNic, LocationOmp, LocationOnt, \
     LocationPrj, LocationQwn, LocationRelative
-from vmg.image_loader import ImageData
+from vmg.image_data import ImageData
 from vmg.pixel_filter import PixelFilter
 from vmg.projection_360 import Projection360
 from vmg.rect_sel import RectangularSelection, CursorHolder

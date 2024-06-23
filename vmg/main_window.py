@@ -15,7 +15,8 @@ from PySide6.QtWidgets import QFileDialog, QMessageBox
 
 from vmg.circular_combo_box import CircularComboBox
 from vmg.command import CropToSelection
-from vmg.image_loader import ImageLoader, ImageData
+from vmg.image_loader import ImageLoader
+from vmg.image_data import ImageData
 from vmg.natural_sort import natural_sort_key
 from vmg.pixel_filter import PixelFilter
 from vmg.projection_360 import Projection360
@@ -62,6 +63,8 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         sel_rect.selection_shown.connect(self.actionCrop_to_Selection.setEnabled)
         self.actionNext.setIcon(self.style().standardIcon(
             QtWidgets.QStyle.SP_MediaSeekForward))
+        self.toolBar.widgetForAction(self.actionPrevious).setAutoRepeat(True)
+        self.toolBar.widgetForAction(self.actionNext).setAutoRepeat(True)
         self.actionOpen.setShortcut(QtGui.QKeySequence.Open)
         self.actionOpen.setIcon(self.style().standardIcon(
             QtWidgets.QStyle.SP_DialogOpenButton))
@@ -102,8 +105,8 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         self.list_label.setMinimumWidth(40)
         self.toolBar.addWidget(self.list_label)
         self.toolBar.addSeparator()
-        # self.toolBar.addAction(self.actionSelect_Rectangle)
-        # self.toolBar.addSeparator()
+        self.toolBar.addAction(self.actionSelect_Rectangle)
+        self.toolBar.addSeparator()
         self.toolBar.addWidget(self.projectionComboBox)
         self.toolBar.toggleViewAction().setEnabled(False)  # I did not like accidentally hiding it
         # Add image dimensions to status bar
@@ -136,9 +139,9 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         self.image_loader = ImageLoader()
         self.image_loader.moveToThread(self.loading_thread)
         self.loading_thread.start()
-        self.image_load_requested.connect(self.image_loader.load_file_name)  # noqa
-        self.pil_load_requested.connect(self.image_loader.assign_pil_image)  # noqa
-        self.image_loader.numpy_image_created.connect(self.image_data_loaded)
+        self.image_load_requested.connect(self.image_loader.load_from_file_name)  # noqa
+        self.pil_load_requested.connect(self.image_loader.load_from_pil_image)  # noqa
+        self.image_loader.texture_created.connect(self.image_data_loaded)
         self.image_loader.load_failed.connect(self.image_load_failed)
 
     def activate_indexed_image(self):

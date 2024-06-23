@@ -5,7 +5,7 @@ from OpenGL import GL
 from PySide6 import QtCore, QtGui, QtOpenGLWidgets, QtWidgets
 from PySide6.QtCore import QEvent, Qt, QPoint
 
-from vmg.image_loader import ImageData
+from vmg.image_data import ImageData
 from vmg.rect_sel import CursorHolder
 from vmg.state import ViewState
 from vmg.shader import RectangularShader, IImageShader, SphericalShader
@@ -21,7 +21,6 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         self.grabGesture(Qt.PinchGesture)
         # self.grabGesture(Qt.PanGesture)
         self.grabGesture(Qt.SwipeGesture)
-        self.image: Optional[numpy.ndarray] = None
         self.image_data = None
         self.setMinimumSize(10, 10)
         self.vao = None
@@ -94,7 +93,7 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
     def mouseMoveEvent(self, event):
         if event.pos() is None:
             return
-        if self.image is None:
+        if self.image_data is None:
             return
         if event.source() != Qt.MouseEventNotSynthesized:
             return
@@ -123,11 +122,10 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         bg_color = self.palette().color(self.backgroundRole()).getRgbF()
         GL.glClearColor(*bg_color)
         GL.glClear(GL.GL_COLOR_BUFFER_BIT)
-        if self.image is None:
+        if self.image_data is None:
             return
         GL.glBindVertexArray(self.vao)
-        GL.glBindTexture(GL.GL_TEXTURE_2D, self.texture)
-        self.maybe_upload_image()
+        self.image_data.texture.bind_gl()
         self.program.paint_gl(self.view_state)
 
     def resizeGL(self, w, h):
@@ -149,7 +147,6 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         else:
             self.is_360 = False
             self.program = self.rect_shader
-        self.image = image_data.numpy_image
         self.image_needs_upload = True
         self.signal_360.emit(self.is_360)  # noqa
         w, h = self.image_data.size
@@ -160,7 +157,7 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
     def show_context_menu(self, qpoint: QPoint):
         menu = QtWidgets.QMenu("Context menu", parent=self)
         menu.addSeparator()
-        if self.image is not None:
+        if self.image_data is not None:
             for action in self.view_state.context_menu_actions(qpoint):
                 menu.addAction(action)
         menu.addSeparator()
@@ -169,46 +166,6 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
 
     image_size_changed = QtCore.Signal(int, int)
     signal_360 = QtCore.Signal(bool)
-
-    def maybe_upload_image(self):
-        if not self.image_needs_upload:
-            return
-        # Number of channels
-        formats = {
-            1: GL.GL_RED,
-            3: GL.GL_RGB,
-            4: GL.GL_RGBA,
-        }
-        channel_count = 1
-        if len(self.image.shape) > 2:
-            channel_count = self.image.shape[2]
-        # Bit depth
-        depths = {
-            numpy.dtype("uint8"): GL.GL_UNSIGNED_BYTE,
-            numpy.dtype("uint16"): GL.GL_UNSIGNED_SHORT,
-            numpy.dtype("float32"): GL.GL_FLOAT,
-        }
-        h, w = self.image.shape[:2]  # Image dimensions
-        GL.glPixelStorei(GL.GL_UNPACK_ALIGNMENT, 1)  # In case width is odd
-        if channel_count == 1:
-            GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_SWIZZLE_G, GL.GL_RED)
-            GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_SWIZZLE_B, GL.GL_RED)
-        else:
-            GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_SWIZZLE_G, GL.GL_GREEN)
-            GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_SWIZZLE_B, GL.GL_BLUE)
-        GL.glTexImage2D(
-            GL.GL_TEXTURE_2D,
-            0,
-            formats[channel_count],
-            w,
-            h,
-            0,
-            formats[channel_count],
-            depths[self.image.dtype],
-            self.image,
-        )
-        GL.glGenerateMipmap(GL.GL_TEXTURE_2D)
-        self.image_needs_upload = False
 
     @QtCore.Slot()  # noqa
     def start_rect_with_no_point(self):
