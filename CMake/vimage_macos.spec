@@ -1,14 +1,15 @@
 # -*- mode: python ; coding: utf-8 -*-
-
+from PyInstaller.building.build_main import Analysis, BUNDLE, COLLECT, EXE, PYZ
 
 a = Analysis(
-    ['../scripts/vimage.py'],
+    scripts=['../scripts/vimage.py'],
     pathex=['../'],
     binaries=[],
     datas=[
         ("../vmg/*.vert", "vmg"),
         ("../vmg/*.frag", "vmg"),
         ("../vmg/images/*", "vmg/images"),
+        ("../vmg/git_hash.txt", "vmg"),
     ],
     hiddenimports=[],
     hookspath=[],

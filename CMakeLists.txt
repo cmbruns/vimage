@@ -79,8 +79,8 @@ endif()
 add_custom_target(RunPyInstaller ALL
     COMMAND ${CMAKE_COMMAND} -E remove_directory "${CMAKE_BINARY_DIR}/dist"
     COMMAND ${CMAKE_COMMAND} -E remove_directory "${CMAKE_BINARY_DIR}/build"
-    COMMAND ${PYINSTALLER} ${CMAKE_SOURCE_DIR}/scripts/${SPEC_FILE}
-    DEPENDS "${CMAKE_SOURCE_DIR}/scripts/${SPEC_FILE}" "${CMAKE_SOURCE_DIR}/vmg/ui_vimage.py"
+    COMMAND ${PYINSTALLER} ${CMAKE_SOURCE_DIR}/CMake/${SPEC_FILE}
+    DEPENDS "${CMAKE_SOURCE_DIR}/CMake/${SPEC_FILE}" "${CMAKE_SOURCE_DIR}/vmg/ui_vimage.py"
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
     COMMENT "Running PyInstaller"
 )
