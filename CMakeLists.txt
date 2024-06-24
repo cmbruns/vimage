@@ -1,6 +1,38 @@
 cmake_minimum_required(VERSION 3.5)
 project(vimage NONE)
 
+# Update version here every build
+set(CPACK_PACKAGE_VERSION_MAJOR "0")
+set(CPACK_PACKAGE_VERSION_MINOR "9")
+set(CPACK_PACKAGE_VERSION_PATCH "3")
+set(VIMAGE_VERSION_SUFFIX "pre")
+
+configure_file(
+    "${CMAKE_SOURCE_DIR}/CMake/version.py.in"
+    "${CMAKE_SOURCE_DIR}/vmg/version.py"
+    @ONLY
+    NEWLINE_STYLE UNIX
+)
+
+# Compute git hash to identify exact code version
+find_package(Git REQUIRED)
+if(GIT_FOUND)
+    execute_process(COMMAND ${GIT_EXECUTABLE} -C ${CMAKE_SOURCE_DIR} describe --always --dirty OUTPUT_VARIABLE GIT_HASH OUTPUT_STRIP_TRAILING_WHITESPACE)
+    message(STATUS "git hash = ${GIT_HASH}")
+    # Put one copy in the scripts folder for dev use
+    # This file will be git ignored, to avoid endless loop
+    configure_file(
+        "${CMAKE_SOURCE_DIR}/CMake/git_hash.txt.in"
+        "${CMAKE_SOURCE_DIR}/scripts/git_hash.txt"
+        @ONLY
+        NEWLINE_STYLE UNIX
+    )
+    # Put another next to the installed executable for installed use
+    install(FILES "${CMAKE_BINARY_DIR}/git_hash.txt"
+      DESTINATION "."
+    )
+endif()
+
 find_program(UIC PySide6-uic
   HINTS
     /Library/Frameworks/Python.framework/Versions/3.9/bin/
@@ -53,9 +85,6 @@ elseif(APPLE)
 endif()
 
 set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_SOURCE_DIR}/LICENSE.txt")
-set(CPACK_PACKAGE_VERSION_MAJOR "0")
-set(CPACK_PACKAGE_VERSION_MINOR "9")
-set(CPACK_PACKAGE_VERSION_PATCH "3")
 set(CPACK_PACKAGE_EXECUTABLES "vimage;vimage")
 set(CPACK_PACKAGE_CONTACT "zeo1@rotatingpenguin.com")
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "vimage desktop image file viewer")
