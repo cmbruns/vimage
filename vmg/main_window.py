@@ -382,6 +382,25 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
     }
 
     @QtCore.Slot()  # noqa
+    def on_actionAbout_triggered(self):  # noqa
+        abb_hash = vimage_git_hash
+        abb_hash = abb_hash.replace("-dirty", "")
+        abb_hash = abb_hash.replace("-broken", "")
+        if "unknown" not in abb_hash:  # Make hyperlink
+            abb_hash = f"<a href=https://github.com/cmbruns/vimage/tree/{abb_hash}>{vimage_git_hash}</a>"
+        else:
+            abb_hash = vimage_git_hash
+        msg = inspect.cleandoc(f"""
+            <H2>Vimage Image Viewer</H2>
+            <p>version {__version__}</p>
+            <p>git hash: {abb_hash}</p>
+            <p><a href='https://github.com/cmbruns/vimage/issues'>Report an issue</a></p>
+            <p><a href='https://github.com/cmbruns/vimage'>Source code</a></p>
+            <p><b>Maintainer</b>: Christopher Bruns</p>
+        """)
+        QMessageBox.information(self, "About", msg)
+
+    @QtCore.Slot()  # noqa
     def on_actionCopy_triggered(self):  # noqa
         # TODO - create a separate container for images...
         # Copy selection only, if available
@@ -398,18 +417,6 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
             QtGui.QImage.Format.Format_RGBA8888,
         )
         self.clipboard.setImage(qimage)
-
-    @QtCore.Slot()  # noqa
-    def on_actionAbout_triggered(self):  # noqa
-        msg = inspect.cleandoc(f"""
-            <H2>Vimage Image Viewer</H2>
-            <p>version {__version__}</p>
-            <p>git hash: {vimage_git_hash}</p>
-            <p><a href='https://github.com/cmbruns/vimage/issues'>Report an issue</a></p>
-            <p><a href='https://github.com/cmbruns/vimage'>Source code</a></p>
-            <p><b>Maintainer</b>: Christopher Bruns</p>
-        """)
-        QMessageBox.information(self, "About", msg)
 
     @QtCore.Slot()  # noqa
     def on_actionCrop_to_Selection_triggered(self):  # noqa
