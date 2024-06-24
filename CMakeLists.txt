@@ -2,10 +2,15 @@ cmake_minimum_required(VERSION 3.5)
 project(vimage NONE)
 
 # Update version here every build
+set(VIMAGE_VERSION_SUFFIX "a"
+    CACHE STRING
+    "vimage version suffix (empty string for official releases, 'a' for pre-releases)"
+)
 set(CPACK_PACKAGE_VERSION_MAJOR "0")
 set(CPACK_PACKAGE_VERSION_MINOR "9")
-set(CPACK_PACKAGE_VERSION_PATCH "3")
-set(VIMAGE_VERSION_SUFFIX "pre")
+set(CPACK_PACKAGE_VERSION_PATCH "4")
+
+message(STATUS "vimage version = ${CPACK_PACKAGE_VERSION_MAJOR}.${CPACK_PACKAGE_VERSION_MINOR}.${CPACK_PACKAGE_VERSION_PATCH}${VIMAGE_VERSION_SUFFIX}")
 
 configure_file(
     "${CMAKE_SOURCE_DIR}/CMake/version.py.in"
@@ -14,21 +19,32 @@ configure_file(
     NEWLINE_STYLE UNIX
 )
 
+mark_as_advanced(
+    CMAKE_BACKWARDS_COMPATIBILITY
+    CMAKE_CONFIGURATION_TYPES
+    EXECUTABLE_OUTPUT_PATH
+    LIBRARY_OUTPUT_PATH
+)
+
 # Compute git hash to identify exact code version
 find_package(Git REQUIRED)
 if(GIT_FOUND)
-    execute_process(COMMAND ${GIT_EXECUTABLE} -C ${CMAKE_SOURCE_DIR} describe --always --dirty OUTPUT_VARIABLE GIT_HASH OUTPUT_STRIP_TRAILING_WHITESPACE)
-    message(STATUS "git hash = ${GIT_HASH}")
+    execute_process(COMMAND ${GIT_EXECUTABLE}
+        -C ${CMAKE_SOURCE_DIR} describe --always --dirty --broken
+        OUTPUT_VARIABLE GIT_HASH
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+    message(STATUS "vimage git hash = ${GIT_HASH}")
     # Put one copy in the scripts folder for dev use
     # This file will be git ignored, to avoid endless loop
     configure_file(
         "${CMAKE_SOURCE_DIR}/CMake/git_hash.txt.in"
-        "${CMAKE_SOURCE_DIR}/scripts/git_hash.txt"
+        "${CMAKE_SOURCE_DIR}/vmg/git_hash.txt"
         @ONLY
         NEWLINE_STYLE UNIX
     )
     # Put another next to the installed executable for installed use
-    install(FILES "${CMAKE_BINARY_DIR}/git_hash.txt"
+    install(FILES "${CMAKE_SOURCE_DIR}/vmg/git_hash.txt"
       DESTINATION "."
     )
 endif()

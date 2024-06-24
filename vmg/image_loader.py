@@ -94,7 +94,7 @@ class ImageLoader(QtCore.QObject):
         elif img.mode in ["RGBA", "RGBa"]:
             channel_count = 4
         else:
-            self.load_failed.emit(image_data.file_name)
+            self.load_failed.emit(image_data.file_name)  # noqa
             return
         data = img.tobytes()
         image_data.texture = Texture(
