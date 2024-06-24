@@ -504,6 +504,12 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
     @QtCore.Slot()  # noqa
     def on_actionPaste_triggered(self):  # noqa
         clip = ImageGrab.grabclipboard()
+        try:
+            file_name = clip[0]
+            self.load_image_from_file(file_name)
+            return
+        except ... as exc:
+            print(exc)
         if clip.width < 1:
             self.actionPaste.setEnabled(False)
             return
