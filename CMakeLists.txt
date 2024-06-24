@@ -29,6 +29,9 @@ mark_as_advanced(
 # Compute git hash to identify exact code version
 find_package(Git REQUIRED)
 if(GIT_FOUND)
+    # First refresh the cache
+    execute_process(COMMAND ${GIT_EXECUTABLE} -C ${CMAKE_SOURCE_DIR} diff --quiet HEAD)
+    # Then get the hash
     execute_process(COMMAND ${GIT_EXECUTABLE}
         -C ${CMAKE_SOURCE_DIR} describe --always --dirty --broken
         OUTPUT_VARIABLE GIT_HASH
