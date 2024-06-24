@@ -1,3 +1,7 @@
+import pathlib
+
+import inspect
+
 import pkg_resources
 from inspect import cleandoc
 import io
@@ -151,10 +155,11 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
             self.statusbar.showMessage(str(uie), 5000)
         self.update_previous_next()
 
-    def _dialog_and_save_image(self, image) -> str:
+    def _dialog_and_save_image(self, image, default_name: str = None) -> str:
         file_path, _file_filter = QFileDialog.getSaveFileName(
-            parent=self,
-            caption="Save Image to File",
+            self,
+            "Save Image to File",
+            default_name,
             filter="PNG Files (*.png);;JPEG Files(*.jpg *.jpeg);;All files (*.*)",
             selectedFilter="PNG Files (*.png)",
         )
@@ -393,6 +398,16 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         self.clipboard.setImage(qimage)
 
     @QtCore.Slot()  # noqa
+    def on_actionAbout_triggered(self):  # noqa
+        msg = inspect.cleandoc("""
+            <H2>Vimage Image Viewer</H2>
+            <p><a href='https://github.com/cmbruns/vimage/issues'>Report an issue</a></p>
+            <p><a href='https://github.com/cmbruns/vimage'>Source code</a></p>
+            <p><b>Maintainer</b>: Christopher Bruns</p>
+        """)
+        QMessageBox.information(self, "About", msg)
+
+    @QtCore.Slot()  # noqa
     def on_actionCrop_to_Selection_triggered(self):  # noqa
         # TODO: Undoable command
         # TODO: virtual crop, metadata only
@@ -533,7 +548,8 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
 
     @QtCore.Slot()  # noqa
     def on_actionSave_As_triggered(self):  # noqa
-        file_path = self._dialog_and_save_image(self.image)
+        default_name = f"{pathlib.Path(self._current_file_name).stem}"
+        file_path = self._dialog_and_save_image(self.image, default_name=default_name)
         if os.path.exists(file_path):
             self.set_current_image_path(file_path)
             self.undo_stack.setClean()
@@ -542,7 +558,8 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
     def on_actionSave_Current_View_As_triggered(self):  # noqa
         pixmap = self.imageWidgetGL.grab()
         view_image = Image.fromqpixmap(pixmap)
-        file_path = self._dialog_and_save_image(view_image)
+        default_name = f"{pathlib.Path(self._current_file_name).stem}_view"
+        file_path = self._dialog_and_save_image(view_image, default_name=default_name)
         if os.path.exists(file_path):
             self.recent_files.add_file(file_path)
 

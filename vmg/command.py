@@ -28,7 +28,7 @@ class CropToSelection(QUndoCommand):
 
     def redo(self):
         cropped = self.image.crop(self.bounds)
-        name = f"{pathlib.Path(self.file_name).stem}_Cropped"
+        name = f"{pathlib.Path(self.file_name).stem}_cropped"
         if self.window.load_image_from_memory(image=cropped, name=name):
             rect = self.window.imageWidgetGL.view_state.sel_rect
             rect.clear()
