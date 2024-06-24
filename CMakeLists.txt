@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.5)
 project(vimage NONE)
 
-# Update version here every build
+# Remember to manually update version here every build
 set(VIMAGE_VERSION_SUFFIX "a"
     CACHE STRING
     "vimage version suffix (empty string for official releases, 'a' for pre-releases)"
