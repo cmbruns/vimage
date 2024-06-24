@@ -26,6 +26,7 @@ from vmg.pixel_filter import PixelFilter
 from vmg.projection_360 import Projection360
 from vmg.recent_file import RecentFileList
 from vmg.ui_vimage import Ui_MainWindow
+from vmg.version import __version__
 
 
 _max_image_pixels = 1789569700
@@ -399,8 +400,9 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
 
     @QtCore.Slot()  # noqa
     def on_actionAbout_triggered(self):  # noqa
-        msg = inspect.cleandoc("""
+        msg = inspect.cleandoc(f"""
             <H2>Vimage Image Viewer</H2>
+            <p>version {__version__}</p>
             <p><a href='https://github.com/cmbruns/vimage/issues'>Report an issue</a></p>
             <p><a href='https://github.com/cmbruns/vimage'>Source code</a></p>
             <p><b>Maintainer</b>: Christopher Bruns</p>
