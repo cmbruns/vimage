@@ -1,12 +1,13 @@
-import pathlib
 
-import inspect
 
-import pkg_resources
 from inspect import cleandoc
+import inspect
 import io
+import logging
 import os
+import pathlib
 from pathlib import Path
+import pkg_resources
 import time
 
 import PIL
@@ -30,9 +31,15 @@ from vmg.version import __version__
 from vmg.git_hash import vimage_git_hash
 
 
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.DEBUG)
+
+
+# Make PIL load larger images
 _max_image_pixels = 1789569700
 if Image.MAX_IMAGE_PIXELS is not None and Image.MAX_IMAGE_PIXELS < _max_image_pixels:
     Image.MAX_IMAGE_PIXELS = _max_image_pixels
+# Make PIL load apple .heic images
 register_heif_opener()
 
 
