@@ -1,6 +1,7 @@
 import logging
 from .app import VimageApp
 
-# Create top level logger before invoking VimageApp
-logging.basicConfig(level=logging.DEBUG,)
+logging.basicConfig(level=logging.INFO)
+
+# Instantiate top level app logger prior to stderr redirection tricks
 logger = logging.getLogger(__name__)

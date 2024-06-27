@@ -10,9 +10,6 @@ from PySide6.QtGui import QIcon, QSurfaceFormat
 from .main_window import VimageMainWindow
 from .log import StdIoRedirector
 
-logging.basicConfig(level=logging.DEBUG,)
-logger = logging.getLogger(__name__)
-
 
 class VimageApplication(QtWidgets.QApplication):
     def event(self, event):
@@ -29,7 +26,7 @@ class VimageApplication(QtWidgets.QApplication):
 
 class VimageApp(object):
     def __init__(self):
-        logging.getLogger().setLevel(logging.INFO)
+        # Top level logger must be created before this point (see vmg.__init__.py)
         with StdIoRedirector():
             app = self.init_app()
             self.run_main_window(app)

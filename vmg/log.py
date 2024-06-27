@@ -1,10 +1,11 @@
 import inspect
-
 import logging
 import sys
 
 from PySide6 import QtCore, QtGui, QtWidgets
 from PySide6.QtCore import Qt
+
+logger = logging.getLogger(__name__)
 
 
 class LoggingQTextEdit(QtWidgets.QTextEdit):
@@ -24,6 +25,7 @@ class LoggingQTextEdit(QtWidgets.QTextEdit):
     def append_text(self, msg: str):
         self.append(msg)
         self.moveCursor(QtGui.QTextCursor.End)
+        self.moveCursor(QtGui.QTextCursor.StartOfLine)
 
     class LogHandler(logging.Handler):
         """logging handler that emits a Qt signal when a message arrives"""
@@ -82,6 +84,21 @@ class LogWindow(QtWidgets.QDialog):
         layout = QtWidgets.QVBoxLayout()
         layout.addWidget(self.text_edit)
         self.setLayout(layout)
+        self.dialog_size = None
+        self.dialog_geometry = None
+
+    def showEvent(self, event: QtGui.QShowEvent):
+        super().showEvent(event)
+        if self.dialog_size is not None:
+            self.resize(self.dialog_size)
+        if self.dialog_geometry is not None:
+            self.setGeometry(self.dialog_geometry)
+        logger.info("vimage log window shown")
+
+    def closeEvent(self, event: QtGui.QCloseEvent):
+        # self.dialog_size = self.size()
+        self.dialog_geometry = self.geometry()
+        self.hide()
 
 
 class StdIoRedirector(object):
@@ -156,7 +173,7 @@ def exercise_log_window():
         Ut expedita unde eum molestias voluptatem aut dignissimos dolor.
         """  # noqa
     ))
-    # logger.debug("Oh no! A bug!")
+    logger.debug("Oh no! A bug!")
     logger.info("just saying")
     logger.warning("be careful")
     logger.error("problem")
@@ -167,7 +184,7 @@ def exercise_log_window():
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.DEBUG, format=logging.BASIC_FORMAT)
+    logging.basicConfig(level=logging.INFO, format=logging.BASIC_FORMAT)
     logger = logging.getLogger(__name__)
     with StdIoRedirector():  # AFTER creating logger
         exercise_log_window()
