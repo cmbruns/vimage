@@ -1,3 +1,5 @@
+import logging
+
 import turbojpeg
 from OpenGL import GL
 from PIL import Image
@@ -9,6 +11,7 @@ from vmg.texture import Texture
 
 
 jpeg = turbojpeg.TurboJPEG()  # TODO: cache this?
+logger = logging.getLogger(__name__)
 
 
 class ImageLoader(QtCore.QObject):
@@ -51,6 +54,7 @@ class ImageLoader(QtCore.QObject):
     def load_metadata(self, image_data: ImageData):
         if self.current_image_data is not image_data:
             image_data.setParent(None)  # noqa
+            logger.info(f"ceasing stale load of {image_data.file_name}")
             return  # Latest file is something else
         assert image_data.pil_image is not None
         if image_data.pil_image.width < 1 or image_data.pil_image.height < 1:
@@ -66,6 +70,7 @@ class ImageLoader(QtCore.QObject):
     def texture_turbo_jpeg(self, image_data: ImageData):
         if self.current_image_data is not image_data:
             image_data.setParent(None)  # noqa
+            logger.info(f"ceasing stale load of {image_data.file_name}")
             return  # Latest file is something else
         assert image_data.file_name is not None
         with open(image_data.file_name, "rb") as in_file:
@@ -78,6 +83,7 @@ class ImageLoader(QtCore.QObject):
     def texture_pil(self, image_data: ImageData):
         if self.current_image_data is not image_data:
             image_data.setParent(None)  # noqa
+            logger.info(f"ceasing stale load of {image_data.file_name}")
             return  # Latest file is something else
         img = image_data.pil_image
         assert img is not None

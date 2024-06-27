@@ -2,99 +2,43 @@ import inspect
 import logging
 import sys
 
-from PySide6 import QtCore, QtGui, QtWidgets
-from PySide6.QtCore import Qt
+from PySide6 import QtWidgets, QtGui, QtCore
+
+from vmg.ui_log import Ui_LogDialog
 
 logger = logging.getLogger(__name__)
 
 
-class LoggingQTextEdit(QtWidgets.QTextEdit):
-    """
-    TextEdit widget that populates itself with python logging messages
-    """
-
-    def __init__(self, parent):
-        super().__init__(parent)
-        self.setFont({"Consolas"})
-        self.handler = self.LogHandler()
-        self.handler.signaller.log.connect(self.append_text, Qt.QueuedConnection)  # noqa
-        self.setReadOnly(True)
-        self.setLineWrapMode(QtWidgets.QTextEdit.NoWrap)
-
-    @QtCore.Slot(str)  # noqa
-    def append_text(self, msg: str):
-        self.append(msg)
-        self.moveCursor(QtGui.QTextCursor.End)
-        self.moveCursor(QtGui.QTextCursor.StartOfLine)
-
-    class LogHandler(logging.Handler):
-        """logging handler that emits a Qt signal when a message arrives"""
-
-        def __init__(self):
-            super().__init__()
-            # self.setFormatter(logging.Formatter(logging.BASIC_FORMAT))
-            self.signaller = self.LogSignaller()
-            logging.getLogger().addHandler(self)
-
-        def emit(self, record: logging.LogRecord) -> None:
-            """
-            If a formatter is specified, it is used to format the record.
-            The record is then written to the stream followed by terminator.
-            If exception information is present, it is formatted using
-            traceback.print_exception() and appended to the stream.
-
-            :param record: Contains all the information pertinent to the event being logged.
-            :return: None
-            """
-            msg = self.format(record)
-            if record.levelno == logging.WARNING:
-                emoji = u"\u26A0\ufe0f"  # Unicode for the warning emoji
-                text = f"{emoji} {msg}"
-            elif record.levelno == logging.INFO:
-                emoji = u"\U00002705"  # Unicode for the check mark emoji
-                text = f"{emoji} {msg}"
-            elif record.levelno == logging.DEBUG:
-                emoji = u"\U0001f41e"  # Unicode for the spider emoji
-                text = f"{emoji} {msg}"
-            elif record.levelno == logging.ERROR:
-                emoji = u"\u274c"  # Unicode for the red circle emoji
-                text = f"{emoji} {msg}"
-            else:
-                text = msg
-            self.signaller.log.emit(text)  # noqa
-
-        class LogSignaller(QtCore.QObject):
-            """
-            Signalling part of LogHandler,
-            for composition of classes that both have "emit()" methods.
-            """
-            log = QtCore.Signal(str)
-
-
-class LogWindow(QtWidgets.QDialog):
+class LogDialog(Ui_LogDialog, QtWidgets.QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("vimage log")
-        self.text_edit = LoggingQTextEdit(self)
-        # formatter = logging.Formatter("%(asctime)s:%(name)s:%(levelname)s:%(message)s")
-        formatter = logging.Formatter("[%(levelname)-.1s]%(name)s: %(message)s")
-        self.text_edit.handler.setFormatter(formatter)
+        self.setupUi(self)
         cursor = QtGui.QTextCursor(self.text_edit.document())
         cursor.select(QtGui.QTextCursor.Document)
-        layout = QtWidgets.QVBoxLayout()
-        layout.addWidget(self.text_edit)
-        self.setLayout(layout)
         self.dialog_geometry = None
 
     def showEvent(self, event: QtGui.QShowEvent):
         super().showEvent(event)
         if self.dialog_geometry is not None:
             self.setGeometry(self.dialog_geometry)
-        logger.info("vimage log window shown")
+        logger.debug("vimage log window shown")
 
     def closeEvent(self, event: QtGui.QCloseEvent):
         self.dialog_geometry = self.geometry()
         self.hide()
+
+    _levels = {
+        "Critical": logging.CRITICAL,
+        "Error": logging.ERROR,
+        "Warning": logging.WARNING,
+        "Info": logging.INFO,
+        "Debug": logging.DEBUG,
+    }
+
+    @QtCore.Slot(str)
+    def on_comboBox_currentTextChanged(self, text: str):
+        level = self._levels[text]
+        logging.getLogger().setLevel(level)  # Adjust root logger
 
 
 class StdIoRedirector(object):
@@ -152,7 +96,7 @@ class StdIoRedirector(object):
 
 def exercise_log_window():
     app = QtWidgets.QApplication(sys.argv)
-    log_window = LogWindow()
+    log_window = LogDialog()
     log_window.text_edit.setPlainText(inspect.cleandoc(
         """
         Lorem ipsum dolor sit amet, consectetur adipiscing elit.
@@ -184,3 +128,5 @@ if __name__ == "__main__":
     logger = logging.getLogger(__name__)
     with StdIoRedirector():  # AFTER creating logger
         exercise_log_window()
+
+

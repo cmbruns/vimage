@@ -1,4 +1,4 @@
-
+from datetime import datetime
 
 from inspect import cleandoc
 import inspect
@@ -22,7 +22,7 @@ from vmg.circular_combo_box import CircularComboBox
 from vmg.command import CropToSelection
 from vmg.image_loader import ImageLoader
 from vmg.image_data import ImageData
-from vmg.log import LogWindow
+from vmg.log import LogDialog
 from vmg.natural_sort import natural_sort_key
 from vmg.pixel_filter import PixelFilter
 from vmg.projection_360 import Projection360
@@ -156,7 +156,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         self.image_loader.texture_created.connect(self.image_texture_created, Qt.QueuedConnection)
         self.image_loader.load_failed.connect(self.image_load_failed, Qt.QueuedConnection)
         # Logging
-        self.log_window = LogWindow(self)
+        self.log_window = LogDialog(self)
 
     def activate_indexed_image(self):
         try:
@@ -243,7 +243,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
     pil_load_requested = QtCore.Signal(Image.Image, str)
 
     def load_image_from_file(self, file_name: str) -> None:
-        logger.debug(f"Loading image from file {file_name}")
+        logger.info(f"Loading image from file {file_name} ...")
         if QtWidgets.QApplication.overrideCursor() is None:
             QtWidgets.QApplication.setOverrideCursor(Qt.WaitCursor)
         fn = str(file_name)
@@ -254,6 +254,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
     @QtCore.Slot(ImageData)  # noqa
     def image_texture_created(self, image_data: ImageData):
         if image_data.file_name != self._current_file_name:
+            logger.info(f"ignoring stale texture loaded for {image_data.file_name}")
             return
         if QtWidgets.QApplication.overrideCursor() is not None:
             QtWidgets.QApplication.restoreOverrideCursor()
@@ -271,6 +272,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
     @QtCore.Slot(str)  # noqa
     def image_load_failed(self, file_name: str):
         if file_name != self._current_file_name:
+            logger.error(f"Loading image {file_name} failed")
             return
         if QtWidgets.QApplication.overrideCursor() is not None:
             QtWidgets.QApplication.restoreOverrideCursor()
@@ -344,6 +346,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
     def set_360_projection(self, projection: Projection360, action: QtGui.QAction) -> None:
         if self.imageWidgetGL.view_state.projection == projection:
             return
+        logger.info(f"Changing 360 projection to {projection.name}")
         self.imageWidgetGL.view_state.projection = projection
         if self.projectionComboBox.currentText() != action.text():
             self.projectionComboBox.setCurrentText(action.text())
@@ -358,6 +361,9 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         self.projectionComboBox.setEnabled(is_360)
         self.menu360_Projection.setEnabled(is_360)
         self.actionSelect_Rectangle.setEnabled(not is_360)
+
+    def showEvent(self, event: QtGui.QShowEvent) -> None:
+        logger.info(f"vimage started at {datetime.now().strftime('%H:%M:%S.%f on %y:%m:%d %Z')}")
 
     def update_previous_next(self):
         # Update progress label
