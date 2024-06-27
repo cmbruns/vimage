@@ -3,7 +3,7 @@
 ################################################################################
 ## Form generated from reading UI file 'vimage.ui'
 ##
-## Created by: Qt User Interface Compiler version 6.2.1
+## Created by: Qt User Interface Compiler version 6.4.0
 ##
 ## WARNING! All changes made in this file will be lost when recompiling UI file!
 ################################################################################
@@ -102,6 +102,8 @@ class Ui_MainWindow(object):
         self.actionReport_a_Problem = QAction(MainWindow)
         self.actionReport_a_Problem.setObjectName(u"actionReport_a_Problem")
         self.actionReport_a_Problem.setEnabled(False)
+        self.actionView_Log = QAction(MainWindow)
+        self.actionView_Log.setObjectName(u"actionView_Log")
         self.centralwidget = QWidget(MainWindow)
         self.centralwidget.setObjectName(u"centralwidget")
         self.verticalLayout = QVBoxLayout(self.centralwidget)
@@ -164,6 +166,7 @@ class Ui_MainWindow(object):
         self.menu360_Projection.addAction(self.actionEquirectangular)
         self.menuHelp.addAction(self.actionAbout)
         self.menuHelp.addAction(self.actionReport_a_Problem)
+        self.menuHelp.addAction(self.actionView_Log)
         self.menuEdit.addAction(self.actionCrop_to_Current_View)
         self.menuEdit.addAction(self.actionCrop_to_Selection)
         self.menuEdit.addSeparator()
@@ -239,6 +242,7 @@ class Ui_MainWindow(object):
         self.actionZoom_Out.setText(QCoreApplication.translate("MainWindow", u"Zoom Out", None))
         self.actionZoom_In.setText(QCoreApplication.translate("MainWindow", u"Zoom In", None))
         self.actionReport_a_Problem.setText(QCoreApplication.translate("MainWindow", u"Report a Problem...", None))
+        self.actionView_Log.setText(QCoreApplication.translate("MainWindow", u"View Log", None))
         self.menuFile.setTitle(QCoreApplication.translate("MainWindow", u"File", None))
         self.menuOpen_Recent.setTitle(QCoreApplication.translate("MainWindow", u"Open Recent", None))
         self.menuView.setTitle(QCoreApplication.translate("MainWindow", u"View", None))

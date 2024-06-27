@@ -22,6 +22,7 @@ from vmg.circular_combo_box import CircularComboBox
 from vmg.command import CropToSelection
 from vmg.image_loader import ImageLoader
 from vmg.image_data import ImageData
+from vmg.log import LogWindow
 from vmg.natural_sort import natural_sort_key
 from vmg.pixel_filter import PixelFilter
 from vmg.projection_360 import Projection360
@@ -32,8 +33,6 @@ from vmg.git_hash import vimage_git_hash
 
 
 logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.DEBUG)
-
 
 # Make PIL load larger images
 _max_image_pixels = 1789569700
@@ -156,6 +155,8 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         self.pil_load_requested.connect(self.image_loader.load_from_pil_image, Qt.QueuedConnection)  # noqa
         self.image_loader.texture_created.connect(self.image_texture_created, Qt.QueuedConnection)
         self.image_loader.load_failed.connect(self.image_load_failed, Qt.QueuedConnection)
+        # Logging
+        self.log_window = LogWindow(self)
 
     def activate_indexed_image(self):
         try:
@@ -242,6 +243,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
     pil_load_requested = QtCore.Signal(Image.Image, str)
 
     def load_image_from_file(self, file_name: str) -> None:
+        logger.debug(f"Loading image from file {file_name}")
         if QtWidgets.QApplication.overrideCursor() is None:
             QtWidgets.QApplication.setOverrideCursor(Qt.WaitCursor)
         fn = str(file_name)
@@ -604,6 +606,10 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
     def on_actionStereographic_toggled(self, is_checked: bool):  # noqa
         if is_checked:
             self.set_360_projection(Projection360.STEREOGRAPHIC, self.actionStereographic)
+
+    @QtCore.Slot()  # noqa
+    def on_actionView_Log_triggered(self):  # noqa
+        self.log_window.show()
 
     @QtCore.Slot(int)  # noqa
     def projection_combo_box_current_index_changed(self, index: int):

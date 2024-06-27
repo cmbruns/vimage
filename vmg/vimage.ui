@@ -94,6 +94,7 @@
     </property>
     <addaction name="actionAbout"/>
     <addaction name="actionReport_a_Problem"/>
+    <addaction name="actionView_Log"/>
    </widget>
    <widget class="QMenu" name="menuEdit">
     <property name="title">
@@ -355,6 +356,11 @@
    </property>
    <property name="text">
     <string>Report a Problem...</string>
+   </property>
+  </action>
+  <action name="actionView_Log">
+   <property name="text">
+    <string>View Log</string>
    </property>
   </action>
  </widget>
