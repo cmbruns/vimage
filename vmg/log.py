@@ -84,19 +84,15 @@ class LogWindow(QtWidgets.QDialog):
         layout = QtWidgets.QVBoxLayout()
         layout.addWidget(self.text_edit)
         self.setLayout(layout)
-        self.dialog_size = None
         self.dialog_geometry = None
 
     def showEvent(self, event: QtGui.QShowEvent):
         super().showEvent(event)
-        if self.dialog_size is not None:
-            self.resize(self.dialog_size)
         if self.dialog_geometry is not None:
             self.setGeometry(self.dialog_geometry)
         logger.info("vimage log window shown")
 
     def closeEvent(self, event: QtGui.QCloseEvent):
-        # self.dialog_size = self.size()
         self.dialog_geometry = self.geometry()
         self.hide()
 
