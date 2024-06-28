@@ -5,7 +5,7 @@ import pathlib
 import PIL.Image
 from PySide6.QtGui import QUndoCommand
 
-from vmg.rect_sel import RectangularSelection, SelState
+from vmg.selection_box import (SelectionBox, SelState)
 
 logger = logging.getLogger(__name__)
 
@@ -14,7 +14,7 @@ class CropToSelection(QUndoCommand):
     def __init__(
             self,
             image: PIL.Image.Image,
-            rect: RectangularSelection,
+            rect: SelectionBox,
             window,  # VimageMainWindow
             file_name: str,
     ):
@@ -35,9 +35,9 @@ class CropToSelection(QUndoCommand):
         logger.info(f"Cropping image {stem} to {self.bounds}")
         cropped = self.image.crop(self.bounds)
         name = f"{stem}_cropped"
-        if self.window.load_image_from_memory(image=cropped, name=name):
-            rect = self.window.imageWidgetGL.view_state.sel_rect
-            rect.clear()
+        self.window.load_image_from_memory(image=cropped, name=name)
+        rect = self.window.imageWidgetGL.view_state.sel_rect
+        rect.clear()
 
     def undo(self):
         logger.info(f"Undoing crop image")

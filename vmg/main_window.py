@@ -233,7 +233,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
 
     image_load_requested = QtCore.Signal(str)
 
-    def load_image_from_memory(self, image: PIL.Image.Image, name: str):
+    def load_image_from_memory(self, image: PIL.Image.Image, name: str) -> None:
         if QtWidgets.QApplication.overrideCursor() is None:
             QtWidgets.QApplication.setOverrideCursor(Qt.WaitCursor)
         fn = str(name)

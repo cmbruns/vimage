@@ -4,7 +4,7 @@ from PySide6 import QtCore, QtGui, QtOpenGLWidgets, QtWidgets
 from PySide6.QtCore import QEvent, Qt, QPoint
 
 from vmg.image_data import ImageData
-from vmg.rect_sel import CursorHolder
+from vmg.selection_box import (CursorHolder)
 from vmg.state import ViewState
 from vmg.shader import RectangularShader, IImageShader, SphericalShader
 

@@ -34,7 +34,7 @@ class CursorHolder(object):
         self.cursor = cursor
 
 
-class RectangularSelection(QtCore.QObject):
+class SelectionBox(QtCore.QObject):
     def __init__(self):
         super().__init__()
         self.left_top_right_bottom = numpy.array(
@@ -46,7 +46,8 @@ class RectangularSelection(QtCore.QObject):
         self.state = SelState.INACTIVE
         self.adjusting = AdjustType.NONE
 
-    cursor_changed = QtCore.Signal(CursorHolder)
+    def __str__(self):
+        return f"(left={self.left}, top={self.top}, right={self.right}, bottom={self.bottom})"
 
     def begin(self, p_omp: Optional[LocationOmp]):
         if p_omp is None:
@@ -78,6 +79,8 @@ class RectangularSelection(QtCore.QObject):
             start_action.triggered.connect(lambda: self.begin(p_omp))  # noqa
             result.append(start_action)
         return result
+
+    cursor_changed = QtCore.Signal(CursorHolder)
 
     @property
     def first_point_omp(self):

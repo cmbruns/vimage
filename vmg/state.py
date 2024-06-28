@@ -11,7 +11,7 @@ from vmg.frame import DimensionsOmp, DimensionsQwn, LocationHpd, LocationObq, Lo
 from vmg.image_data import ImageData
 from vmg.pixel_filter import PixelFilter
 from vmg.projection_360 import Projection360
-from vmg.rect_sel import RectangularSelection, CursorHolder
+from vmg.selection_box import SelectionBox, CursorHolder
 
 
 class ViewState(QObject):
@@ -32,7 +32,7 @@ class ViewState(QObject):
         self._raw_rot_omp = numpy.eye(2, dtype=numpy.float32)
         self.raw_rot_ont = numpy.eye(3, dtype=numpy.float32)
         self.pixel_filter = PixelFilter.CATMULL_ROM
-        self.sel_rect = RectangularSelection()
+        self.sel_rect = SelectionBox()
         self.sel_rect.cursor_changed.connect(self.on_rect_cursor_changed)
         self._is_dragging = False
         self._previous_mouse_position = None
