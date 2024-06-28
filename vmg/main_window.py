@@ -363,7 +363,8 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         self.actionSelect_Rectangle.setEnabled(not is_360)
 
     def showEvent(self, event: QtGui.QShowEvent) -> None:
-        logger.info(f"vimage started at {datetime.now().strftime('%H:%M:%S.%f on %y:%m:%d %Z')}")
+        now = datetime.now().astimezone()
+        logger.info(f"vimage main window shown at {now.strftime('%H:%M:%S.%f %Z on %x')}")
 
     def update_previous_next(self):
         # Update progress label

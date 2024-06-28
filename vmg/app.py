@@ -11,6 +11,9 @@ from .main_window import VimageMainWindow
 from .log import StdIoRedirector
 
 
+logger = logging.getLogger(__name__)
+
+
 class VimageApplication(QtWidgets.QApplication):
     def event(self, event):
         if event.type() == QEvent.FileOpen:
@@ -28,6 +31,7 @@ class VimageApp(object):
     def __init__(self):
         # Top level logger must be created before this point (see vmg.__init__.py)
         with StdIoRedirector():
+            logger.info("Launching vimage app")
             app = self.init_app()
             self.run_main_window(app)
 
