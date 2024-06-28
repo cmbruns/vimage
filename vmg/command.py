@@ -32,7 +32,11 @@ class CropToSelection(QUndoCommand):
 
     def redo(self):
         stem = pathlib.Path(self.file_name).stem
-        logger.info(f"Cropping image {stem} to {self.bounds}")
+        el, t, r, b = self.bounds
+        logger.info(
+            f"Cropping image {stem} to "
+            f"(left={el}, top={t}, right={r}, bottom={b})"
+        )
         cropped = self.image.crop(self.bounds)
         name = f"{stem}_cropped"
         self.window.load_image_from_memory(image=cropped, name=name)
