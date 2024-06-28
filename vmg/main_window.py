@@ -435,7 +435,6 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
 
     @QtCore.Slot()  # noqa
     def on_actionCrop_to_Selection_triggered(self):  # noqa
-        # TODO: Undoable command
         # TODO: virtual crop, metadata only
         # TODO: what about existing image list?
         self.undo_stack.push(CropToSelection(
