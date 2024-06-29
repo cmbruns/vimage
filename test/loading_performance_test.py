@@ -132,5 +132,5 @@ def opengl_something():
 
 
 if __name__ == "__main__":
-    main()
-    # opengl_something()
+    # main()
+    opengl_something()

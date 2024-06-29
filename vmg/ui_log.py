@@ -87,7 +87,7 @@ class Ui_LogDialog(object):
         self.comboBox.setItemText(3, QCoreApplication.translate("LogDialog", u"Info", None))
         self.comboBox.setItemText(4, QCoreApplication.translate("LogDialog", u"Debug", None))
 
-        self.comboBox.setCurrentText(QCoreApplication.translate("LogDialog", u"Critical", None))
+        self.comboBox.setCurrentText(QCoreApplication.translate("LogDialog", u"Info", None))
         self.saveLogButton.setText(QCoreApplication.translate("LogDialog", u"Save...", None))
     # retranslateUi
 

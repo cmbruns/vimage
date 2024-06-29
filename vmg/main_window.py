@@ -155,6 +155,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         self.pil_load_requested.connect(self.image_loader.load_from_pil_image, Qt.QueuedConnection)  # noqa
         self.image_loader.texture_created.connect(self.image_texture_created, Qt.QueuedConnection)
         self.image_loader.load_failed.connect(self.image_load_failed, Qt.QueuedConnection)
+        self.imageWidgetGL.context_created.connect(self.image_loader.on_context_created, Qt.QueuedConnection)
         # Logging
         self.log_window = LogDialog(self)
 

@@ -43,7 +43,7 @@
       <item>
        <widget class="QComboBox" name="comboBox">
         <property name="currentText">
-         <string>Critical</string>
+         <string>Info</string>
         </property>
         <property name="insertPolicy">
          <enum>QComboBox::NoInsert</enum>

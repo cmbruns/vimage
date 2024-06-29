@@ -4,6 +4,7 @@ from PySide6 import QtCore, QtGui, QtOpenGLWidgets, QtWidgets
 from PySide6.QtCore import QEvent, Qt, QPoint
 
 from vmg.image_data import ImageData
+from vmg.offscreen_context import OffscreenContext
 from vmg.selection_box import (CursorHolder)
 from vmg.state import ViewState
 from vmg.shader import RectangularShader, IImageShader, SphericalShader
@@ -35,14 +36,14 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         self.raw_rot_ont2 = numpy.eye(2, dtype=numpy.float32)  # For flatty images
         self.raw_rot_ont3 = numpy.eye(3, dtype=numpy.float32)  # For spherical panos
 
-    request_message = QtCore.Signal(str, int)
-
     @QtCore.Slot(CursorHolder)  # noqa
     def change_cursor(self, cursor_holder: CursorHolder):
         if cursor_holder.cursor is None:
             self.unsetCursor()
         else:
             self.setCursor(cursor_holder.cursor)
+
+    context_created = QtCore.Signal(OffscreenContext)
 
     def event(self, event: QEvent):
         if event.type() == QEvent.Gesture:
@@ -57,6 +58,8 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
                 return True
 
         return super().event(event)
+
+    image_size_changed = QtCore.Signal(int, int)
 
     def initializeGL(self) -> None:
         # Use native-like background color
@@ -81,6 +84,8 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         self.rect_shader.initialize_gl()
         self.sphere_shader.initialize_gl()
         self.texture = GL.glGenTextures(1)
+        offscreen_context = OffscreenContext(self, self.context(), self.format())
+        self.context_created.emit(offscreen_context)
 
     def keyPressEvent(self, event):
         self.view_state.key_press_event(event)
@@ -108,14 +113,6 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
     def mouseReleaseEvent(self, event):
         self.view_state.mouse_release_event(event)
 
-    def wheelEvent(self, event: QtGui.QWheelEvent):
-        d_scale = event.angleDelta().y() / 120.0
-        if d_scale == 0:
-            return
-        d_scale = 1.12 ** d_scale
-        self.view_state.zoom_relative(d_scale, event.position())
-        self.update()
-
     def paintGL(self) -> None:
         bg_color = self.palette().color(self.backgroundRole()).getRgbF()
         self.rect_shader.background_color[:] = bg_color[:]
@@ -126,6 +123,8 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         GL.glBindVertexArray(self.vao)
         self.image_data.texture.bind_gl()
         self.program.paint_gl(self.view_state)
+
+    request_message = QtCore.Signal(str, int)
 
     def resizeGL(self, w, h):
         # TODO: do we ever need to check the size outside of ViewState?
@@ -163,9 +162,16 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         menu.addAction(QtGui.QAction("Cancel [ESC]", self))
         menu.exec(self.mapToGlobal(qpoint))
 
-    image_size_changed = QtCore.Signal(int, int)
     signal_360 = QtCore.Signal(bool)
 
     @QtCore.Slot()  # noqa
     def start_rect_with_no_point(self):
         self.view_state.sel_rect.begin(None)
+
+    def wheelEvent(self, event: QtGui.QWheelEvent):
+        d_scale = event.angleDelta().y() / 120.0
+        if d_scale == 0:
+            return
+        d_scale = 1.12 ** d_scale
+        self.view_state.zoom_relative(d_scale, event.position())
+        self.update()

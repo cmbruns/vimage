@@ -3,10 +3,11 @@ import logging
 import turbojpeg
 from OpenGL import GL
 from PIL import Image
-from PySide6 import QtCore
+from PySide6 import QtCore, QtGui, QtWidgets, QtOpenGLWidgets
 from PySide6.QtCore import Qt
 
 from vmg.image_data import ImageData
+from vmg.offscreen_context import OffscreenContext
 from vmg.texture import Texture
 
 
@@ -23,6 +24,7 @@ class ImageLoader(QtCore.QObject):
         self.pil_image_assigned.connect(self.load_metadata, Qt.QueuedConnection)  # noqa
         self.turbo_jpeg_texture_requested.connect(self.texture_turbo_jpeg, Qt.QueuedConnection)  # noqa
         self.pil_texture_requested.connect(self.texture_pil, Qt.QueuedConnection)  # noqa
+        self.offscreen_context = None
 
     load_failed = QtCore.Signal(str)
     pil_image_assigned = QtCore.Signal(ImageData)
@@ -66,6 +68,11 @@ class ImageLoader(QtCore.QObject):
         else:
             self.pil_texture_requested.emit(image_data)  # noqa
 
+    @QtCore.Slot(OffscreenContext)
+    def on_context_created(self, offscreen_context) -> None:
+        self.offscreen_context = offscreen_context
+        self.offscreen_context.moveToThread(self.thread())
+
     @QtCore.Slot(ImageData)  # noqa
     def texture_turbo_jpeg(self, image_data: ImageData):
         if self.current_image_data is not image_data:
@@ -77,6 +84,9 @@ class ImageLoader(QtCore.QObject):
             jpeg_bytes = in_file.read()
         bgr_array = jpeg.decode(jpeg_bytes)
         image_data.texture = Texture.from_numpy(array=bgr_array, tex_format=GL.GL_BGR)
+        with self.offscreen_context:
+            image_data.texture.bind_gl()
+            GL.glFlush()
         self.texture_created.emit(image_data)  # noqa
 
     @QtCore.Slot(ImageData)  # noqa
@@ -110,4 +120,7 @@ class ImageLoader(QtCore.QObject):
             data=data,
             # tex_format=?,  # TODO:
         )
+        with self.offscreen_context:
+            image_data.texture.bind_gl()
+            GL.glFlush()
         self.texture_created.emit(image_data)  # noqa

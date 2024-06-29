@@ -29,6 +29,7 @@ class VimageApplication(QtWidgets.QApplication):
 
 class VimageApp(object):
     def __init__(self):
+        # import vmg.except_hook
         # Top level logger must be created before this point (see vmg.__init__.py)
         with StdIoRedirector():
             logger.info("Launching vimage app")
