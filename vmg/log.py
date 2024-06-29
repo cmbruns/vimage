@@ -17,15 +17,28 @@ class LogDialog(Ui_LogDialog, QtWidgets.QDialog):
         cursor.select(QtGui.QTextCursor.Document)
         self.dialog_geometry = None
 
+    def closeEvent(self, event: QtGui.QCloseEvent):
+        self.dialog_geometry = self.geometry()
+        self.hide()
+
+    @QtCore.Slot()
+    def on_saveLogButton_clicked(self):
+        file_name, _selected_filter = QtWidgets.QFileDialog.getSaveFileName(
+            self,
+            "Save vimage log to file",
+            "vimage_log.txt",
+            "Text files (*.txt)"
+        )
+        if len(file_name) > 0:
+            with open(file_name, "w", encoding="utf-8") as fh:
+                text = self.text_edit.toPlainText()
+                fh.write(text)
+
     def showEvent(self, event: QtGui.QShowEvent):
         super().showEvent(event)
         if self.dialog_geometry is not None:
             self.setGeometry(self.dialog_geometry)
         logger.debug("vimage log window shown")
-
-    def closeEvent(self, event: QtGui.QCloseEvent):
-        self.dialog_geometry = self.geometry()
-        self.hide()
 
     _levels = {
         "Critical": logging.CRITICAL,

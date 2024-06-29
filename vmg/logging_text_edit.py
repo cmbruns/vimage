@@ -16,7 +16,6 @@ class LoggingQTextEdit(QtWidgets.QTextEdit):
         self.handler = self.LogHandler()
         self.handler.signaller.log.connect(self.append_text, Qt.QueuedConnection)  # noqa
         self.setReadOnly(True)
-        self.setLineWrapMode(QtWidgets.QTextEdit.NoWrap)
 
 
     @QtCore.Slot(str)  # noqa

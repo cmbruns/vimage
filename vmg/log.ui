@@ -18,7 +18,14 @@
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
    <item>
-    <widget class="LoggingQTextEdit" name="text_edit"/>
+    <widget class="LoggingQTextEdit" name="text_edit">
+     <property name="lineWrapMode">
+      <enum>QTextEdit::NoWrap</enum>
+     </property>
+     <property name="readOnly">
+      <bool>true</bool>
+     </property>
+    </widget>
    </item>
    <item>
     <widget class="QWidget" name="widget" native="true">
@@ -36,7 +43,7 @@
       <item>
        <widget class="QComboBox" name="comboBox">
         <property name="currentText">
-         <string>Info</string>
+         <string>Critical</string>
         </property>
         <property name="insertPolicy">
          <enum>QComboBox::NoInsert</enum>
@@ -80,6 +87,13 @@
          </size>
         </property>
        </spacer>
+      </item>
+      <item>
+       <widget class="QPushButton" name="saveLogButton">
+        <property name="text">
+         <string>Save...</string>
+        </property>
+       </widget>
       </item>
      </layout>
     </widget>

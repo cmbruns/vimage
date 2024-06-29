@@ -16,8 +16,8 @@ from PySide6.QtGui import (QBrush, QColor, QConicalGradient, QCursor,
     QImage, QKeySequence, QLinearGradient, QPainter,
     QPalette, QPixmap, QRadialGradient, QTransform)
 from PySide6.QtWidgets import (QApplication, QComboBox, QDialog, QHBoxLayout,
-    QLabel, QSizePolicy, QSpacerItem, QVBoxLayout,
-    QWidget)
+    QLabel, QPushButton, QSizePolicy, QSpacerItem,
+    QTextEdit, QVBoxLayout, QWidget)
 
 from vmg.logging_text_edit import LoggingQTextEdit
 
@@ -32,6 +32,8 @@ class Ui_LogDialog(object):
         self.verticalLayout.setObjectName(u"verticalLayout")
         self.text_edit = LoggingQTextEdit(LogDialog)
         self.text_edit.setObjectName(u"text_edit")
+        self.text_edit.setLineWrapMode(QTextEdit.NoWrap)
+        self.text_edit.setReadOnly(True)
 
         self.verticalLayout.addWidget(self.text_edit)
 
@@ -59,6 +61,11 @@ class Ui_LogDialog(object):
 
         self.horizontalLayout.addItem(self.horizontalSpacer)
 
+        self.saveLogButton = QPushButton(self.widget)
+        self.saveLogButton.setObjectName(u"saveLogButton")
+
+        self.horizontalLayout.addWidget(self.saveLogButton)
+
 
         self.verticalLayout.addWidget(self.widget)
 
@@ -80,6 +87,7 @@ class Ui_LogDialog(object):
         self.comboBox.setItemText(3, QCoreApplication.translate("LogDialog", u"Info", None))
         self.comboBox.setItemText(4, QCoreApplication.translate("LogDialog", u"Debug", None))
 
-        self.comboBox.setCurrentText(QCoreApplication.translate("LogDialog", u"Info", None))
+        self.comboBox.setCurrentText(QCoreApplication.translate("LogDialog", u"Critical", None))
+        self.saveLogButton.setText(QCoreApplication.translate("LogDialog", u"Save...", None))
     # retranslateUi
 
