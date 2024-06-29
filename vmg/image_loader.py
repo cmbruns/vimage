@@ -58,12 +58,18 @@ class ImageLoader(QtCore.QObject):
         image_data.pil_image = pil_image
         self.pil_image_assigned.emit(image_data)  # noqa
 
+    def _is_current(self, image_data: ImageData) -> bool:
+        if self.current_image_data is not image_data:
+            image_data.setParent(None)  # noqa  allow deletion of image_data maybe
+            logger.info(f"ceasing stale load of {image_data.file_name}")
+            return False  # Latest file is something else
+        else:
+            return True
+
     @QtCore.Slot(ImageData)  # noqa
     def load_metadata(self, image_data: ImageData):
-        if self.current_image_data is not image_data:
-            image_data.setParent(None)  # noqa
-            logger.info(f"ceasing stale load of {image_data.file_name}")
-            return  # Latest file is something else
+        if not self._is_current(image_data):
+            return
         et = ElapsedTime()
         assert image_data.pil_image is not None
         if image_data.pil_image.width < 1 or image_data.pil_image.height < 1:
@@ -83,10 +89,8 @@ class ImageLoader(QtCore.QObject):
 
     @QtCore.Slot(ImageData)  # noqa
     def texture_turbo_jpeg(self, image_data: ImageData):
-        if self.current_image_data is not image_data:
-            image_data.setParent(None)  # noqa
-            logger.info(f"ceasing stale load of {image_data.file_name}")
-            return  # Latest file is something else
+        if not self._is_current(image_data):
+            return
         assert image_data.file_name is not None
         et = ElapsedTime()
         with open(image_data.file_name, "rb") as in_file:
@@ -98,10 +102,8 @@ class ImageLoader(QtCore.QObject):
 
     @QtCore.Slot(ImageData)  # noqa
     def texture_pil(self, image_data: ImageData):
-        if self.current_image_data is not image_data:
-            image_data.setParent(None)  # noqa
-            logger.info(f"ceasing stale load of {image_data.file_name}")
-            return  # Latest file is something else
+        if not self._is_current(image_data):
+            return
         et = ElapsedTime()
         img = image_data.pil_image
         assert img is not None
@@ -133,10 +135,8 @@ class ImageLoader(QtCore.QObject):
 
     @QtCore.Slot(ImageData)  # noqa
     def process_texture(self, image_data: ImageData):
-        if self.current_image_data is not image_data:
-            image_data.setParent(None)  # noqa
-            logger.info(f"ceasing stale load of {image_data.file_name}")
-            return  # Latest file is something else
+        if not self._is_current(image_data):
+            return
         if self.threaded_texture_feature:
             et = ElapsedTime()
             with self.offscreen_context:
