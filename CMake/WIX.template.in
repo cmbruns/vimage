@@ -56,5 +56,25 @@
 
         <?include "properties.wxi"?>
         <?include "product_fragment.wxi"?>
+
+        <Component Id="JpegAssociation" Directory="INSTALL_ROOT" Guid="a7b1ce6f-2074-4301-a008-67952b07223b">
+            <CreateFolder />
+            <ProgId Id="JpegFileType" Description="JPEG images">
+                <Extension Id="jpg" ContentType="image/jpeg">
+                    <Verb Id="open" TargetFile="CM_FP_vimage.exe" Command="Open" Argument="%1" />
+                    <MIME ContentType="image/jpeg" Default="yes" />
+                    <MIME ContentType="image/pjpeg" Default="yes" />  <!-- obsolete -->
+                    <MIME ContentType="image/jpg" Default="yes" />  <!-- common misspelling -->
+                </Extension>
+            </ProgId>
+        </Component>
+
+        <Feature Id="FiletypesFeature" Title="File Associations" Description="Open image files with vimage" Display="expand">
+            <Feature Id="JpgTypesFeature" Title="*.jpg and *.jpeg" Description="Open JPEG images with vimage">
+                <ComponentRef Id="JpegAssociation" />
+            </Feature>
+        </Feature>
+
     </Product>
+
 </Wix>
