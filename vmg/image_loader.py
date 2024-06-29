@@ -3,7 +3,7 @@ import logging
 import turbojpeg
 from OpenGL import GL
 from PIL import Image
-from PySide6 import QtCore, QtGui, QtWidgets, QtOpenGLWidgets
+from PySide6 import QtCore
 from PySide6.QtCore import Qt
 
 from vmg.image_data import ImageData
@@ -24,12 +24,15 @@ class ImageLoader(QtCore.QObject):
         self.pil_image_assigned.connect(self.load_metadata, Qt.QueuedConnection)  # noqa
         self.turbo_jpeg_texture_requested.connect(self.texture_turbo_jpeg, Qt.QueuedConnection)  # noqa
         self.pil_texture_requested.connect(self.texture_pil, Qt.QueuedConnection)  # noqa
+        self.bytes_loaded.connect(self.process_texture, Qt.QueuedConnection)  # noqa
         self.offscreen_context = None
+        self.threaded_texture_feature = True
 
     load_failed = QtCore.Signal(str)
     pil_image_assigned = QtCore.Signal(ImageData)
     turbo_jpeg_texture_requested = QtCore.Signal(ImageData)
     pil_texture_requested = QtCore.Signal(ImageData)
+    bytes_loaded = QtCore.Signal(ImageData)
     texture_created = QtCore.Signal(ImageData)
 
     @QtCore.Slot(str)  # noqa
@@ -68,7 +71,7 @@ class ImageLoader(QtCore.QObject):
         else:
             self.pil_texture_requested.emit(image_data)  # noqa
 
-    @QtCore.Slot(OffscreenContext)
+    @QtCore.Slot(OffscreenContext)  # noqa
     def on_context_created(self, offscreen_context) -> None:
         self.offscreen_context = offscreen_context
         self.offscreen_context.moveToThread(self.thread())
@@ -84,10 +87,7 @@ class ImageLoader(QtCore.QObject):
             jpeg_bytes = in_file.read()
         bgr_array = jpeg.decode(jpeg_bytes)
         image_data.texture = Texture.from_numpy(array=bgr_array, tex_format=GL.GL_BGR)
-        with self.offscreen_context:
-            image_data.texture.bind_gl()
-            GL.glFlush()
-        self.texture_created.emit(image_data)  # noqa
+        self.bytes_loaded.emit(image_data)  # noqa
 
     @QtCore.Slot(ImageData)  # noqa
     def texture_pil(self, image_data: ImageData):
@@ -120,7 +120,20 @@ class ImageLoader(QtCore.QObject):
             data=data,
             # tex_format=?,  # TODO:
         )
-        with self.offscreen_context:
-            image_data.texture.bind_gl()
-            GL.glFlush()
+        if self.threaded_texture_feature:
+            with self.offscreen_context:
+                image_data.texture.bind_gl()
+                GL.glFlush()
+        self.bytes_loaded.emit(image_data)  # noqa
+
+    @QtCore.Slot(ImageData)  # noqa
+    def process_texture(self, image_data: ImageData):
+        if self.current_image_data is not image_data:
+            image_data.setParent(None)  # noqa
+            logger.info(f"ceasing stale load of {image_data.file_name}")
+            return  # Latest file is something else
+        if self.threaded_texture_feature:
+            with self.offscreen_context:
+                image_data.texture.bind_gl()
+                GL.glFinish()  # glFinish blocks, glFlush does not
         self.texture_created.emit(image_data)  # noqa

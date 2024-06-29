@@ -9,6 +9,7 @@ class OffscreenContext(QtCore.QObject):
         self.surface = None
         self.context = None
 
+    # Delaying construction until just-in-time avoids a crash with makeCurrent()...
     def init_gl(self):
         if self.context is not None:
             return
