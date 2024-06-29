@@ -1,7 +1,7 @@
 import time
 
 
-class Performance(object):
+class ElapsedTime(object):
     def __init__(self, indent=0, message="", do_report=True):
         self.indent = indent
         self.begin = time.time()
@@ -12,7 +12,10 @@ class Performance(object):
         return self
 
     def __exit__(self, _type, _value, _traceback):
+        if self.do_report:
+            print(f"{self.indent * ' '}{self.message} elapsed time = {str(self)}")
+
+    def __str__(self):
         end = time.time()
         _elapsed = end - self.begin
-        if self.do_report:
-            print(f"{self.indent * ' '}{self.message} elapsed time = {_elapsed * 1000:.1f} ms")
+        return f"{_elapsed * 1000:.1f} ms"

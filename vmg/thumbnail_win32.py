@@ -11,7 +11,7 @@ from comtypes import GUID, IUnknown, COMMETHOD, HRESULT
 from PIL import Image
 import win32ui
 
-from vmg.performance import Performance
+from vmg.performance import ElapsedTime
 
 shell32 = windll.shell32
 shell32.SHCreateItemFromParsingName.argtypes = [c_wchar_p, c_void_p, POINTER(GUID), POINTER(HANDLE)]
@@ -64,7 +64,7 @@ def get_win32_thumbnail(filename, icon_size=96) -> HBITMAP:
 
 
 if __name__ == "__main__":
-    with Performance():
+    with ElapsedTime():
         img = get_win32_thumbnail(
             filename=r"C:\Users\cmbruns\Pictures\_Bundles_for_Berlin__More_production!.jpg",
         )

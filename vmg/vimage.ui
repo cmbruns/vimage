@@ -87,6 +87,8 @@
     <addaction name="actionSharp"/>
     <addaction name="actionFull_Screen"/>
     <addaction name="menu360_Projection"/>
+    <addaction name="separator"/>
+    <addaction name="actionView_Log"/>
    </widget>
    <widget class="QMenu" name="menuHelp">
     <property name="title">
@@ -94,7 +96,6 @@
     </property>
     <addaction name="actionAbout"/>
     <addaction name="actionReport_a_Problem"/>
-    <addaction name="actionView_Log"/>
    </widget>
    <widget class="QMenu" name="menuEdit">
     <property name="title">

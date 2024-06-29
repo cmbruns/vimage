@@ -34,7 +34,7 @@ import turbojpeg
 from turbojpeg import TJFLAG_FASTUPSAMPLE, TJFLAG_FASTDCT
 
 from vmg.image_data import ImageData
-from vmg.performance import Performance
+from vmg.performance import ElapsedTime
 
 
 jpeg = turbojpeg.TurboJPEG()
@@ -55,31 +55,31 @@ def main():
 
 def profile_image(file_name):
     print(f"Loading file {file_name} :")
-    with Performance(message="check existence", indent=1):
+    with ElapsedTime(message="check existence", indent=1):
         image_data = ImageData(str(file_name))
         _file_exists = image_data.file_is_readable()
-    with Performance(message="open PIL image", indent=1):
+    with ElapsedTime(message="open PIL image", indent=1):
         image_data.open_pil_image()
-    with Performance(message="read PIL metadata", indent=1):
+    with ElapsedTime(message="read PIL metadata", indent=1):
         image_data.read_pil_metadata()
-    with Performance(message="load PIL image", indent=1):
+    with ElapsedTime(message="load PIL image", indent=1):
         # image_data.pil_image.thumbnail([200, 200], resample=Resampling.NEAREST)
         bytes1 = image_data.pil_image.tobytes()
-    with Performance(message="convert to numpy", indent=1):
+    with ElapsedTime(message="convert to numpy", indent=1):
         numpy_image = numpy.array(image_data.pil_image)
 
 
 def turbo_jpeg_case(file_name):
-    with Performance(message="copy jpeg file to memory", indent=1):
+    with ElapsedTime(message="copy jpeg file to memory", indent=1):
         with open(file_name, "rb") as in_file:
             jpeg_bytes = in_file.read()
-    with Performance(message="load with turbojpeg SCALE (1, 4)", indent=1):
+    with ElapsedTime(message="load with turbojpeg SCALE (1, 4)", indent=1):
         bgr_array = jpeg.decode(jpeg_bytes, scaling_factor=(1, 4))
-    with Performance(message="load with turbojpeg scale (1, 2)", indent=1):
+    with ElapsedTime(message="load with turbojpeg scale (1, 2)", indent=1):
         bgr_array = jpeg.decode(jpeg_bytes, scaling_factor=(1, 2))
-    with Performance(message="load with turbojpeg FAST", indent=1):
+    with ElapsedTime(message="load with turbojpeg FAST", indent=1):
         bgr_array = jpeg.decode(jpeg_bytes, flags=TJFLAG_FASTUPSAMPLE | TJFLAG_FASTDCT)
-    with Performance(message="load with turbojpeg", indent=1):
+    with ElapsedTime(message="load with turbojpeg", indent=1):
         bgr_array = jpeg.decode(jpeg_bytes)
 
 

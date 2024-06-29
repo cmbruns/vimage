@@ -6,6 +6,7 @@ from PIL import Image
 from PySide6 import QtCore
 from PySide6.QtCore import Qt
 
+from vmg.elapsed_time import ElapsedTime
 from vmg.image_data import ImageData
 from vmg.offscreen_context import OffscreenContext
 from vmg.texture import Texture
@@ -42,9 +43,11 @@ class ImageLoader(QtCore.QObject):
         if not image_data.file_is_readable():
             self.load_failed.emit(image_data.file_name)  # noqa
             return
+        et = ElapsedTime()
         if not image_data.open_pil_image():
             self.load_failed.emit(image_data.file_name)  # noqa
             return
+        logger.info(f"Opening PIL image took {et}")
         self.pil_image_assigned.emit(image_data)  # noqa
 
     @QtCore.Slot(Image.Image, str)  # noqa
@@ -61,11 +64,13 @@ class ImageLoader(QtCore.QObject):
             image_data.setParent(None)  # noqa
             logger.info(f"ceasing stale load of {image_data.file_name}")
             return  # Latest file is something else
+        et = ElapsedTime()
         assert image_data.pil_image is not None
         if image_data.pil_image.width < 1 or image_data.pil_image.height < 1:
             self.load_failed.emit(file_name)  # noqa
             return
         image_data.read_pil_metadata()
+        logger.info(f"Loading metadata took {et}")
         if image_data.pil_image.format == "JPEG" and image_data.file_is_readable():
             self.turbo_jpeg_texture_requested.emit(image_data)  # noqa
         else:
@@ -83,10 +88,12 @@ class ImageLoader(QtCore.QObject):
             logger.info(f"ceasing stale load of {image_data.file_name}")
             return  # Latest file is something else
         assert image_data.file_name is not None
+        et = ElapsedTime()
         with open(image_data.file_name, "rb") as in_file:
             jpeg_bytes = in_file.read()
         bgr_array = jpeg.decode(jpeg_bytes)
         image_data.texture = Texture.from_numpy(array=bgr_array, tex_format=GL.GL_BGR)
+        logger.info(f"jpeg loading/decoding took {et}")
         self.bytes_loaded.emit(image_data)  # noqa
 
     @QtCore.Slot(ImageData)  # noqa
@@ -95,6 +102,7 @@ class ImageLoader(QtCore.QObject):
             image_data.setParent(None)  # noqa
             logger.info(f"ceasing stale load of {image_data.file_name}")
             return  # Latest file is something else
+        et = ElapsedTime()
         img = image_data.pil_image
         assert img is not None
         if img.mode in ["P",]:
@@ -120,10 +128,7 @@ class ImageLoader(QtCore.QObject):
             data=data,
             # tex_format=?,  # TODO:
         )
-        if self.threaded_texture_feature:
-            with self.offscreen_context:
-                image_data.texture.bind_gl()
-                GL.glFlush()
+        logger.info(f"PIL image processing took {et}")
         self.bytes_loaded.emit(image_data)  # noqa
 
     @QtCore.Slot(ImageData)  # noqa
@@ -133,7 +138,10 @@ class ImageLoader(QtCore.QObject):
             logger.info(f"ceasing stale load of {image_data.file_name}")
             return  # Latest file is something else
         if self.threaded_texture_feature:
+            et = ElapsedTime()
             with self.offscreen_context:
                 image_data.texture.bind_gl()
+                # Make sure texture is fully uploaded before switching to another QThread
                 GL.glFinish()  # glFinish blocks, glFlush does not
+            logger.info(f"Texture upload took {et}")
         self.texture_created.emit(image_data)  # noqa

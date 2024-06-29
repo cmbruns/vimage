@@ -1,3 +1,7 @@
+import ctypes
+
+import locale
+
 from datetime import datetime
 
 from inspect import cleandoc
@@ -366,6 +370,15 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
     def showEvent(self, event: QtGui.QShowEvent) -> None:
         now = datetime.now().astimezone()
         logger.info(f"vimage main window shown at {now.strftime('%H:%M:%S.%f %Z on %x')}")
+        region_locale = locale.getdefaultlocale()[0]
+        logger.info(f"region locale is {region_locale}")
+        try:
+            gui_locale = os.environ["LANG"]  # Mac and Linux
+        except KeyError:
+            kernel32 = ctypes.windll.kernel32  # Windows
+            locale_id = kernel32.GetUserDefaultUILanguage()
+            gui_locale = locale.windows_locale[locale_id]
+        logger.info(f"app language locale is {gui_locale}")
 
     def update_previous_next(self):
         # Update progress label
