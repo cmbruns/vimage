@@ -15,14 +15,21 @@
     <Property Id="WixShellExecTarget" Value="[#CM_FP_vimage.exe]" />
     <CustomAction Id="LaunchApplication" BinaryKey="WixCA" DllEntry="WixShellExec" Impersonate="yes"/>
 
-    <!-- Jpeg support component -->
-    <Component Id="JpegAssociation" Directory="INSTALL_ROOT" Guid="22490909-4583-4ff7-8bc4-3b79697daab3">
+    <!-- Jpeg open support component -->
+    <Component Id="JpegOpenAssociation" Directory="INSTALL_ROOT" Guid="22490909-4583-4ff7-8bc4-3b79697daab3">
       <CreateFolder />
-      <ProgId Id="jpegType" Description="JPEG images">
-        <Extension Id='jpg' ContentType='image/jpg'>
+      <ProgId Id="jpgType" Description="*.jpg images">
+        <Extension Id='jpg' ContentType="image/jpeg">
           <Verb Id='open' Command='Open' TargetProperty="FileAssociationProperty" Argument='"%1"' />
+          <MIME ContentType="image/jpeg" Default="yes" />
+          <MIME ContentType="image/pjpeg" Default="no" />
+          <MIME ContentType="image/jpg" Default="no" />
         </Extension>
       </ProgId>
+    </Component>
+
+    <Component Id="JpegDefaultAssociation" Directory="INSTALL_ROOT" Guid="fdca15ce-f870-4063-a271-367c508a0231">
+      <CreateFolder />
     </Component>
 
     <!-- Trick to avoid error ICE69 when using TargetFile attribute in file associations -->
@@ -31,6 +38,8 @@
   </CPackWiXFragment>
 
   <CPackWiXFragment Id="#PRODUCTFEATURE">
+    <!-- Always allow "Open with vimage" -->
+    <ComponentRef Id="JpegOpenAssociation" />
 
     <!-- Toggleable features for default image file type associations -->
     <Feature Id="FiletypesFeature"
@@ -43,7 +52,7 @@
                Description="Always use vimage to open JPEG images"
                AllowAdvertise="no"
                InstallDefault="local">
-        <ComponentRef Id="JpegAssociation" />
+        <ComponentRef Id="JpegDefaultAssociation" />
       </Feature>
     </Feature>
 
