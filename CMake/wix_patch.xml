@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CPackWiXPatch>
+  <CPackWiXFragment Id="CM_CP_vimage.exe">
+    <!-- Capabilities keys for Vista/7 "Set Program Access and Defaults" -->
+    <RegistryValue Root="HKLM" Key="SOFTWARE\vimage\Capabilities" Name="ApplicationDescription" Value="Lightweight image viewer for a fast image preview." Type="string" />
+    <RegistryValue Root="HKLM" Key="SOFTWARE\vimage\Capabilities" Name="ApplicationIcon" Value="[INSTALL_ROOT]vimage.exe,0" Type="string" />
+    <RegistryValue Root="HKLM" Key="SOFTWARE\vimage\Capabilities" Name="ApplicationName" Value="vimage" Type="string" />
+    <RegistryValue Root="HKLM" Key="SOFTWARE\vimage\Capabilities\DefaultIcon" Value="[INSTALL_ROOT]vimage.exe,1" Type="string" />
+    <RegistryValue Root="HKLM" Key="SOFTWARE\vimage\Capabilities\shell\Open\command" Value="&quot;[INSTALL_ROOT]vimage.exe&quot; &quot;%1&quot;" Type="string" />
+    <RegistryValue Root="HKLM" Key="SOFTWARE\RegisteredApplications" Name="vimage" Value="SOFTWARE\vimage\Capabilities" Type="string" />
+
+    <!-- App Paths to support Start,Run -> "myapp" -->
+    <RegistryValue Root="HKLM" Key="SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\vimage.exe" Value="[!vimage.exe]" Type="string" />
+    <RegistryValue Root="HKLM" Key="SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\vimage.exe" Name="Path" Value="[INSTALL_ROOT]" Type="string" />
+
+    <!-- Extend to the "open with" list + Win7 jump menu pinning  -->
+    <RegistryValue Root="HKLM" Key="SOFTWARE\Classes\Applications\vimage.exe\SupportedTypes" Name=".jpg" Value="" Type="string" />
+
+    <RegistryValue Root="HKLM" Key="SOFTWARE\Classes\.jpg\OpenWithProgids" Name="vimage.Image" Value="" Type="string" />
+
+    <ProgId Id="vimage.Image" Advertise="yes">
+      <Extension Id="jpg" ContentType="image/jpeg">
+        <Verb Id="open" Command="Open" Argument="&quot;%1&quot;" />
+      </Extension>
+    </ProgId>
+  </CPackWiXFragment>
+</CPackWiXPatch>
