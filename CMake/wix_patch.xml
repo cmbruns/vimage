@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <CPackWiXPatch>
   <CPackWiXFragment Id="#PRODUCT">
+
     <!-- Add to checkbox to launch program after install -->
     <UI>
         <UIRef Id="$(var.CPACK_WIX_UI_REF)" />
@@ -11,7 +12,40 @@
     </UI>
     <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT" Value="Launch vimage" />
     <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOX" Value="1"/>
-    <Property Id="WixShellExecTarget" Value="[#CM_FP_App.vimage.exe]" />
+    <Property Id="WixShellExecTarget" Value="[#CM_FP_vimage.exe]" />
     <CustomAction Id="LaunchApplication" BinaryKey="WixCA" DllEntry="WixShellExec" Impersonate="yes"/>
+
+    <!-- Jpeg support component -->
+    <Component Id="JpegAssociation" Directory="INSTALL_ROOT" Guid="22490909-4583-4ff7-8bc4-3b79697daab3">
+      <CreateFolder />
+      <ProgId Id="jpegType" Description="JPEG images">
+        <Extension Id='jpg' ContentType='image/jpg'>
+          <Verb Id='open' Command='Open' TargetProperty="FileAssociationProperty" Argument='"%1"' />
+        </Extension>
+      </ProgId>
+    </Component>
+
+    <!-- Trick to avoid error ICE69 when using TargetFile attribute in file associations -->
+    <SetProperty Id="FileAssociationProperty" Value="[INSTALL_ROOT]vimage.exe" After="CostFinalize" />
+
+  </CPackWiXFragment>
+
+  <CPackWiXFragment Id="#PRODUCTFEATURE">
+
+    <!-- Toggleable features for default image file type associations -->
+    <Feature Id="FiletypesFeature"
+             Title="Default File Type Associations"
+             Description="Always use vimage to open these image file types"
+             Display="expand" AllowAdvertise="no"
+             InstallDefault="local">
+      <Feature Id="JpegTypesFeature"
+               Title="*.jpg and *.jpeg files"
+               Description="Always use vimage to open JPEG images"
+               AllowAdvertise="no"
+               InstallDefault="local">
+        <ComponentRef Id="JpegAssociation" />
+      </Feature>
+    </Feature>
+
   </CPackWiXFragment>
 </CPackWiXPatch>

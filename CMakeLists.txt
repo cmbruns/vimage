@@ -49,7 +49,6 @@ if(GIT_FOUND)
     # Put another next to the installed executable for installed use
     install(FILES "${CMAKE_SOURCE_DIR}/vmg/git_hash.txt"
       DESTINATION "."
-      COMPONENT App
     )
 endif()
 
@@ -89,7 +88,6 @@ add_custom_target(RunPyInstaller ALL
 if (WIN32)
   install(DIRECTORY "${CMAKE_BINARY_DIR}/dist/vimage/"
       DESTINATION "."
-      COMPONENT App
   )
   set_property(INSTALL "vimage.exe"
       PROPERTY CPACK_START_MENU_SHORTCUTS "vimage"
@@ -111,36 +109,6 @@ set(CPACK_PACKAGE_CONTACT "zeo1@rotatingpenguin.com")
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "vimage desktop image file viewer")
 set(CPACK_PACKAGE_DESCRIPTION "vimage desktop image file viewer")
 
-set(CPACK_COMPONENTS_ALL
-    App
-    FileAssociations
-    JpegFileType
-)
-set(CPACK_COMPONENT_APP_DISPLAY_NAME "vimage app")
-set(CPACK_COMPONENT_APP_DESCRIPTION "The vimage application.")
-set(CPACK_COMPONENT_APP_REQUIRED ON)  # always install the vimage app
-
-set(CPACK_COMPONENT_FILEASSOCIATIONS_DISPLAY_NAME "File associations")
-set(CPACK_COMPONENT_FILEASSOCIATIONS_DESCRIPTION "Make vimage the default app for these image file types.")
-set(CPACK_COMPONENT_FILEASSOCIATIONS_DEPENDS App)
-# Empty components cause problems with WiX, so install a dummy file
-configure_file("${CMAKE_SOURCE_DIR}/vmg/git_hash.txt" "${CMAKE_BINARY_DIR}/vmg/file_association_component"
-    COPYONLY
-)
-install(FILES "${CMAKE_BINARY_DIR}/vmg/file_association_component"
-  DESTINATION "."
-  COMPONENT FileAssociations
-)
-
-set(CPACK_COMPONENT_JPEGFILETYPE_DISPLAY_NAME "*.jpg *.jpeg")
-set(CPACK_COMPONENT_JPEGFILETYPE_DESCRIPTION "JPEG image files.")
-set(CPACK_COMPONENT_JPEGFILETYPE_DEPENDS FileAssociations)
-# Dummy install rule to maybe avoid WiX errors
-install(CODE "MESSAGE(\"Something about jpeg files.\")"
-    DESTINATION "."
-    COMPONENT JpegFileType
-)
-
 if (WIN32)
   set(CPACK_GENERATOR WIX)
   set(CPACK_WIX_UPGRADE_GUID F1CA83FC-4F1B-42A3-B033-4D597CAD1A37)
@@ -158,6 +126,5 @@ elseif(UNIX)
   set(CPACK_DEBIAN_PACKAGE_RELEASE 1)
   set(CPACK_SET_DESTDIR "ON")
 endif()
-
 
 include(CPack)
