@@ -15,8 +15,8 @@
     <Property Id="WixShellExecTarget" Value="[#CM_FP_vimage.exe]" />
     <CustomAction Id="LaunchApplication" BinaryKey="WixCA" DllEntry="WixShellExec" Impersonate="yes"/>
 
-    <!-- Jpeg open support component -->
-    <Component Id="JpegOpenAssociation" Directory="INSTALL_ROOT" Guid="22490909-4583-4ff7-8bc4-3b79697daab3">
+    <!-- A) Register vimage as capable of opening JPEG files -->
+    <Component Id="JpgOpenAssociation" Directory="INSTALL_ROOT" Guid="22490909-4583-4ff7-8bc4-3b79697daab3">
       <CreateFolder />
       <ProgId Id="jpgType" Description="*.jpg images">
         <Extension Id='jpg' ContentType="image/jpeg">
@@ -27,9 +27,27 @@
         </Extension>
       </ProgId>
     </Component>
+    <Component Id="JpegOpenAssociation" Directory="INSTALL_ROOT" Guid="2d248164-f82b-48f5-bcb0-0661d9cea300">
+      <CreateFolder />
+      <ProgId Id="jpegType" Description="*.jpeg images">
+        <Extension Id='jpeg' ContentType="image/jpeg">
+          <Verb Id='open' Command='Open' TargetProperty="FileAssociationProperty" Argument='"%1"' />
+          <MIME ContentType="image/jpeg" Default="yes" />
+          <MIME ContentType="image/pjpeg" Default="no" />
+          <MIME ContentType="image/jpg" Default="no" />
+        </Extension>
+      </ProgId>
+    </Component>
 
+    <!-- Make vimage the DEFAULT viewer for jpeg files; NOT WORKING YET -->
     <Component Id="JpegDefaultAssociation" Directory="INSTALL_ROOT" Guid="fdca15ce-f870-4063-a271-367c508a0231">
       <CreateFolder />
+      <!-- TODO: this is not enough
+        Maybe try more stuff from this stackoverflow answer:
+        https://stackoverflow.com/a/909334/146574
+      -->
+      <!-- <RegistryValue Root="HKLM" Key="SOFTWARE\Classes\.jpg\OpenWithProgids"
+                     Name="vimage.jpgType" Value="" Type="string" /> -->
     </Component>
 
     <!-- Trick to avoid error ICE69 when using TargetFile attribute in file associations -->
@@ -38,22 +56,32 @@
   </CPackWiXFragment>
 
   <CPackWiXFragment Id="#PRODUCTFEATURE">
-    <!-- Always allow "Open with vimage" -->
+    <!-- B) Always allow "Open with vimage" -->
+    <ComponentRef Id="JpgOpenAssociation" />
     <ComponentRef Id="JpegOpenAssociation" />
 
-    <!-- Toggleable features for default image file type associations -->
+    <!-- Optionally make vimage the default viewer for certain image file types
+    [DISABLED at the moment; it's not working yet]
+    -->
     <Feature Id="FiletypesFeature"
              Title="Default File Type Associations"
              Description="Always use vimage to open these image file types"
              Display="expand" AllowAdvertise="no"
-             InstallDefault="local">
+             InstallDefault="local"
+             Absent="disallow"
+    >
+
+      <!-- Jpeg default open feature -->
       <Feature Id="JpegTypesFeature"
                Title="*.jpg and *.jpeg files"
                Description="Always use vimage to open JPEG images"
                AllowAdvertise="no"
-               InstallDefault="local">
+               InstallDefault="local"
+               Absent="allow"
+               Level="0">  <!-- 0: disable for now... -->
         <ComponentRef Id="JpegDefaultAssociation" />
       </Feature>
+
     </Feature>
 
   </CPackWiXFragment>

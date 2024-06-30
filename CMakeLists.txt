@@ -112,7 +112,8 @@ set(CPACK_PACKAGE_DESCRIPTION "vimage desktop image file viewer")
 if (WIN32)
   set(CPACK_GENERATOR WIX)
   set(CPACK_WIX_UPGRADE_GUID F1CA83FC-4F1B-42A3-B033-4D597CAD1A37)
-  set(CPACK_WIX_UI_REF WixUI_FeatureTree)  # To show selectable feature tree
+  # set(CPACK_WIX_UI_REF WixUI_FeatureTree)  # To show selectable feature tree
+  set(CPACK_WIX_UI_REF WixUI_InstallDir)  # No Feature selection for now
   set(CPACK_WIX_PRODUCT_ICON "${CMAKE_SOURCE_DIR}/vmg/images/vimage2.ico")
   SET(CPACK_WIX_EXTENSIONS WixUtilExtension)
   set(CPACK_WIX_PATCH_FILE "${CMAKE_SOURCE_DIR}/CMake/wix_patch.xml")
