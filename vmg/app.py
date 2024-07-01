@@ -8,6 +8,7 @@ from PySide6.QtCore import QEvent, Qt
 from PySide6.QtGui import QIcon, QSurfaceFormat
 
 from .main_window import VimageMainWindow
+from .except_hook import ExceptHook
 from .log import StdIoRedirector
 
 
@@ -32,9 +33,10 @@ class VimageApp(object):
         # import vmg.except_hook
         # Top level logger must be created before this point (see vmg.__init__.py)
         # with StdIoRedirector():
-        logger.info("Launching vimage app")
-        app = self.init_app()
-        self.run_main_window(app)
+        with ExceptHook():
+            logger.info("Launching vimage app")
+            app = self.init_app()
+            self.run_main_window(app)
 
     @staticmethod
     def run_main_window(app):
