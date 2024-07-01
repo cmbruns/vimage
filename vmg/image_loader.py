@@ -85,6 +85,7 @@ class ImageLoader(QtCore.QObject):
     @QtCore.Slot(OffscreenContext)  # noqa
     def on_context_created(self, offscreen_context) -> None:
         logger.info("OpenGL context created")
+        assert self.offscreen_context is None
         self.offscreen_context = offscreen_context
         self.offscreen_context.moveToThread(self.thread())
 
@@ -99,7 +100,10 @@ class ImageLoader(QtCore.QObject):
         bgr_array = jpeg.decode(jpeg_bytes)
         image_data.texture = Texture.from_numpy(array=bgr_array, tex_format=GL.GL_BGR)
         logger.info(f"jpeg loading/decoding took {et}")
-        self.bytes_loaded.emit(image_data)  # noqa
+        if self.offscreen_context is None:
+            self.texture_created.emit(image_data)  # noqa
+        else:
+            self.bytes_loaded.emit(image_data)  # noqa
 
     @QtCore.Slot(ImageData)  # noqa
     def texture_pil(self, image_data: ImageData):
@@ -132,26 +136,22 @@ class ImageLoader(QtCore.QObject):
             # tex_format=?,  # TODO:
         )
         logger.info(f"PIL image processing took {et}")
-        self.bytes_loaded.emit(image_data)  # noqa
+        if self.offscreen_context is None:
+            self.texture_created.emit(image_data)  # noqa
+        else:
+            self.bytes_loaded.emit(image_data)  # noqa
 
     @QtCore.Slot(ImageData)  # noqa
     def process_texture(self, image_data: ImageData):
         if not self._is_current(image_data):
             return
-        # If we are loading ahead of the first render,
-        # just let the GUI thread upload the texture when it's ready. Otherwise,
-        # there can be OpenGL problems.
-        if self.offscreen_context is None:
-            logger.info("Early image load: delegating texture upload to GUI thread")
-        elif self.threaded_texture_feature:
+        if self.threaded_texture_feature:
             # Upload the texture in the image loading thread, using
             # our shared OpenGL context
-            logger.info("Starting texture upload")
             et = ElapsedTime()
             with self.offscreen_context:
                 image_data.texture.bind_gl()
                 # Make sure texture is fully uploaded before switching to another QThread
                 GL.glFinish()  # glFinish blocks, glFlush does not
-                logger.info("Texture upload complete")
-            logger.info(f"Texture upload took {et}")
+                logger.info(f"(Loading thread) texture upload took {et}")
         self.texture_created.emit(image_data)  # noqa

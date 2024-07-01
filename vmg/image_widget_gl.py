@@ -23,8 +23,6 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         self.image_data = None
         self.setMinimumSize(10, 10)
         self.vao = None
-        self.texture = None
-        self.image_needs_upload = False
         self.rect_shader = RectangularShader()
         self.sphere_shader = SphericalShader()
         self.program: IImageShader = self.rect_shader
@@ -83,7 +81,6 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         GL.glBindVertexArray(self.vao)
         self.rect_shader.initialize_gl()
         self.sphere_shader.initialize_gl()
-        self.texture = GL.glGenTextures(1)
         offscreen_context = OffscreenContext(self, self.context(), self.format())
         self.context_created.emit(offscreen_context)
 
@@ -145,7 +142,6 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         else:
             self.is_360 = False
             self.program = self.rect_shader
-        self.image_needs_upload = True
         self.signal_360.emit(self.is_360)  # noqa
         w, h = self.image_data.size
         self.image_size_changed.emit(int(w), int(h))  # noqa

@@ -67,26 +67,26 @@ app = BUNDLE(
                 'CFBundleTypeName': 'GIF Image',
                 'CFBundleTypeRole': 'Viewer',
                 'LSItemContentTypes': ['com.compuserve.gif'],
-                'LSHandlerRank': 'Owner'
+                'LSHandlerRank': 'Default'
             },
             {
                 'CFBundleTypeName': 'public.jpeg',
                 'CFBundleTypeRole': 'Viewer',
                 'LSItemContentTypes': ['public.jpeg'],
-                'LSHandlerRank': 'Owner'
+                'LSHandlerRank': 'Default'
             },
             {
                 'CFBundleTypeName': 'public.png',
                 'CFBundleTypeRole': 'Viewer',
                 'LSItemContentTypes': ['public.png'],
-                'LSHandlerRank': 'Owner'
+                'LSHandlerRank': 'Default'
             },
             {
                 'CFBundleTypeExtensions': ['heif', 'HEIF', 'heic', 'HEIC'],
                 'CFBundleTypeMIMETypes': ['image/heic'],
                 'CFBundleTypeName': ['High Efficiency Image File Format'],
                 'CFBundleTypeRole': 'Viewer',
-                'LSHandlerRank': 'Owner',
+                'LSHandlerRank': 'Default',
             },
         ]
     }
