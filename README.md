@@ -5,6 +5,7 @@
   * Drag the mouse to pan around the image
   * Rotate the scroll wheel to zoom in and out
   * Shift-drag to select a rectangular region
+  * Press "F" to enter true-full-screen mode; Nothing but the image fills your entire screen.
 
 ## vimage is cross-platform:
 
