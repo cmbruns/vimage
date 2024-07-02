@@ -18,7 +18,7 @@
     <!-- A) Register vimage as capable of opening JPEG files -->
     <Component Id="JpgOpenAssociation" Directory="INSTALL_ROOT" Guid="22490909-4583-4ff7-8bc4-3b79697daab3">
       <CreateFolder />
-      <ProgId Id="jpgType" Description="*.jpg images">
+      <ProgId Id="jpgType" Description="JPEG Image">
         <Extension Id='jpg' ContentType="image/jpeg">
           <Verb Id='open' Command='Open' TargetProperty="FileAssociationProperty" Argument='"%1"' />
           <MIME ContentType="image/jpeg" Default="yes" />
@@ -29,7 +29,7 @@
     </Component>
     <Component Id="JpegOpenAssociation" Directory="INSTALL_ROOT" Guid="2d248164-f82b-48f5-bcb0-0661d9cea300">
       <CreateFolder />
-      <ProgId Id="jpegType" Description="*.jpeg images">
+      <ProgId Id="jpegType" Description="JPEG Image">
         <Extension Id='jpeg' ContentType="image/jpeg">
           <Verb Id='open' Command='Open' TargetProperty="FileAssociationProperty" Argument='"%1"' />
           <MIME ContentType="image/jpeg" Default="yes" />

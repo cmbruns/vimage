@@ -175,7 +175,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
             self,
             "Save Image to File",
             default_name,
-            filter="PNG Files (*.png);;JPEG Files(*.jpg *.jpeg);;All files (*.*)",
+            filter="PNG Images (*.png);;JPEG Images(*.jpg *.jpeg);;All files (*.*)",
             selectedFilter="PNG Files (*.png)",
         )
         if len(file_path) < 1:
@@ -291,6 +291,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         for file in folder.glob("*.*"):
             if file.name == name:
                 continue  # Skip the triggering file
+            # Accept all suffixes for supported image types
             if file.suffix.lower() in (
                 ".bmp",
                 ".heic",
@@ -318,11 +319,12 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
             in_memory_image = io.BytesIO()
             in_memory_image.name = file_path
             try:
-                image.save(in_memory_image)
+                image.save(in_memory_image, quality=95)
             except OSError:
                 rgb_image = image.convert("RGB")  # TODO: choose bg color or warn or whatever
-                rgb_image.save(in_memory_image)
+                rgb_image.save(in_memory_image, quality=95)
             with open(file_path, "wb") as out:
+                logging.info(f"Saving image {file_path}")
                 in_memory_image.seek(0)
                 out.write(in_memory_image.read())
             if image is self.image:
