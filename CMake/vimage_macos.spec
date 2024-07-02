@@ -70,6 +70,7 @@ app = BUNDLE(
                 'LSHandlerRank': 'Default'
             },
             {
+                # Use EITHER LSItemContentTypes, or CFBundleTypeExtensions+CFBundleTypeMIMETypes
                 'CFBundleTypeName': 'public.jpeg',
                 'CFBundleTypeRole': 'Viewer',
                 'LSItemContentTypes': ['public.jpeg'],
