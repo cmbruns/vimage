@@ -1,5 +1,11 @@
 # vimage: a desktop image viewer
 
+## Basic controls:
+
+  * Drag the mouse to pan around the image
+  * Rotate the scroll wheel to zoom in and out
+  * Shift-drag to select a rectangular region
+
 ## vimage is cross-platform:
 
 Get the same features on Windows, Mac, and Linux.
