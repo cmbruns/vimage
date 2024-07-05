@@ -167,7 +167,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         self.image_loader.load_failed.connect(self.image_load_failed, Qt.QueuedConnection)
         self.image_loader.progress_changed.connect(self.progress_bar.setValue, Qt.QueuedConnection)
         self.imageWidgetGL.context_created.connect(self.image_loader.on_context_created, Qt.QueuedConnection)
-        self.imageWidgetGL.image_displayed.connect(self.on_image_displayed, Qt.QueuedConnection)
+        self.imageWidgetGL.image_displayed.connect(self.image_displayed, Qt.QueuedConnection)
         self.imageWidgetGL.progress_changed.connect(self.progress_bar.setValue, Qt.QueuedConnection)
         # Logging
         self.log_window = LogDialog(self)
@@ -384,13 +384,16 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         logger.info(f"vimage main window shown at {now.strftime('%H:%M:%S.%f %Z on %x')}")
         region_locale = locale.getdefaultlocale()[0]
         logger.info(f"region locale is {region_locale}")
-        try:
-            gui_locale = os.environ["LANG"]  # Mac and Linux
-        except KeyError:
-            kernel32 = ctypes.windll.kernel32  # Windows
-            locale_id = kernel32.GetUserDefaultUILanguage()
-            gui_locale = locale.windows_locale[locale_id]
-        logger.info(f"app language locale is {gui_locale}")
+        gui_locale = os.environ.get("LANG", None)  # Mac and Linux
+        if gui_locale is None:
+            try:
+                kernel32 = ctypes.windll.kernel32  # Windows
+                locale_id = kernel32.GetUserDefaultUILanguage()
+                gui_locale = locale.windows_locale[locale_id]
+            except AttributeError:
+                logger.warning("Unable to identify app language locale")
+        if gui_locale is not None:
+            logger.info(f"app language locale is {gui_locale}")
 
     def update_previous_next(self):
         # Update progress label
@@ -644,7 +647,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         self.log_window.show()
 
     @QtCore.Slot(ImageData)
-    def on_image_displayed(self, image_data):
+    def image_displayed(self, image_data):
         if image_data.file_name == self._current_file_name:
             logger.info("Image displayed")
             stem = pathlib.Path(self._current_file_name).stem

@@ -90,7 +90,6 @@ class ImageLoader(QtCore.QObject):
         logger.info("OpenGL context created")
         assert self.offscreen_context is None
         self.offscreen_context = offscreen_context
-        self.offscreen_context.moveToThread(self.thread())
 
     @QtCore.Slot(ImageData)  # noqa
     def texture_turbo_jpeg(self, image_data: ImageData):
