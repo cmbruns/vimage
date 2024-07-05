@@ -43,6 +43,7 @@ class ImageLoader(QtCore.QObject):
         if not image_data.file_is_readable():
             self.load_failed.emit(image_data.file_name)  # noqa
             return
+        self.progress_changed.emit(2)
         et = ElapsedTime()
         if not image_data.open_pil_image():
             self.load_failed.emit(image_data.file_name)  # noqa
@@ -55,6 +56,7 @@ class ImageLoader(QtCore.QObject):
         """Load a PIL image without a corresponding file"""
         image_data = ImageData(file_name, parent=self)
         self.current_image_data = image_data
+        self.progress_changed.emit(5)
         image_data.pil_image = pil_image
         self.pil_image_assigned.emit(image_data)  # noqa
 
@@ -75,6 +77,7 @@ class ImageLoader(QtCore.QObject):
         if image_data.pil_image.width < 1 or image_data.pil_image.height < 1:
             self.load_failed.emit(file_name)  # noqa
             return
+        self.progress_changed.emit(10)
         image_data.read_pil_metadata()
         logger.info(f"Loading metadata took {et}")
         if image_data.pil_image.format == "JPEG" and image_data.file_is_readable():
@@ -94,6 +97,7 @@ class ImageLoader(QtCore.QObject):
         if not self._is_current(image_data):
             return
         assert image_data.file_name is not None
+        self.progress_changed.emit(15)
         et = ElapsedTime()
         with open(image_data.file_name, "rb") as in_file:
             jpeg_bytes = in_file.read()
@@ -112,6 +116,7 @@ class ImageLoader(QtCore.QObject):
         et = ElapsedTime()
         img = image_data.pil_image
         assert img is not None
+        self.progress_changed.emit(15)
         if img.mode in ["P",]:
             image_data.pil_image = image_data.pil_image.convert("RGBA")  # TODO: palette shader
             img = image_data.pil_image
@@ -145,6 +150,7 @@ class ImageLoader(QtCore.QObject):
     def process_texture(self, image_data: ImageData):
         if not self._is_current(image_data):
             return
+        self.progress_changed.emit(60)
         if self.threaded_texture_feature:
             # Upload the texture in the image loading thread, using
             # our shared OpenGL context
@@ -154,4 +160,7 @@ class ImageLoader(QtCore.QObject):
                 # Make sure texture is fully uploaded before switching to another QThread
                 GL.glFinish()  # glFinish blocks, glFlush does not
                 logger.info(f"(Loading thread) texture upload took {et}")
+                self.progress_changed.emit(90)
         self.texture_created.emit(image_data)  # noqa
+
+    progress_changed = QtCore.Signal(int)

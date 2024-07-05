@@ -126,10 +126,15 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
             return
         GL.glBindVertexArray(self.vao)
         self.image_data.texture.bind_gl()
+        if not self.image_data.has_displayed:
+            self.progress_changed.emit(95)
         self.program.paint_gl(self.view_state)
         if not self.image_data.has_displayed:
             self.image_data.has_displayed = True
+            self.progress_changed.emit(98)
             self.image_displayed.emit(self.image_data)
+
+    progress_changed = QtCore.Signal(int)
 
     request_message = QtCore.Signal(str, int)
 
