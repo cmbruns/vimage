@@ -32,10 +32,10 @@ class RectangularShader(IImageShader):
 
     def initialize_gl(self) -> None:
         vertex_shader = compileShader(pkg_resources.resource_string(
-            "vmg", "image.vert", ), GL.GL_VERTEX_SHADER)
+            "vmg.glsl", "image.vert", ), GL.GL_VERTEX_SHADER)
         fragment_shader = compileShader(
-            pkg_resources.resource_string("vmg", "shared.frag") +
-            pkg_resources.resource_string("vmg", "image.frag"),
+            pkg_resources.resource_string("vmg.glsl", "shared.frag") +
+            pkg_resources.resource_string("vmg.glsl", "image.frag"),
             GL.GL_FRAGMENT_SHADER)
         self.shader = GL.glCreateProgram()
         GL.glAttachShader(self.shader, vertex_shader)
@@ -73,10 +73,10 @@ class SphericalShader(IImageShader):
 
     def initialize_gl(self) -> None:
         vertex_shader = compileShader(pkg_resources.resource_string(
-            "vmg", "sphere.vert", ), GL.GL_VERTEX_SHADER)
+            "vmg.glsl", "sphere.vert", ), GL.GL_VERTEX_SHADER)
         fragment_shader = compileShader(
-            pkg_resources.resource_string("vmg", "shared.frag") +
-            pkg_resources.resource_string("vmg", "sphere.frag"),
+            pkg_resources.resource_string("vmg.glsl", "shared.frag") +
+            pkg_resources.resource_string("vmg.glsl", "sphere.frag"),
             GL.GL_FRAGMENT_SHADER)
         self.shader = GL.glCreateProgram()
         GL.glAttachShader(self.shader, vertex_shader)

@@ -11,13 +11,22 @@ from comtypes import GUID, IUnknown, COMMETHOD, HRESULT
 from PIL import Image
 import win32ui
 
-from vmg.performance import ElapsedTime
+from vmg.elapsed_time import ElapsedTime
 
 shell32 = windll.shell32
 shell32.SHCreateItemFromParsingName.argtypes = [c_wchar_p, c_void_p, POINTER(GUID), POINTER(HANDLE)]
 shell32.SHCreateItemFromParsingName.restype = HRESULT
 
-SIIGBF_RESIZETOFIT = 0  # noqa
+SIIGBF_RESIZETOFIT    = 0x00000000  # noqa
+SIIGBF_BIGGERSIZEOK   = 0x00000001  # noqa
+SIIGBF_MEMORYONLY     = 0x00000002  # noqa
+SIIGBF_ICONONLY       = 0x00000004  # noqa
+SIIGBF_THUMBNAILONLY  = 0x00000008  # noqa
+SIIGBF_INCACHEONLY    = 0x00000010  # noqa
+SIIGBF_CROPTOSQUARE   = 0x00000020  # noqa
+SIIGBF_WIDETHUMBNAILS = 0x00000040  # noqa
+SIIGBF_ICONBACKGROUND = 0x00000080  # noqa
+SIIGBF_SCALEUP        = 0x00000100  # noqa
 
 
 class IShellItemImageFactory(IUnknown):
@@ -52,14 +61,23 @@ def get_win32_thumbnail(filename, icon_size=96) -> HBITMAP:
         raise Exception(f'SHCreateItemFromParsingName failed: {hr}')
     h_shell_item_image_factory = cast(h_shell_item_image_factory, LP_IShellItemImageFactory)
     # Raises exception on failure.
-    h_bitmap = h_shell_item_image_factory.GetImage(SIZE(icon_size, icon_size), SIIGBF_RESIZETOFIT)
+    h_bitmap = h_shell_item_image_factory.GetImage(
+        SIZE(icon_size, icon_size),
+        SIIGBF_BIGGERSIZEOK | SIIGBF_THUMBNAILONLY | SIIGBF_INCACHEONLY,
+    )
     py_c_bitmap = win32ui.CreateBitmapFromHandle(h_bitmap)
     info = py_c_bitmap.GetInfo()
     data = py_c_bitmap.GetBitmapBits(True)
     w, h = info['bmWidth'], info['bmHeight']
-    depth = int(len(data) / w / h)
-    numpy_array = numpy.ndarray(shape=(h, w, depth), dtype=numpy.uint8, buffer=data)
-    pil_image = Image.frombuffer('RGB', (w, h), data, 'raw', 'BGRX', 0, 1)
+    pil_image = Image.frombuffer(
+        'RGB',
+        (w, h),
+        data,
+        'raw',
+        'BGRX',  # raw mode
+        0,  # stride
+        1,  # y step
+    )
     return pil_image
 
 

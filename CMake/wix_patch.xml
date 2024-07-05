@@ -39,6 +39,16 @@
       </ProgId>
     </Component>
 
+    <Component Id="PngOpenAssociation" Directory="INSTALL_ROOT" Guid="6f2552b6-aff7-45bb-a6f8-d9a270c0d76a">
+      <CreateFolder />
+      <ProgId Id="pngType" Description="PNG Image">
+        <Extension Id='png' ContentType="image/png">
+          <Verb Id='open' Command='Open' TargetProperty="FileAssociationProperty" Argument='"%1"' />
+          <MIME ContentType="image/png" Default="yes" />
+        </Extension>
+      </ProgId>
+    </Component>
+
     <!-- Make vimage the DEFAULT viewer for jpeg files; NOT WORKING YET -->
     <Component Id="JpegDefaultAssociation" Directory="INSTALL_ROOT" Guid="fdca15ce-f870-4063-a271-367c508a0231">
       <CreateFolder />
@@ -59,6 +69,7 @@
     <!-- B) Always allow "Open with vimage" -->
     <ComponentRef Id="JpgOpenAssociation" />
     <ComponentRef Id="JpegOpenAssociation" />
+    <ComponentRef Id="PngOpenAssociation" />
 
     <!-- Optionally make vimage the default viewer for certain image file types
     [DISABLED at the moment; it's not working yet]
