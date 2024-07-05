@@ -160,6 +160,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         self.image_loader.texture_created.connect(self.image_texture_created, Qt.QueuedConnection)
         self.image_loader.load_failed.connect(self.image_load_failed, Qt.QueuedConnection)
         self.imageWidgetGL.context_created.connect(self.image_loader.on_context_created, Qt.QueuedConnection)
+        self.imageWidgetGL.image_displayed.connect(self.on_image_displayed, Qt.QueuedConnection)
         # Logging
         self.log_window = LogDialog(self)
 
@@ -261,8 +262,6 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         if image_data.file_name != self._current_file_name:
             logger.info(f"ignoring stale texture loaded for {image_data.file_name}")
             return
-        if QtWidgets.QApplication.overrideCursor() is not None:
-            QtWidgets.QApplication.restoreOverrideCursor()
         self.image = image_data.pil_image
         self.imageWidgetGL.set_image_data(image_data)
         fn = image_data.file_name
@@ -632,6 +631,12 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
     @QtCore.Slot()  # noqa
     def on_actionView_Log_triggered(self):  # noqa
         self.log_window.show()
+
+    @QtCore.Slot(ImageData)
+    def on_image_displayed(self, image_data):
+        if image_data.file_name == self._current_file_name:
+            logger.info("Image displayed")
+            QtWidgets.QApplication.restoreOverrideCursor()
 
     @QtCore.Slot(int)  # noqa
     def projection_combo_box_current_index_changed(self, index: int):

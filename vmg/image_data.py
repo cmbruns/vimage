@@ -25,6 +25,7 @@ class ImageData(QtCore.QObject):
         self._raw_rot_ont = numpy.eye(3, dtype=numpy.float32)
         self._raw_rot_omp = numpy.eye(2, dtype=numpy.float32)
         self._is_360 = False
+        self.has_displayed = False
 
     def file_is_readable(self) -> bool:
         file_name = self.file_name

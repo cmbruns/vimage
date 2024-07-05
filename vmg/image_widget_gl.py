@@ -1,3 +1,5 @@
+import logging
+
 import numpy
 from OpenGL import GL
 from PySide6 import QtCore, QtGui, QtOpenGLWidgets, QtWidgets
@@ -8,6 +10,9 @@ from vmg.offscreen_context import OffscreenContext
 from vmg.selection_box import (CursorHolder)
 from vmg.state import ViewState
 from vmg.shader import RectangularShader, IImageShader, SphericalShader
+
+
+logger = logging.getLogger(__name__)
 
 
 class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
@@ -56,6 +61,8 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
                 return True
 
         return super().event(event)
+
+    image_displayed = QtCore.Signal(ImageData)
 
     image_size_changed = QtCore.Signal(int, int)
 
@@ -120,6 +127,9 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         GL.glBindVertexArray(self.vao)
         self.image_data.texture.bind_gl()
         self.program.paint_gl(self.view_state)
+        if not self.image_data.has_displayed:
+            self.image_data.has_displayed = True
+            self.image_displayed.emit(self.image_data)
 
     request_message = QtCore.Signal(str, int)
 
