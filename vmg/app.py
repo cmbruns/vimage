@@ -56,6 +56,7 @@ class VimageApp(object):
 
     @staticmethod
     def init_app():
+        QtWidgets.QApplication.setAttribute(Qt.ApplicationAttribute.AA_ShareOpenGLContexts)
         f = QSurfaceFormat()
         f.setProfile(QSurfaceFormat.CoreProfile)
         f.setVersion(4, 1)

@@ -4,10 +4,10 @@ uniform sampler2D image;
 uniform int pixelFilter = FILTER_NEAREST;
 uniform ivec4 sel_rect_omp = ivec4(100, 150, 200, 300);  // left top bottom right
 uniform vec4 background_color = vec4(0.5);
+uniform float omp_scale_qwn;
 
 in vec2 p_tex;
 in vec2 p_omp;
-in float omp_scale_qwn;
 
 out vec4 image_color;
 
