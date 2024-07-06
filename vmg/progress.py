@@ -36,10 +36,10 @@ class ProgressStatus(QtWidgets.QWidget):
         self.cancelled_button = QtWidgets.QToolButton()
         icon = self.style().standardIcon(QtWidgets.QStyle.SP_DialogCancelButton)
         self.cancelled_button.setIcon(icon)
-        self.cancelled_button.setToolTip("Image loading was canceled.")
+        self.cancelled_button.setToolTip("Image load was canceled.")
         # image loading is complete, show a green check mark
         self.done_label = QtWidgets.QLabel()
-        self.done_label.setToolTip("Image load has completed.")
+        self.done_label.setToolTip("Image load was successful.")
         icon = self.style().standardIcon(QtWidgets.QStyle.SP_DialogApplyButton)
         pixmap = icon.pixmap(QtCore.QSize(16, 16))
         self.done_label.setPixmap(pixmap)
