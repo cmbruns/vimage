@@ -287,8 +287,9 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
     @QtCore.Slot(str)  # noqa
     def image_load_failed(self, file_name: str):
         if file_name != self._current_file_name:
-            logger.error(f"Loading image {file_name} failed")
+            logger.info(f"Loading stale image {file_name} failed")
             return
+        logger.error(f"Loading image {file_name} failed")
         if QtWidgets.QApplication.overrideCursor() is not None:
             QtWidgets.QApplication.restoreOverrideCursor()
         self._current_file_name = None

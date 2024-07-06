@@ -4,7 +4,7 @@ from os.path import isfile
 
 import numpy
 from OpenGL import GL
-from PIL import Image, ExifTags
+from PIL import Image, ExifTags, UnidentifiedImageError
 from PySide6 import QtCore
 import turbojpeg
 
@@ -55,7 +55,7 @@ class ImageData(QtCore.QObject):
         try:
             self.pil_image = Image.open(self.file_name)
             return True
-        except ...:
+        except UnidentifiedImageError as exc:
             return False
 
     def read_pil_metadata(self):
