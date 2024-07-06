@@ -236,6 +236,15 @@ class ViewState(QObject):
         ], dtype=numpy.float32)
         return LocationOmp(*omp_xform_nic @ p_nic)
 
+    def omp_xform_ndc(self) -> numpy.ndarray:
+        scale = self.asc_omp / 2.0 / self.asc_qwn / self.zoom
+        w_qwn, h_qwn = self._size_qwn
+        return numpy.array([
+            [scale * w_qwn, 0, self.center_omp.x],
+            [0, -scale * h_qwn, self.center_omp.y],
+            [0, 0, 1],
+        ], dtype=numpy.float32)
+
     def ont_for_obq(self, p_obq: LocationObq) -> LocationOnt:
         return LocationOnt(*self.ont_rot_obq @ p_obq)
 
