@@ -29,6 +29,7 @@ from vmg.image_data import ImageData
 from vmg.log import LogDialog
 from vmg.natural_sort import natural_sort_key
 from vmg.pixel_filter import PixelFilter
+from vmg.progress import ProgressStatus, ProgressState
 from vmg.projection_360 import Projection360
 from vmg.recent_file import RecentFileList
 from vmg.ui_vimage import Ui_MainWindow
@@ -126,14 +127,12 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         self.toolBar.addWidget(self.projectionComboBox)
         self.toolBar.toggleViewAction().setEnabled(False)  # I did not like accidentally hiding it
         # Add progress bar to status bar
-        self.progress_bar = QtWidgets.QProgressBar(self)
-        self.progress_bar.setRange(0, 100)
-        self.progress_bar.setMaximumWidth(70)
-        # self.progress_bar.hide()
-        self.statusbar.addPermanentWidget(self.progress_bar, stretch=0)
-        # Add progress bar and image dimensions to status bar
+        self.progress_status = ProgressStatus(self)
+        self.statusbar.addPermanentWidget(self.progress_status, stretch=0)
+        # Add image dimensions to status bar
         self.size_label = QtWidgets.QLabel("0x0")
-        # self.size_label.setMinimumWidth(40)
+        self.size_label.setMinimumWidth(60)
+        self.size_label.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
         self.statusbar.addPermanentWidget(self.size_label, stretch=0)
         # Clipboard actions
         self.clipboard = QtGui.QGuiApplication.clipboard()
@@ -165,10 +164,19 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         self.pil_load_requested.connect(self.image_loader.load_from_pil_image, Qt.QueuedConnection)  # noqa
         self.image_loader.texture_created.connect(self.image_texture_created, Qt.QueuedConnection)
         self.image_loader.load_failed.connect(self.image_load_failed, Qt.QueuedConnection)
-        self.image_loader.progress_changed.connect(self.progress_bar.setValue, Qt.QueuedConnection)
+        #
         self.imageWidgetGL.context_created.connect(self.image_loader.on_context_created, Qt.QueuedConnection)
         self.imageWidgetGL.image_displayed.connect(self.image_displayed, Qt.QueuedConnection)
-        self.imageWidgetGL.progress_changed.connect(self.progress_bar.setValue, Qt.QueuedConnection)
+        # progress tracking
+        self.image_loader.progress_changed.connect(self.progress_status.set_value, Qt.QueuedConnection)
+        self.imageWidgetGL.progress_changed.connect(self.progress_status.set_value, Qt.QueuedConnection)
+        self.progress_status.view_log_requested.connect(self.on_actionView_Log_triggered)
+        self.progress_status.open_image_requested.connect(self.on_actionOpen_triggered)
+        # Three stages of cancel signaling
+        self.progress_status.cancel_load_requested.connect(self.cancel_image_load)  # noqa
+        self.cancel_load_requested.connect(self.image_loader.cancel_load, Qt.QueuedConnection)  # noqa
+        self.image_loader.load_canceled.connect(self.complete_cancel_load, Qt.QueuedConnection)  # noqa
+        #
         # Logging
         self.log_window = LogDialog(self)
 
@@ -178,6 +186,21 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         except PIL.UnidentifiedImageError as uie:
             self.statusbar.showMessage(str(uie), 5000)
         self.update_previous_next()
+
+    def cancel_image_load(self):
+        if self._current_file_name is None:
+            return
+        logger.info(f"Canceling image load.")
+        self.cancel_load_requested.emit(self._current_file_name)
+        self._current_file_name = None
+        self.progress_status.set_state(ProgressState.LOAD_CANCELLED)
+        if QtWidgets.QApplication.overrideCursor() is not None:
+            QtWidgets.QApplication.restoreOverrideCursor()
+
+    def complete_cancel_load(self, file_name):
+        pass
+
+    cancel_load_requested = QtCore.Signal(str)
 
     def _dialog_and_save_image(self, image, default_name: str = None) -> str:
         file_path, _file_filter = QFileDialog.getSaveFileName(
@@ -252,14 +275,14 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
             QtWidgets.QApplication.setOverrideCursor(Qt.WaitCursor)
         fn = str(name)
         self._current_file_name = fn
-        self.progress_bar.reset()
+        self.progress_status.reset()
         self.pil_load_requested.emit(image, fn)  # noqa
 
     pil_load_requested = QtCore.Signal(Image.Image, str)
 
     def load_image_from_file(self, file_name: str) -> None:
         stem = pathlib.Path(file_name).stem
-        self.progress_bar.reset()
+        self.progress_status.reset()
         logger.info(f"Loading image from file {file_name} ...")
         self.statusbar.showMessage(f"Loading {stem}...", 5000)
         if QtWidgets.QApplication.overrideCursor() is None:
@@ -290,6 +313,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
             logger.info(f"Loading stale image {file_name} failed")
             return
         logger.error(f"Loading image {file_name} failed")
+        self.progress_status.set_state(ProgressState.LOAD_FAILED)
         if QtWidgets.QApplication.overrideCursor() is not None:
             QtWidgets.QApplication.restoreOverrideCursor()
         self._current_file_name = None
@@ -647,12 +671,12 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
     def on_actionView_Log_triggered(self):  # noqa
         self.log_window.show()
 
-    @QtCore.Slot(ImageData)
+    @QtCore.Slot(ImageData)  # noqa
     def image_displayed(self, image_data):
         if image_data.file_name == self._current_file_name:
             logger.info("Image displayed")
             stem = pathlib.Path(self._current_file_name).stem
-            self.progress_bar.setValue(100)
+            self.progress_status.set_value(100)
             self.statusbar.showMessage(f"Loaded {stem}", 5000)
             QtWidgets.QApplication.restoreOverrideCursor()
 

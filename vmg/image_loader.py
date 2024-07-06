@@ -29,12 +29,21 @@ class ImageLoader(QtCore.QObject):
         self.offscreen_context = None
         self.threaded_texture_feature = True
 
+    load_canceled = QtCore.Signal(str)
     load_failed = QtCore.Signal(str)
     pil_image_assigned = QtCore.Signal(ImageData)
     turbo_jpeg_texture_requested = QtCore.Signal(ImageData)
     pil_texture_requested = QtCore.Signal(ImageData)
     bytes_loaded = QtCore.Signal(ImageData)
     texture_created = QtCore.Signal(ImageData)
+
+    @QtCore.Slot(str)  # noqa
+    def cancel_load(self):
+        if self.current_image_data is None:
+            return  # already canceled?
+        file_name = self.current_image_data.file_name
+        self.current_image_data = None
+        self.load_canceled.emit(file_name)
 
     @QtCore.Slot(str)  # noqa
     def load_from_file_name(self, file_name: str):
