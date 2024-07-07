@@ -338,6 +338,7 @@ class JpegStreamSource(Structure):
 
     def __init__(self, c_info: jpeg_decompress_struct, file):
         super().__init__()
+        self.file = file
         c_info.src = ctypes.pointer(self.pub)
         self.pub.init_source = pfn_init_source(self.init_source)
         self.pub.fill_input_buffer = pfn_fill_input_buffer(self.fill_input_buffer)
@@ -346,11 +347,18 @@ class JpegStreamSource(Structure):
         self.pub.term_source = pfn_term_source(self.term_source)
 
     def init_source(self, c_info: j_decompress_ptr) -> None:
-        x = 3
+        # https://stackoverflow.com/questions/6327784/how-to-use-libjpeg-to-read-a-jpeg-from-a-stdistream
+        self.file.seek(0)
 
-    def fill_input_buffer(self, c_info: j_decompress_ptr) -> bool:
-        x = 3
-        return False
+    def fill_input_buffer(self, c_info: j_decompress_ptr) -> boolean:
+        py_buffer = self.file.read(4096)
+        self.pub.bytes_in_buffer = len(py_buffer)
+        if len(py_buffer) == 0:
+            return 1
+        char_array_type = ctypes.c_ubyte * len(py_buffer)
+        c_data = char_array_type.from_buffer_copy(py_buffer)
+        self.pub.next_input_byte = c_data
+        return 0
 
     def skip_input_data(self, c_info: j_decompress_ptr, num_bytes: int) -> None:
         x = 3
@@ -387,6 +395,7 @@ class MyErrorManager(object):
 
     def reset_error_mgr(self, c_info) -> None:
         x = 3
+        return
 
 
 def main():
@@ -394,7 +403,7 @@ def main():
     jpeg_create_decompress(byref(c_info), JPEG_LIB_VERSION, sizeof(jpeg_decompress_struct))
     err = MyErrorManager(c_info)
     c_info.err = ctypes.pointer(err.pub)
-    with open("../test/images/Grace_Hopper.jpg") as fh:
+    with open("../test/images/Grace_Hopper.jpg", "rb") as fh:
         jss = JpegStreamSource(c_info, fh)
         jpeg_read_header(c_info, True)
 
