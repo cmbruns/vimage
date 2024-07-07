@@ -9,7 +9,7 @@ import ctypes
 from ctypes import byref, c_int, c_size_t, cdll, CFUNCTYPE, POINTER, sizeof, Structure
 
 JPEG_LIB_VERSION = 62
-turbo_jpeg_lib = cdll.LoadLibrary("C:/libjpeg-turbo64/bin/jpeg62.dll")
+turbo_jpeg_lib = cdll.LoadLibrary("C:/Users/cmbruns/Documents/git/libjpeg-turbo/build_cmake/Debug/jpeg62.dll")
 
 DCTSIZE2 = 64  # DCTSIZE squared; num of elements in a block
 NUM_QUANT_TBLS = 4  # Quantization tables are numbered 0..3
@@ -90,6 +90,60 @@ class jpeg_error_mgr(Structure):
 
 class jpeg_memory_mgr(Structure):
     pass
+
+
+class jpeg_common_struct(ctypes.Structure):
+    '''
+    Common fields between JPEG compression and decompression master structs.
+    '''
+    _fields_ = (
+        ('err', ctypes.POINTER(jpeg_error_mgr)),
+        ('mem', ctypes.POINTER(jpeg_memory_mgr)),
+        ('progress', ctypes.c_void_p),
+        ('client_data', ctypes.c_void_p),
+        ('is_decompressor', boolean),
+        ('global_state', ctypes.c_int),
+    )
+
+
+j_common_ptr = ctypes.POINTER(jpeg_common_struct)
+
+pfn_error_exit = CFUNCTYPE(None, j_common_ptr)
+pfn_emit_message = CFUNCTYPE(None, j_common_ptr, ctypes.c_int)
+pfn_output_message = CFUNCTYPE(None, j_common_ptr)
+pfn_format_message = CFUNCTYPE(None, j_common_ptr, ctypes.c_char_p)
+pfn_reset_error_mgr = CFUNCTYPE(None, j_common_ptr)
+
+
+class msg_parm(ctypes.Union):
+    _fields_ = (
+        ('i', ctypes.c_int * 8),
+        ('s', ctypes.c_char * 80)
+    )
+
+
+jmp_buf = ctypes.c_int * 37
+
+jpeg_error_mgr._fields_ = (
+        ('error_exit', pfn_error_exit),
+        ('emit_message', pfn_emit_message),
+        ('output_message', pfn_output_message),
+        ('format_message', pfn_format_message),
+        ('reset_error_mgr', pfn_reset_error_mgr),
+
+        ('msg_code', ctypes.c_int),
+        ('msg_parm', msg_parm),
+
+        ('trace_level', ctypes.c_int),
+        ('num_warnings', ctypes.c_long),
+
+        ('jpeg_message_table', ctypes.POINTER(ctypes.c_char_p)),
+        ('last_jpeg_message', ctypes.c_int),
+
+        ('addon_message_table', ctypes.POINTER(ctypes.c_char_p)),
+        ('first_addon_message', ctypes.c_int),
+        ('last_addon_message', ctypes.c_int),
+    )
 
 
 class jpeg_progress_monitor(Structure):
@@ -264,20 +318,85 @@ jpeg_decompress_struct._fields_ = (
         ('cquantize', ctypes.c_void_p),  # offset: 592
     )
 
-print(ctypes.sizeof(jpeg_decompress_struct))
-for f, t in jpeg_decompress_struct._fields_:
-    a = getattr(jpeg_decompress_struct, f)
-    print(f, a)
-
 jpeg_create_decompress = turbo_jpeg_lib.jpeg_CreateDecompress
 jpeg_create_decompress.restype = None
-jpeg_create_decompress.argtypes = [POINTER(jpeg_decompress_struct), c_int, c_size_t]
+jpeg_create_decompress.argtypes = [j_decompress_ptr, c_int, c_size_t]
+
+jpeg_read_header = turbo_jpeg_lib.jpeg_read_header
+jpeg_read_header.restype = ctypes.c_int
+jpeg_read_header.argtypes = [j_decompress_ptr, boolean]
+
+jpeg_std_error = turbo_jpeg_lib.jpeg_std_error
+jpeg_std_error.restype = ctypes.POINTER(jpeg_error_mgr)
+jpeg_std_error.argtypes = [jpeg_error_mgr]
+
+
+class JpegStreamSource(Structure):
+    _fields_ = (
+        ("pub", jpeg_source_mgr),
+    )
+
+    def __init__(self, c_info: jpeg_decompress_struct, file):
+        super().__init__()
+        c_info.src = ctypes.pointer(self.pub)
+        self.pub.init_source = pfn_init_source(self.init_source)
+        self.pub.fill_input_buffer = pfn_fill_input_buffer(self.fill_input_buffer)
+        self.pub.skip_input_data = pfn_skip_input_data(self.skip_input_data)
+        self.pub.resync_to_restart = pfn_resync_to_restart(self.resync_to_restart)
+        self.pub.term_source = pfn_term_source(self.term_source)
+
+    def init_source(self, c_info: j_decompress_ptr) -> None:
+        x = 3
+
+    def fill_input_buffer(self, c_info: j_decompress_ptr) -> bool:
+        x = 3
+        return False
+
+    def skip_input_data(self, c_info: j_decompress_ptr, num_bytes: int) -> None:
+        x = 3
+
+    def resync_to_restart(self, c_info: j_decompress_ptr, desired: int) -> bool:
+        x = 3
+        return False
+
+    def term_source(self, c_info: j_decompress_ptr) -> None:
+        x = 3
+
+
+class MyErrorManager(object):
+    def __init__(self, c_info):
+        self.pub = jpeg_error_mgr()
+        c_info.err = ctypes.pointer(self.pub)
+        self.pub.error_exit = pfn_error_exit(self.error_exit)
+        self.pub.emit_message = pfn_emit_message(self.emit_message)
+        self.pub.output_message = pfn_output_message(self.output_message)
+        self.pub.format_message = pfn_format_message(self.format_message)
+        self.pub.reset_error_mgr = pfn_reset_error_mgr(self.reset_error_mgr)
+
+    def error_exit(self, c_info) -> None:
+        x = 3
+
+    def emit_message(self, c_info, msg_level: int) -> None:
+        x = 3
+
+    def output_message(self, c_info) -> None:
+        x = 3
+
+    def format_message(self, c_info, buffer: ctypes.c_char_p) -> None:
+        x = 3
+
+    def reset_error_mgr(self, c_info) -> None:
+        x = 3
 
 
 def main():
-    print("Hello")
     c_info = jpeg_decompress_struct()
     jpeg_create_decompress(byref(c_info), JPEG_LIB_VERSION, sizeof(jpeg_decompress_struct))
+    err = MyErrorManager(c_info)
+    c_info.err = ctypes.pointer(err.pub)
+    with open("../test/images/Grace_Hopper.jpg") as fh:
+        jss = JpegStreamSource(c_info, fh)
+        jpeg_read_header(c_info, True)
 
 
 if __name__ == "__main__":
