@@ -22,6 +22,7 @@ JDIMENSION = ctypes.c_uint
 JOCTET = ctypes.c_ubyte
 
 boolean = ctypes.c_ubyte
+
 # Representation of a single sample (pixel element value). defined in `jmorecfg.h`
 JSAMPLE = ctypes.c_ubyte
 
@@ -350,15 +351,14 @@ class JpegStreamSource(Structure):
         # https://stackoverflow.com/questions/6327784/how-to-use-libjpeg-to-read-a-jpeg-from-a-stdistream
         self.file.seek(0)
 
-    def fill_input_buffer(self, c_info: j_decompress_ptr) -> boolean:
+    def fill_input_buffer(self, c_info: j_decompress_ptr) -> bool:
         py_buffer = self.file.read(4096)
         self.pub.bytes_in_buffer = len(py_buffer)
         if len(py_buffer) == 0:
-            return 1
-        char_array_type = ctypes.c_ubyte * len(py_buffer)
-        c_data = char_array_type.from_buffer_copy(py_buffer)
-        self.pub.next_input_byte = c_data
-        return 0
+            return True
+        next_byte = ctypes.cast(ctypes.c_char_p(py_buffer), POINTER(JOCTET))
+        self.pub.next_input_byte = next_byte
+        return False
 
     def skip_input_data(self, c_info: j_decompress_ptr, num_bytes: int) -> None:
         x = 3
