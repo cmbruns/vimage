@@ -16,7 +16,7 @@ import time
 
 import PIL
 from PIL import Image, ImageGrab
-import pillow_avif  # Support .avif format images
+import pillow_avif  # Support .avif format images; import IS initialization noqa
 from pillow_heif import register_heif_opener  # Support apple .HEIF images
 from PySide6 import QtCore, QtGui, QtWidgets
 from PySide6.QtCore import Qt
@@ -193,7 +193,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         if self._current_file_name is None:
             return
         logger.info(f"Canceling image load.")
-        self.cancel_load_requested.emit(self._current_file_name)
+        self.cancel_load_requested.emit(self._current_file_name)  # noqa
         self._current_file_name = None
         self.progress_status.set_state(ProgressState.LOAD_CANCELLED)
         if QtWidgets.QApplication.overrideCursor() is not None:
