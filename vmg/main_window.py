@@ -15,8 +15,9 @@ import pkg_resources
 import time
 
 import PIL
-from pillow_heif import register_heif_opener
 from PIL import Image, ImageGrab
+import pillow_avif  # Support .avif format images
+from pillow_heif import register_heif_opener  # Support apple .HEIF images
 from PySide6 import QtCore, QtGui, QtWidgets
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QUndoStack
