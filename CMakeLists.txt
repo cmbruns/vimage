@@ -101,6 +101,13 @@ elseif(APPLE)
   install(DIRECTORY "${CMAKE_BINARY_DIR}/dist/vimage"
       DESTINATION "."
   )
+  configure_file(${CMAKE_SOURCE_DIR/CMake/resources/debian/postinst.in.sh
+   ${CMAKE_BINARY_DIR}/postinst
+   @ONLY
+  )
+  install(FILES ${CMAKE_SOURCE_DIR/CMake/resources/debian/mimetypes-vimage.xml}
+    DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/mime/packages"
+  )
 endif()
 
 set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_SOURCE_DIR}/LICENSE.txt")
@@ -126,6 +133,8 @@ elseif(UNIX)
   set(CPACK_DEBIAN_PACKAGE_DEPENDS "")
   set(CPACK_DEBIAN_PACKAGE_RELEASE 1)
   set(CPACK_SET_DESTDIR "ON")
+  # TODO: flesh out and debug this sketch for setting file associations
+  set(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA "${CMAKE_BINARY_DIR}/postinst")
 endif()
 
 include(CPack)
