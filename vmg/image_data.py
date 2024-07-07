@@ -1,3 +1,4 @@
+import logging
 from math import cos, radians, sin
 from os import access, R_OK
 from os.path import isfile
@@ -10,6 +11,8 @@ import turbojpeg
 
 from vmg.frame import DimensionsOmp
 from vmg.texture import Texture
+
+logger = logging.getLogger(__name__)
 
 
 class ImageData(QtCore.QObject):
@@ -56,6 +59,7 @@ class ImageData(QtCore.QObject):
             self.pil_image = Image.open(self.file_name)
             return True
         except UnidentifiedImageError as exc:
+            logger.exception("Error loading image with PIL")
             return False
 
     def read_pil_metadata(self):
