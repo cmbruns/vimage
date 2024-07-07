@@ -67,7 +67,7 @@ class Texture(object):
     def upload_gl(self) -> None:
         max_size = GL.glGetIntegerv(GL.GL_MAX_TEXTURE_SIZE)
         if self.size[0] > max_size or self.size[1] > max_size:
-            raise ValueError("Texture is too large for OpenGL")  # TODO: tiled implementation
+            raise ValueError(f"Texture is too large for OpenGL; max size = {max_size}; texture size = {self.size}")  # TODO: tiled implementation
         assert self.texture_id is None
         self.texture_id = GL.glGenTextures(1)
         GL.glBindTexture(GL.GL_TEXTURE_2D, self.texture_id)

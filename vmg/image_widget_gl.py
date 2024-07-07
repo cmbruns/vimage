@@ -97,6 +97,8 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
     def keyReleaseEvent(self, event):
         self.view_state.key_release_event(event)
 
+    load_failed = QtCore.Signal(str)
+
     def mouseMoveEvent(self, event):
         if event.pos() is None:
             return
@@ -125,7 +127,12 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         if self.image_data is None:
             return
         GL.glBindVertexArray(self.vao)
-        self.image_data.texture.bind_gl()
+        try:
+            self.image_data.texture.bind_gl()
+        except ValueError:
+            if not self.image_data.has_displayed:
+                self.load_failed.emit(self.image_data.file_name)
+            raise
         if not self.image_data.has_displayed:
             self.progress_changed.emit(95)
         self.program.paint_gl(self.view_state)

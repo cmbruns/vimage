@@ -165,6 +165,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         self.image_loader.texture_created.connect(self.image_texture_created, Qt.QueuedConnection)
         self.image_loader.load_failed.connect(self.image_load_failed, Qt.QueuedConnection)
         #
+        self.imageWidgetGL.load_failed.connect(self.image_load_failed, Qt.QueuedConnection)
         self.imageWidgetGL.context_created.connect(self.image_loader.on_context_created, Qt.QueuedConnection)
         self.imageWidgetGL.image_displayed.connect(self.image_displayed, Qt.QueuedConnection)
         # progress tracking
