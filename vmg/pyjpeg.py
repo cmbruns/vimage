@@ -339,9 +339,17 @@ jpeg_destroy_decompress = turbo_jpeg_lib.jpeg_destroy_decompress
 jpeg_destroy_decompress.restype = None
 jpeg_destroy_decompress.argtypes = [j_decompress_ptr, ]
 
+jpeg_finish_decompress = turbo_jpeg_lib.jpeg_finish_decompress
+jpeg_finish_decompress.restype = boolean
+jpeg_finish_decompress.argtypes = [j_decompress_ptr]
+
 jpeg_read_header = turbo_jpeg_lib.jpeg_read_header
 jpeg_read_header.restype = ctypes.c_int
 jpeg_read_header.argtypes = [j_decompress_ptr, boolean]
+
+jpeg_read_scanlines = turbo_jpeg_lib.jpeg_read_scanlines
+jpeg_read_scanlines.restype = JDIMENSION
+jpeg_read_scanlines.argtypes = [j_decompress_ptr, JSAMPARRAY, JDIMENSION]
 
 jpeg_start_decompress = turbo_jpeg_lib.jpeg_start_decompress
 jpeg_start_decompress.restype = boolean
@@ -516,8 +524,29 @@ class MyErrorManager(object):
 def main():
     with open("../test/images/Grace_Hopper.jpg", "rb") as fh:
         with PyFileJpegSource(fh) as jss:
-            _result = jpeg_read_header(jss.c_info, True)
-            _result = jpeg_start_decompress(jss.c_info)
+            c_info = jss.c_info
+            _result = jpeg_read_header(c_info, True)
+            # Step 5: Start decompressor
+            _result = jpeg_start_decompress(c_info)
+            # We can ignore the return value since suspension is not possible
+            # with the stdio data source.
+            #
+            # We may need to do some setup of our own at this point before reading...
+            #
+            # Samples per row in output buffer
+            row_stride = c_info.output_width * c_info.output_components
+            assert c_info.data_precision != 12  # we aren't handling 12-bit jpeg at the moment...
+            # Make a one-row-high sample array that will go away when done with image
+            buffer = ctypes.cast((JSAMPLE * row_stride)(), JSAMPROW)
+            # Step 6: while (scan lines remain to be read)
+            #           jpeg_read_scanlines(...)
+            while c_info.output_scanline < c_info.output_height:
+                jpeg_read_scanlines(c_info, ctypes.byref(buffer), 1)
+                # print("scanline")
+                # TODO: do something with the buffer...
+            # Step 7: Finish decompression
+            jpeg_finish_decompress(c_info)
+            # jpeg_destroy_decompress is automatically called by the PyFileJpegSource context manager
 
 
 if __name__ == "__main__":
