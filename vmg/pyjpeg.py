@@ -7,11 +7,19 @@ https://github.com/libjpeg-turbo/libjpeg-turbo/blob/main/example.c
 
 import ctypes
 from ctypes import byref, c_int, c_size_t, cdll, CFUNCTYPE, POINTER, sizeof, Structure
+import logging
+import os
+
+logger = logging.getLogger(__name__)
 
 JPEG_LIB_VERSION = 62
 turbo_jpeg_lib = cdll.LoadLibrary("C:/Users/cmbruns/Documents/git/libjpeg-turbo/build_cmake/Debug/jpeg62.dll")
 
+JERR_INPUT_EMPTY = 42
+JWRN_JPEG_EOF = 120
+
 DCTSIZE2 = 64  # DCTSIZE squared; num of elements in a block
+JMSG_LENGTH_MAX = 200  # recommended size of format_message buffer
 NUM_QUANT_TBLS = 4  # Quantization tables are numbered 0..3
 NUM_HUFF_TBLS = 4   # Huffman tables are numbered 0..3
 NUM_ARITH_TBLS = 16  # Arith-coding tables are numbered 0..15
@@ -167,8 +175,8 @@ pfn_term_source = CFUNCTYPE(None, j_decompress_ptr)
 
 class jpeg_source_mgr(Structure):
     _fields_ = (
-        ("next_input_byte", POINTER(JOCTET)), # => next byte to read from buffer */
-        ("bytes_in_buffer", ctypes.c_size_t ),       # number of bytes remaining in buffer */
+        ("next_input_byte", POINTER(JOCTET)),  # => next byte to read from buffer */
+        ("bytes_in_buffer", ctypes.c_size_t ),  # number of bytes remaining in buffer */
 
         ("init_source", pfn_init_source),
         ("fill_input_buffer", pfn_fill_input_buffer),
@@ -323,45 +331,105 @@ jpeg_create_decompress = turbo_jpeg_lib.jpeg_CreateDecompress
 jpeg_create_decompress.restype = None
 jpeg_create_decompress.argtypes = [j_decompress_ptr, c_int, c_size_t]
 
+jpeg_destroy = turbo_jpeg_lib.jpeg_destroy
+jpeg_destroy.restype = None
+jpeg_destroy.argtypes = [j_decompress_ptr, ]
+
+jpeg_destroy_decompress = turbo_jpeg_lib.jpeg_destroy_decompress
+jpeg_destroy_decompress.restype = None
+jpeg_destroy_decompress.argtypes = [j_decompress_ptr, ]
+
 jpeg_read_header = turbo_jpeg_lib.jpeg_read_header
 jpeg_read_header.restype = ctypes.c_int
 jpeg_read_header.argtypes = [j_decompress_ptr, boolean]
+
+jpeg_start_decompress = turbo_jpeg_lib.jpeg_start_decompress
+jpeg_start_decompress.restype = boolean
+jpeg_start_decompress.argtypes = [j_decompress_ptr]
 
 jpeg_std_error = turbo_jpeg_lib.jpeg_std_error
 jpeg_std_error.restype = ctypes.POINTER(jpeg_error_mgr)
 jpeg_std_error.argtypes = [jpeg_error_mgr]
 
 
-class JpegStreamSource(Structure):
-    _fields_ = (
-        ("pub", jpeg_source_mgr),
-    )
-
-    def __init__(self, c_info: jpeg_decompress_struct, file):
-        super().__init__()
+class PyFileJpegSource(object):
+    def __init__(self, file):
         self.file = file
-        c_info.src = ctypes.pointer(self.pub)
+        self.c_info = jpeg_decompress_struct()
+        jpeg_create_decompress(byref(self.c_info), JPEG_LIB_VERSION, sizeof(jpeg_decompress_struct))
+        self.err = MyErrorManager(self.c_info)
+        self.c_info.err = ctypes.pointer(self.err.pub)
+        self.pub = jpeg_source_mgr()
+        self.c_info.src = ctypes.pointer(self.pub)
+        self.buf_size = 4096
+        self.buffer = (JOCTET * self.buf_size)()
+        #
         self.pub.init_source = pfn_init_source(self.init_source)
         self.pub.fill_input_buffer = pfn_fill_input_buffer(self.fill_input_buffer)
         self.pub.skip_input_data = pfn_skip_input_data(self.skip_input_data)
         self.pub.resync_to_restart = pfn_resync_to_restart(self.resync_to_restart)
         self.pub.term_source = pfn_term_source(self.term_source)
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if self.c_info is not None:
+            jpeg_destroy_decompress(self.c_info)
+            self.c_info = None
+
     def init_source(self, c_info: j_decompress_ptr) -> None:
         # https://stackoverflow.com/questions/6327784/how-to-use-libjpeg-to-read-a-jpeg-from-a-stdistream
         self.file.seek(0)
 
     def fill_input_buffer(self, c_info: j_decompress_ptr) -> bool:
-        py_buffer = self.file.read(4096)
-        self.pub.bytes_in_buffer = len(py_buffer)
-        if len(py_buffer) == 0:
-            return True
-        next_byte = ctypes.cast(ctypes.c_char_p(py_buffer), POINTER(JOCTET))
-        self.pub.next_input_byte = next_byte
-        return False
+        src = self.pub
+        err = self.err.pub
+        bytes_src = self.file.read(self.buf_size)
+        n_bytes = len(bytes_src)
+        buf_src = ctypes.c_char_p(bytes_src)  # clever cast to avoid unwriteable error
+        ctypes.memmove(self.buffer, buf_src, n_bytes)
+        if n_bytes <= 0:
+            if src.start_of_file:  # Treat empty input file as fatal error
+                err.msg_code = JERR_INPUT_EMPTY
+                err.error_exit(c_info)
+                return False
+            err.msg_code = JWRN_JPEG_EOF
+            err.emit_message(c_info, -1)
+            # Insert a fake EOI marker
+            self.buffer[0] = 0xff
+            self.buffer[1] = 0xd9  # JPEG_EOI
+            n_bytes = 2
+        offset = 0
+        src.next_input_byte = (JOCTET * (self.buf_size - offset)).from_buffer(self.buffer, offset)
+        src.bytes_in_buffer = n_bytes
+        src.start_of_file = False
+        return True
 
     def skip_input_data(self, c_info: j_decompress_ptr, num_bytes: int) -> None:
-        x = 3
+        """
+         * Skip data --- used to skip over a potentially large amount of
+         * uninteresting data (such as an APPn marker).
+         *
+         * Writers of suspendable-input applications must note that skip_input_data
+         * is not granted the right to give a suspension return.  If the skip extends
+         * beyond the data currently in the buffer, the buffer can be marked empty so
+         * that the next read will cause a fill_input_buffer call that can suspend.
+         * Arranging for additional bytes to be discarded before reloading the input
+         * buffer is the application writer's problem.
+        """
+        if num_bytes <= 0:
+            return
+        src = self.pub
+        while num_bytes > src.bytes_in_buffer:
+            num_bytes -= src.bytes_in_buffer
+            assert self.fill_input_buffer(c_info)
+            # note we assume that fill_input_buffer will never return FALSE,
+            # so suspension need not be handled.
+        # TODO: this is only correct if the prior offset is zero...
+        offset = num_bytes
+        src.next_input_byte = (JOCTET * (self.buf_size - offset)).from_buffer(self.buffer, offset)
+        src.bytes_in_buffer -= num_bytes
 
     def resync_to_restart(self, c_info: j_decompress_ptr, desired: int) -> bool:
         x = 3
@@ -382,30 +450,74 @@ class MyErrorManager(object):
         self.pub.reset_error_mgr = pfn_reset_error_mgr(self.reset_error_mgr)
 
     def error_exit(self, c_info) -> None:
-        x = 3
+        self.output_message(c_info)
+        jpeg_destroy(c_info)
+        raise RuntimeError("jpeg operation failed")
 
     def emit_message(self, c_info, msg_level: int) -> None:
-        x = 3
+        err = self.pub
+        if msg_level < 0:
+            # It's a warning message.  Since corrupt files may generate many warnings,
+            # the policy implemented here is to show only the first warning,
+            # unless trace_level >= 3.
+            if err.num_warnings == 0 or err.trace_level >= 3:
+                self.output_message(c_info)
+            # Always count warnings in num_warnings
+            err.num_warnings += 1
+        else:
+            # It's a trace message.  Show it if trace_level >= msg_level.
+            if err.trace_level >= msg_level:
+                self.output_message(c_info)
 
     def output_message(self, c_info) -> None:
-        x = 3
+        buffer = ctypes.create_string_buffer(JMSG_LENGTH_MAX)
+        self.format_message(c_info, buffer)
+        logger.error(buffer.value.decode())
 
     def format_message(self, c_info, buffer: ctypes.c_char_p) -> None:
-        x = 3
+        """
+        Format a message string for the most recent JPEG error or message.
+        The message is stored into buffer, which should be at least JMSG_LENGTH_MAX
+        characters.  Note that no '\n' character is added to the string.
+        Few applications should need to override this method.
+        """
+        err = self.pub
+        msg_code = err.msg_code
+        msg_text = None
+        # Look up message string in proper table
+        if 0 < msg_code <= err.last_jpeg_message:
+            msg_text = err.jpeg_message_table[msg_code]
+        elif err.addon_message_table is not None and err.first_addon_message <= msg_code <= err.last_addon_message:
+            msg_text = err.addon_message_table[msg_code - err.first_addon_message]
+        # Defend against bogus message number
+        if msg_text is None:
+            err.msg_parm.i[0] = msg_code
+            msg_text = err.jpeg_message_table[0]
+        # Check for string parameter, as indicated by %s in the message text
+        is_string = "%s" in msg_text.decode()
+        if is_string:
+            pass  # TODO - keep copying from jerror.c
+        else:
+            pass  # TODO
 
     def reset_error_mgr(self, c_info) -> None:
-        x = 3
-        return
+        """
+        Reset error state variables at start of a new image.
+        This is called during compression startup to reset trace/error
+        processing to default state, without losing any application-specific
+        method pointers.  An application might possibly want to override
+        this method if it has additional error processing state.
+        """
+        self.pub.num_warnings = 0
+        # trace_level is not reset since it is an application-supplied parameter
+        self.pub.msg_code = 0  # may be useful as a flag for "no error"
 
 
 def main():
-    c_info = jpeg_decompress_struct()
-    jpeg_create_decompress(byref(c_info), JPEG_LIB_VERSION, sizeof(jpeg_decompress_struct))
-    err = MyErrorManager(c_info)
-    c_info.err = ctypes.pointer(err.pub)
     with open("../test/images/Grace_Hopper.jpg", "rb") as fh:
-        jss = JpegStreamSource(c_info, fh)
-        jpeg_read_header(c_info, True)
+        with PyFileJpegSource(fh) as jss:
+            _result = jpeg_read_header(jss.c_info, True)
+            _result = jpeg_start_decompress(jss.c_info)
 
 
 if __name__ == "__main__":
