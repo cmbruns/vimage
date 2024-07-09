@@ -175,8 +175,8 @@ pfn_term_source = CFUNCTYPE(None, j_decompress_ptr)
 
 class jpeg_source_mgr(Structure):
     _fields_ = (
-        ("next_input_byte", POINTER(JOCTET)),  # => next byte to read from buffer */
-        ("bytes_in_buffer", ctypes.c_size_t ),  # number of bytes remaining in buffer */
+        ("next_input_byte", POINTER(JOCTET)),  # => next byte to read from buffer
+        ("bytes_in_buffer", ctypes.c_size_t ),  # number of bytes remaining in buffer
 
         ("init_source", pfn_init_source),
         ("fill_input_buffer", pfn_fill_input_buffer),
@@ -351,6 +351,10 @@ jpeg_read_scanlines = turbo_jpeg_lib.jpeg_read_scanlines
 jpeg_read_scanlines.restype = JDIMENSION
 jpeg_read_scanlines.argtypes = [j_decompress_ptr, JSAMPARRAY, JDIMENSION]
 
+jpeg_resync_to_restart = turbo_jpeg_lib.jpeg_resync_to_restart
+jpeg_resync_to_restart.restype = boolean
+jpeg_resync_to_restart.argtypes = [j_decompress_ptr, ctypes.c_int]
+
 jpeg_start_decompress = turbo_jpeg_lib.jpeg_start_decompress
 jpeg_start_decompress.restype = boolean
 jpeg_start_decompress.argtypes = [j_decompress_ptr]
@@ -375,7 +379,7 @@ class PyFileJpegSource(object):
         self.pub.init_source = pfn_init_source(self.init_source)
         self.pub.fill_input_buffer = pfn_fill_input_buffer(self.fill_input_buffer)
         self.pub.skip_input_data = pfn_skip_input_data(self.skip_input_data)
-        self.pub.resync_to_restart = pfn_resync_to_restart(self.resync_to_restart)
+        self.pub.resync_to_restart = pfn_resync_to_restart(jpeg_resync_to_restart)  # Use default implementation
         self.pub.term_source = pfn_term_source(self.term_source)
 
     def __enter__(self):
@@ -387,10 +391,46 @@ class PyFileJpegSource(object):
             self.c_info = None
 
     def init_source(self, c_info: j_decompress_ptr) -> None:
+        """
+        Initialize source --- called by jpeg_read_header
+        before any data is actually read.
+        """
         # https://stackoverflow.com/questions/6327784/how-to-use-libjpeg-to-read-a-jpeg-from-a-stdistream
         self.file.seek(0)
 
     def fill_input_buffer(self, c_info: j_decompress_ptr) -> bool:
+        """
+        Fill the input buffer --- called whenever buffer is emptied.
+
+        In typical applications, this should read fresh data into the buffer
+        (ignoring the current state of next_input_byte & bytes_in_buffer),
+        reset the pointer & count to the start of the buffer, and return TRUE
+        indicating that the buffer has been reloaded.  It is not necessary to
+        fill the buffer entirely, only to obtain at least one more byte.
+
+        There is no such thing as an EOF return.  If the end of the file has been
+        reached, the routine has a choice of ERREXIT() or inserting fake data into
+        the buffer.  In most cases, generating a warning message and inserting a
+        fake EOI marker is the best course of action --- this will allow the
+        decompressor to output however much of the image is there.  However,
+        the resulting error message is misleading if the real problem is an empty
+        input file, so we handle that case specially.
+
+        In applications that need to be able to suspend compression due to input
+        not being available yet, a FALSE return indicates that no more data can be
+        obtained right now, but more may be forthcoming later.  In this situation,
+        the decompressor will return to its caller (with an indication of the
+        number of scanlines it has read, if any).  The application should resume
+        decompression after it has loaded more data into the input buffer.  Note
+        that there are substantial restrictions on the use of suspension --- see
+        the documentation.
+
+        When suspending, the decompressor will back up to a convenient restart point
+        (typically the start of the current MCU). next_input_byte & bytes_in_buffer
+        indicate where the restart point will be if the current call returns FALSE.
+        Data beyond this point must be rescanned after resumption, so move it to
+        the front of the buffer rather than discarding it.
+        """
         src = self.pub
         err = self.err.pub
         bytes_src = self.file.read(self.buf_size)
@@ -416,15 +456,15 @@ class PyFileJpegSource(object):
 
     def skip_input_data(self, c_info: j_decompress_ptr, num_bytes: int) -> None:
         """
-         * Skip data --- used to skip over a potentially large amount of
-         * uninteresting data (such as an APPn marker).
-         *
-         * Writers of suspendable-input applications must note that skip_input_data
-         * is not granted the right to give a suspension return.  If the skip extends
-         * beyond the data currently in the buffer, the buffer can be marked empty so
-         * that the next read will cause a fill_input_buffer call that can suspend.
-         * Arranging for additional bytes to be discarded before reloading the input
-         * buffer is the application writer's problem.
+        Skip data --- used to skip over a potentially large amount of
+        uninteresting data (such as an APPn marker).
+
+        Writers of suspendable-input applications must note that skip_input_data
+        is not granted the right to give a suspension return.  If the skip extends
+        beyond the data currently in the buffer, the buffer can be marked empty so
+        that the next read will cause a fill_input_buffer call that can suspend.
+        Arranging for additional bytes to be discarded before reloading the input
+        buffer is the application writer's problem.
         """
         if num_bytes <= 0:
             return
@@ -435,16 +475,25 @@ class PyFileJpegSource(object):
             # note we assume that fill_input_buffer will never return FALSE,
             # so suspension need not be handled.
         # TODO: this is only correct if the prior offset is zero...
-        offset = num_bytes
-        src.next_input_byte = (JOCTET * (self.buf_size - offset)).from_buffer(self.buffer, offset)
+        # We want to emulate "src->next_input_byte += (size_t)num_bytes;" here. It's a lot of lines below...
+        # First compute pointer addresses as integers
+        next_addr = ctypes.cast(src.next_input_byte, ctypes.c_void_p).value
+        buff_addr = ctypes.cast(self.buffer, ctypes.c_void_p).value
+        old_offset_bytes = next_addr - buff_addr  # how deep into the buffer is next_input_byte?
+        new_offset_bytes = old_offset_bytes + num_bytes
+        src.next_input_byte = (JOCTET * (self.buf_size - new_offset_bytes)).from_buffer(self.buffer, new_offset_bytes)
         src.bytes_in_buffer -= num_bytes
 
-    def resync_to_restart(self, c_info: j_decompress_ptr, desired: int) -> bool:
-        x = 3
-        return False
-
     def term_source(self, c_info: j_decompress_ptr) -> None:
-        x = 3
+        """
+        Terminate source --- called by jpeg_finish_decompress
+        after all data has been read.  Often a no-op.
+
+        NB: *not* called by jpeg_abort or jpeg_destroy; surrounding
+        application must deal with any cleanup that should happen even
+        for error exit.
+        """
+        pass  # no work necessary here
 
 
 class MyErrorManager(object):
@@ -500,7 +549,7 @@ class MyErrorManager(object):
         # Defend against bogus message number
         if msg_text is None:
             err.msg_parm.i[0] = msg_code
-            msg_text = err.jpeg_message_table[0]
+            msg_text = err.jpeg_message_table[0]  # TODO: we get a lot of segfaults here...
         # Check for string parameter, as indicated by %s in the message text
         is_string = "%s" in msg_text.decode()
         if is_string:
