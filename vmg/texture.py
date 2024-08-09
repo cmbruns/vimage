@@ -82,6 +82,19 @@ class Texture(object):
             GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_SWIZZLE_B, GL.GL_RED)
         f_largest = GL.glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT)
         GL.glTexParameterf(GL.GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, f_largest)
+        # What format would OpenGL prefer? TODO: use this information during loading
+        optimal_format = GL.glGetInternalformativ(
+            GL.GL_TEXTURE_2D,
+            self.internal_format,
+            GL.GL_TEXTURE_IMAGE_FORMAT,
+            1,
+        )
+        optimal_type = GL.glGetInternalformativ(
+            GL.GL_TEXTURE_2D,
+            self.internal_format,
+            GL.GL_TEXTURE_IMAGE_TYPE,
+            1,
+        )
         GL.glTexImage2D(
             GL.GL_TEXTURE_2D,
             0,
