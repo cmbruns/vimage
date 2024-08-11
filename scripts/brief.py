@@ -4,18 +4,49 @@ Minimal image viewing example, as basis for testing deconstruction. Aug 8, 2024
 
 import inspect
 import sys
+import time
 
 from OpenGL import GL
 from OpenGL.GL.shaders import compileProgram, compileShader
 from PIL import Image
-from PySide6.QtGui import QSurfaceFormat
+from PySide6 import QtCore
+from PySide6.QtCore import QObject, QThread, Qt, QCoreApplication
+from PySide6.QtGui import QSurfaceFormat, QOffscreenSurface, QOpenGLContext
 from PySide6.QtOpenGLWidgets import QOpenGLWidget
 from PySide6.QtWidgets import QApplication
 
 
+class MyGLContext(object):
+    def __init__(self, parent_gl_context, gl_format):
+        self.parent_context = parent_gl_context
+        self.gl_format = gl_format
+        self.context = None
+        self.surface = None
+
+    def __enter__(self):
+        if self.context is None:
+            self.surface = QOffscreenSurface()
+            self.surface.setFormat(self.gl_format)
+            self.surface.create()
+            assert self.surface.isValid()
+            self.context = QOpenGLContext()
+            self.context.setShareContext(self.parent_context)
+            self.context.setFormat(self.surface.requestedFormat())
+            self.context.create()
+            assert self.context.isValid()
+        self.context.makeCurrent(self.surface)
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.context.doneCurrent()
+
+
 class Texture(object):
-    def __init__(self, image):
-        self.image = image
+    def __init__(self, image_file_name: str):
+        with open(image_file_name, "rb") as img:
+            pil = Image.open(img)
+            pil.load()
+        self.image = pil
         self.texture_id = None
         self.load_sync = None
 
@@ -41,18 +72,65 @@ class Texture(object):
         )
         self.load_sync = GL.glFenceSync(GL.GL_SYNC_GPU_COMMANDS_COMPLETE, 0)
 
-    def is_loaded(self) -> bool:
+    def is_ready(self) -> bool:
         load_status = GL.glGetSynciv(self.load_sync, GL.GL_SYNC_STATUS, 1)[1]
         return load_status == GL.GL_SIGNALED
 
 
+class ImageLoader(QObject):
+    def __init__(self, parent, parent_gl_context, gl_format):
+        super().__init__(parent)
+        self.parent_context = parent_gl_context
+        self.gl_format = gl_format
+        self.texture = None
+        self.context = MyGLContext(parent_gl_context, gl_format)
+        self._texture_is_ready = False
+        self._load_canceled = False
+
+    def _check_cancel(self) -> bool:
+        QCoreApplication.processEvents()  # In case load was canceled
+        return self._load_canceled
+
+    image_size_changed = QtCore.Signal(int, int)
+
+    @QtCore.Slot(str)  # noqa
+    def load_image(self, image_file_name: str):
+        print("ImageLoader.load_image()")
+        self._texture_is_ready = False
+        self._load_canceled = False
+        self.texture = Texture(image_file_name)
+        self.image_size_changed.emit(*self.texture.image.size)  # noqa
+        if self._check_cancel():
+            return
+        texture_is_ready = False
+        with self.context:
+            self.texture.initialize_gl()
+            if self._check_cancel():
+                return
+            texture_is_ready = self.texture.is_ready()
+        while not texture_is_ready:
+            print("waiting for texture upload")
+            time.sleep(0.050)
+            if self._check_cancel():
+                return
+            with self.context:
+                texture_is_ready = self.texture.is_ready()
+        print("ImageLoader.texture_loaded()")
+        self.texture_loaded.emit(self.texture)
+
+    texture_loaded = QtCore.Signal(Texture)
+
+
 class RenderWindow(QOpenGLWidget):
-    def __init__(self, image):
+    def __init__(self, image_file_name):
         super().__init__()
-        self.resize(image.width, image.height)
-        self.texture = Texture(image)
+        self.image_file_name = image_file_name
+        self.resize(640, 480)
+        self.image_loader = None
+        self.loading_thread = QThread()
         self.vao = None
         self.shader = None
+        self.texture = None
 
     def initializeGL(self):
         self.vao = GL.glGenVertexArrays(1)
@@ -88,17 +166,29 @@ class RenderWindow(QOpenGLWidget):
                 }
             """), GL.GL_FRAGMENT_SHADER),
         )
-        self.texture.initialize_gl()
+        self.image_loader = ImageLoader(self, self.context(), self.format())
+        self.image_loader.moveToThread(self.loading_thread)
+        self.request_image.connect(self.image_loader.load_image, Qt.QueuedConnection)
+        self.image_loader.texture_loaded.connect(self.set_texture, Qt.QueuedConnection)
+        self.image_loader.image_size_changed.connect(self.resize, Qt.QueuedConnection)  # noqa
+        self.request_image.emit(self.image_file_name)
 
     def paintGL(self):
-        if self.texture.is_loaded():
-            GL.glClear(GL.GL_COLOR_BUFFER_BIT)
+        GL.glClear(GL.GL_COLOR_BUFFER_BIT)
+        if self.texture is not None:
             GL.glBindVertexArray(self.vao)
             GL.glUseProgram(self.shader)
             self.texture.bind()
             GL.glDrawArrays(GL.GL_TRIANGLE_STRIP, 0, 4)
         else:
-            self.update()
+            print("Texture not loaded yet")
+
+    request_image = QtCore.Signal(str)
+
+    def set_texture(self, texture):
+        print("RenderWindow.setTexture()")
+        self.texture = texture
+        self.update()
 
 
 def main():
@@ -107,10 +197,7 @@ def main():
     f.setVersion(4, 1)
     QSurfaceFormat.setDefaultFormat(f)
     app = QApplication(sys.argv)
-    with open("../test/images/Grace_Hopper.jpg", "rb") as img:
-        pil = Image.open(img)
-        pil.load()
-    window = RenderWindow(pil)
+    window = RenderWindow("../test/images/Grace_Hopper.jpg")
     window.show()
     sys.exit(app.exec())
 
