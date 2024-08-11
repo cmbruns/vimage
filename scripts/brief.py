@@ -37,6 +37,7 @@ class MyGLContext(object):
         self.gl_format = gl_format
         self.context = None
         self.surface = None
+        self.max_texture_size = None
 
     def __enter__(self):
         if self.context is None:
@@ -49,6 +50,8 @@ class MyGLContext(object):
             self.context.setFormat(self.surface.requestedFormat())
             self.context.create()
             assert self.context.isValid()
+            self.context.makeCurrent(self.surface)
+            self.max_texture_size = GL.glGetIntegerv(GL.GL_MAX_TEXTURE_SIZE)
         self.context.makeCurrent(self.surface)
         return self
 
@@ -56,14 +59,11 @@ class MyGLContext(object):
         self.context.doneCurrent()
 
 
-class Texture(object):
-    def __init__(self, image_file_name: str):
-        with open(image_file_name, "rb") as img:
-            pil = Image.open(MyFileWrapper(img))
-            pil.load()
-        self.image = pil
+class Tile(object):
+    def __init__(self, image):
         self.texture_id = None
         self.load_sync = None
+        self.image = image
 
     def bind(self):
         GL.glBindTexture(GL.GL_TEXTURE_2D, self.texture_id)
@@ -92,6 +92,26 @@ class Texture(object):
         return load_status == GL.GL_SIGNALED
 
 
+class Texture(object):
+    def __init__(self, image_file_name: str):
+        with open(image_file_name, "rb") as img:
+            pil = Image.open(MyFileWrapper(img))
+            pil.load()
+        self.image = pil
+        self.tiles = []
+
+    def __getitem__(self, key):
+        return self.tiles[key]
+
+    def __len__(self):
+        return len(self.tiles)
+
+    def initialize_gl(self):
+        self.tiles.append(Tile(self.image))  # TODO: more tiles
+        for tile in self.tiles:
+            tile.initialize_gl()
+
+
 class ImageLoader(QObject):
     def __init__(self, parent, parent_gl_context, gl_format):
         super().__init__(parent)
@@ -100,6 +120,14 @@ class ImageLoader(QObject):
         self.texture = None
         self.context = MyGLContext(parent_gl_context, gl_format)
         self._load_canceled = False
+
+    def _loaded_tile_count(self) -> int:
+        loaded_tile_count = 0
+        with self.context:
+            for tile in self.texture:
+                if tile.is_ready():
+                    loaded_tile_count += 1
+        return loaded_tile_count
 
     def _check_cancel(self) -> bool:
         QCoreApplication.processEvents()  # In case load was canceled
@@ -115,19 +143,19 @@ class ImageLoader(QObject):
         self.image_size_changed.emit(*self.texture.image.size)  # noqa
         if self._check_cancel():
             return
-        texture_is_ready = False
         with self.context:
             self.texture.initialize_gl()
             if self._check_cancel():
                 return
-            texture_is_ready = self.texture.is_ready()
-        while not texture_is_ready:
-            print("waiting for texture upload")
+            loaded_tile_count = 0
+            for tile in self.texture:
+                if tile.is_ready():
+                    loaded_tile_count += 1
+        while self._loaded_tile_count() < len(self.texture):
+            print("waiting for tile upload")
             time.sleep(0.050)
             if self._check_cancel():
                 return
-            with self.context:
-                texture_is_ready = self.texture.is_ready()
         print("ImageLoader.texture_loaded()")
         self.texture_loaded.emit(self.texture)
 
@@ -191,8 +219,10 @@ class RenderWindow(QOpenGLWidget):
         if self.texture is not None:
             GL.glBindVertexArray(self.vao)
             GL.glUseProgram(self.shader)
-            self.texture.bind()
-            GL.glDrawArrays(GL.GL_TRIANGLE_STRIP, 0, 4)
+            for tile in self.texture:
+                if tile.is_ready():
+                    tile.bind()
+                    GL.glDrawArrays(GL.GL_TRIANGLE_STRIP, 0, 4)
         else:
             print("Texture not loaded yet")
 
@@ -220,8 +250,8 @@ def main():
     QSurfaceFormat.setDefaultFormat(f)
     app = QApplication(sys.argv)
     window = RenderWindow(
-        # "../test/images/Grace_Hopper.jpg"
-        r"C:\Users\cmbruns\Pictures\_Bundles_for_Berlin__More_production!.jpg"
+        "../test/images/Grace_Hopper.jpg"
+        # r"C:\Users\cmbruns\Pictures\_Bundles_for_Berlin__More_production!.jpg"
     )
     window.show()
     sys.exit(app.exec())
