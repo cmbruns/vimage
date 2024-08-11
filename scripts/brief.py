@@ -16,6 +16,21 @@ from PySide6.QtOpenGLWidgets import QOpenGLWidget
 from PySide6.QtWidgets import QApplication
 
 
+Image.MAX_IMAGE_PIXELS = 2000120000
+
+
+class MyFileWrapper(object):
+    """Maybe track file load progress"""
+    def __init__(self, file_stream):
+        self.file_stream = file_stream
+
+    def read(self, val: int):
+        return self.file_stream.read(val)
+
+    def seek(self, val: int):
+        self.file_stream.seek(val)
+
+
 class MyGLContext(object):
     def __init__(self, parent_gl_context, gl_format):
         self.parent_context = parent_gl_context
@@ -44,7 +59,7 @@ class MyGLContext(object):
 class Texture(object):
     def __init__(self, image_file_name: str):
         with open(image_file_name, "rb") as img:
-            pil = Image.open(img)
+            pil = Image.open(MyFileWrapper(img))
             pil.load()
         self.image = pil
         self.texture_id = None
@@ -84,7 +99,6 @@ class ImageLoader(QObject):
         self.gl_format = gl_format
         self.texture = None
         self.context = MyGLContext(parent_gl_context, gl_format)
-        self._texture_is_ready = False
         self._load_canceled = False
 
     def _check_cancel(self) -> bool:
@@ -96,7 +110,6 @@ class ImageLoader(QObject):
     @QtCore.Slot(str)  # noqa
     def load_image(self, image_file_name: str):
         print("ImageLoader.load_image()")
-        self._texture_is_ready = False
         self._load_canceled = False
         self.texture = Texture(image_file_name)
         self.image_size_changed.emit(*self.texture.image.size)  # noqa
@@ -170,7 +183,7 @@ class RenderWindow(QOpenGLWidget):
         self.image_loader.moveToThread(self.loading_thread)
         self.request_image.connect(self.image_loader.load_image, Qt.QueuedConnection)
         self.image_loader.texture_loaded.connect(self.set_texture, Qt.QueuedConnection)
-        self.image_loader.image_size_changed.connect(self.resize, Qt.QueuedConnection)  # noqa
+        self.image_loader.image_size_changed.connect(self.update_image_size, Qt.QueuedConnection)  # noqa
         self.request_image.emit(self.image_file_name)
 
     def paintGL(self):
@@ -190,6 +203,15 @@ class RenderWindow(QOpenGLWidget):
         self.texture = texture
         self.update()
 
+    def update_image_size(self, width, height):
+        w, h = width, height
+        mx = max(width, height)
+        if mx > 256:
+            scale = 256 / mx
+            w = int(scale * width)
+            h = int(scale * height)
+        self.resize(w, h)
+
 
 def main():
     f = QSurfaceFormat()
@@ -197,7 +219,10 @@ def main():
     f.setVersion(4, 1)
     QSurfaceFormat.setDefaultFormat(f)
     app = QApplication(sys.argv)
-    window = RenderWindow("../test/images/Grace_Hopper.jpg")
+    window = RenderWindow(
+        # "../test/images/Grace_Hopper.jpg"
+        r"C:\Users\cmbruns\Pictures\_Bundles_for_Berlin__More_production!.jpg"
+    )
     window.show()
     sys.exit(app.exec())
 
