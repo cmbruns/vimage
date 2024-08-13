@@ -1,3 +1,4 @@
+from ctypes import c_float, c_void_p, cast, sizeof
 import numpy
 from typing import Tuple, Optional
 
@@ -24,6 +25,125 @@ gl_type_for_numpy_dtype = {
     numpy.dtype("float32"): GL.GL_FLOAT,
     numpy.dtype("float64"): GL.GL_DOUBLE,
 }
+
+
+class Tile(object):
+    def __init__(
+            self,
+            image_size: Tuple[GLint, GLint],
+            data_type: GLenum,
+            data,
+            internal_format: GLenum,
+            tex_format: GLenum,
+            # portion of the image covered by this tile
+            left: int,
+            top: int,
+            width: int,
+            height: int,
+    ):
+        self.image_size = image_size
+        self.data_type = data_type
+        self.internal_format = internal_format
+        self.tex_format = tex_format
+        self.vao = None
+        self.vbo = None
+        # Convert to normalized image coordinates
+        left_nic = 2 * left / image_size[0] - 1
+        right_nic = 2 * (left + width) / image_size[0] - 1
+        top_nic = 1 - 2 * top / image_size[1]
+        bottom_nic = 1 - 2 * (top + height) / image_size[1]
+        self.vertexes = numpy.array(
+            [
+                # nic_x, nic_y, txc_x, txc_y
+                [left_nic, top_nic, 0, 0],  # upper left
+                [left_nic, bottom_nic, 0, 1],  # lower left
+                [right_nic, top_nic, 1, 0],  # upper right
+                [right_nic, bottom_nic, 1, 1],  # lower right
+            ],
+            dtype=numpy.float32
+        ).flatten()
+        self.texture_id = None
+        self.load_sync = None
+        self.data = data
+        self.left = left
+        self.top = top
+        self.width = width
+        self.height = height
+
+    def initialize_gl(self):
+        self.vbo = GL.glGenBuffers(1)
+        GL.glBindBuffer(GL.GL_ARRAY_BUFFER, self.vbo)
+        GL.glBufferData(GL.GL_ARRAY_BUFFER, len(self.vertexes) * sizeof(c_float), self.vertexes, GL.GL_STATIC_DRAW)
+        self.texture_id = GL.glGenTextures(1)
+        GL.glBindTexture(GL.GL_TEXTURE_2D, self.texture_id)
+        GL.glPixelStorei(GL.GL_UNPACK_ALIGNMENT, 1)  # In case width is odd
+        GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_NEAREST)
+        # TODO: change to GL.GL_LINEAR_MIPMAP_LINEAR after generating mipmaps
+        GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_NEAREST)
+        # TODO: test and debug 360 boundary conditions with tiled image
+        # Show monochrome images as gray, not red
+        if self.internal_format == GL.GL_RED:
+            GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_SWIZZLE_G, GL.GL_RED)
+            GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_SWIZZLE_B, GL.GL_RED)
+        # Anisotropic filtering
+        f_largest = GL.glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT)
+        GL.glTexParameterf(GL.GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, f_largest)
+        # TODO: use preferred internal format in image data...
+        # row stride required for horizontal tiling
+        GL.glPixelStorei(GL.GL_UNPACK_ROW_LENGTH, self.image_size[0])
+        GL.glPixelStorei(GL.GL_UNPACK_SKIP_PIXELS, self.left)
+        GL.glPixelStorei(GL.GL_UNPACK_SKIP_ROWS, self.top)
+        GL.glTexImage2D(
+            GL.GL_TEXTURE_2D,
+            0,
+            self.internal_format,
+            self.width,
+            self.height,
+            0,
+            self.tex_format,
+            self.data_type,
+            self.data,
+        )
+        # Restore normal unpack settings
+        GL.glPixelStorei(GL.GL_UNPACK_ROW_LENGTH, 0)
+        GL.glPixelStorei(GL.GL_UNPACK_SKIP_PIXELS, 0)
+        GL.glPixelStorei(GL.GL_UNPACK_SKIP_ROWS, 0)
+        self.load_sync = GL.glFenceSync(GL.GL_SYNC_GPU_COMMANDS_COMPLETE, 0)
+
+    def is_ready(self) -> bool:
+        load_status = GL.glGetSynciv(self.load_sync, GL.GL_SYNC_STATUS, 1)[1]
+        return load_status == GL.GL_SIGNALED
+
+    def paint_gl(self):
+        if not self.is_ready():
+            return
+        GL.glBindTexture(GL.GL_TEXTURE_2D, self.texture_id)
+        # VAO must be created here, in the render thread
+        if self.vao is None:
+            self.vao = GL.glGenVertexArrays(1)
+            GL.glBindVertexArray(self.vao)
+            GL.glBindBuffer(GL.GL_ARRAY_BUFFER, self.vbo)
+            f_size = sizeof(c_float)
+            GL.glVertexAttribPointer(  # normalized image coordinates
+                1,  # attribute index
+                2,  # size (#components)
+                GL.GL_FLOAT,  # type
+                False,  # normalized
+                f_size * 4,  # stride (bytes)
+                cast(0 * f_size, c_void_p),  # pointer offset
+            )
+            GL.glEnableVertexAttribArray(1)
+            GL.glVertexAttribPointer(  # texture coordinates
+                2,  # attribute index
+                2,  # size (#components)
+                GL.GL_FLOAT,  # type
+                False,  # normalized
+                f_size * 4,  # stride (bytes)
+                cast(2 * f_size, c_void_p),  # pointer offset
+            )
+            GL.glEnableVertexAttribArray(2)
+        GL.glBindVertexArray(self.vao)
+        GL.glDrawArrays(GL.GL_TRIANGLE_STRIP, 0, 4)
 
 
 class Texture(object):
@@ -82,19 +202,6 @@ class Texture(object):
             GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_SWIZZLE_B, GL.GL_RED)
         f_largest = GL.glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT)
         GL.glTexParameterf(GL.GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, f_largest)
-        # What format would OpenGL prefer? TODO: use this information during loading
-        optimal_format = GL.glGetInternalformativ(
-            GL.GL_TEXTURE_2D,
-            self.internal_format,
-            GL.GL_TEXTURE_IMAGE_FORMAT,
-            1,
-        )
-        optimal_type = GL.glGetInternalformativ(
-            GL.GL_TEXTURE_2D,
-            self.internal_format,
-            GL.GL_TEXTURE_IMAGE_TYPE,
-            1,
-        )
         GL.glTexImage2D(
             GL.GL_TEXTURE_2D,
             0,
