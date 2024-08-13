@@ -16,21 +16,11 @@ from PySide6.QtCore import QObject, QThread, Qt, QCoreApplication
 from PySide6.QtGui import QSurfaceFormat, QOffscreenSurface, QOpenGLContext
 from PySide6.QtOpenGLWidgets import QOpenGLWidget
 from PySide6.QtWidgets import QApplication
+import turbojpeg
 
 
 Image.MAX_IMAGE_PIXELS = 2000120000
-
-
-class MyFileWrapper(object):
-    """Maybe track file load progress"""
-    def __init__(self, file_stream):
-        self.file_stream = file_stream
-
-    def read(self, val: int):
-        return self.file_stream.read(val)
-
-    def seek(self, val: int):
-        self.file_stream.seek(val)
+t_jpeg = turbojpeg.TurboJPEG()
 
 
 class MyGLContext(object):
@@ -57,6 +47,24 @@ class MyGLContext(object):
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.context.doneCurrent()
+
+
+class TJpegLoader(QObject):
+    def __init__(self, file_name: str):
+        super().__init__()
+        with open(file_name, "rb") as in_file:
+            self.jpeg_bytes = in_file.read()
+        self.width, self.height, jpeg_subsample, jpeg_colorspace = t_jpeg.decode_header(self.jpeg_bytes)
+        self._bytes = None
+
+    @property
+    def size(self):
+        return self.width, self.height
+
+    def bytes(self):
+        if self._bytes is None:
+            self._bytes = t_jpeg.decode(self.jpeg_bytes)
+        return self._bytes
 
 
 class Tile(object):
@@ -152,14 +160,35 @@ class Tile(object):
         GL.glDrawArrays(GL.GL_TRIANGLE_STRIP, 0, 4)
 
 
+class PilLoader(QObject):
+    def __init__(self, file_name: str):
+        super().__init__()
+        self.image = Image.open(file_name)
+        self._bytes = None
+        # self.image.load()  # TODO: too early?
+
+    @property
+    def height(self):
+        return self.image.height
+
+    @property
+    def size(self):
+        return self.image.width, self.image.height
+
+    def bytes(self):
+        if self._bytes is None:
+            self._bytes = self.image.tobytes()
+        return self._bytes
+
+    @property
+    def width(self):
+        return self.image.width
+
+
 class Texture(QObject):
     def __init__(self, image_file_name: str):
         super().__init__()
-        with open(image_file_name, "rb") as img:
-            # TODO: modular loading: PIL, jpeg turbo, ctjpeg, etc
-            pil = Image.open(MyFileWrapper(img))
-            pil.load()
-        self.image = pil
+        self.image = TJpegLoader(image_file_name)
         self.tiles = []
 
     def __getitem__(self, key):
@@ -172,7 +201,7 @@ class Texture(QObject):
         tile_size = 8192
         max_texture_size = GL.glGetIntegerv(GL.GL_MAX_TEXTURE_SIZE)
         assert max_texture_size >= tile_size
-        image_bytes = self.image.tobytes()
+        image_bytes = self.image.bytes()
         top = 0
         while top <= self.image.height:
             left = 0
@@ -226,7 +255,6 @@ class ImageLoader(QObject):
             self.texture.initialize_gl()
             if self._check_cancel():
                 return
-        previous_num_loaded_tiles = 0
         num_loaded_tiles = self._loaded_tile_count()
         while num_loaded_tiles < len(self.texture):
             print("waiting for tile upload")
@@ -235,7 +263,7 @@ class ImageLoader(QObject):
                 return
             num_loaded_tiles = self._loaded_tile_count()
         print("ImageLoader.texture_loaded()")
-        self.texture_loaded.emit(self.texture)
+        self.texture_loaded.emit(self.texture)  # noqa
 
     texture_loaded = QtCore.Signal(Texture)
 
@@ -281,10 +309,10 @@ class RenderWindow(QOpenGLWidget):
         self.image_loader = ImageLoader(self.context(), self.format())
         self.image_loader.moveToThread(self.loading_thread)
         self.loading_thread.start()
-        self.request_image.connect(self.image_loader.load_image, Qt.QueuedConnection)
-        self.image_loader.texture_loaded.connect(self.set_texture, Qt.QueuedConnection)
+        self.request_image.connect(self.image_loader.load_image, Qt.QueuedConnection)  # noqa
+        self.image_loader.texture_loaded.connect(self.set_texture, Qt.QueuedConnection)  # noqa
         self.image_loader.image_size_changed.connect(self.update_image_size, Qt.QueuedConnection)  # noqa
-        self.request_image.emit(self.image_file_name)
+        self.request_image.emit(self.image_file_name)  # noqa
 
     def paintGL(self):
         GL.glClear(GL.GL_COLOR_BUFFER_BIT)
