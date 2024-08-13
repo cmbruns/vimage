@@ -63,13 +63,21 @@ class Tile(object):
     def __init__(self, image, left, top, width, height):
         self.vao = None
         self.vbo = None
-        self.vertexes = numpy.array([
-            # nic_x, nic_y, txc_x, txc_y
-            [-1, +1, 0, 0],  # upper left
-            [-1, -1, 0, 1],  # lower left
-            [+1, +1, 1, 0],  # upper right
-            [+1, -1, 1, 1],  # lower right
-        ], dtype=numpy.float32).flatten()
+        # Convert to normalized image coordinates
+        left_nic = 2 * left / image.width - 1
+        right_nic = 2 * (left + width) / image.width - 1
+        top_nic = 1 - 2 * top / image.height
+        bottom_nic = 1 - 2 * (top + height) / image.height
+        self.vertexes = numpy.array(
+            [
+                # nic_x, nic_y, txc_x, txc_y
+                [left_nic, top_nic, 0, 0],  # upper left
+                [left_nic, bottom_nic, 0, 1],  # lower left
+                [right_nic, top_nic, 1, 0],  # upper right
+                [right_nic, bottom_nic, 1, 1],  # lower right
+            ],
+            dtype=numpy.float32
+        ).flatten()
         self.texture_id = None
         self.load_sync = None
         self.image = image
@@ -81,12 +89,16 @@ class Tile(object):
     def initialize_gl(self):
         self.vbo = GL.glGenBuffers(1)
         GL.glBindBuffer(GL.GL_ARRAY_BUFFER, self.vbo)
-        GL.glBufferData(GL.GL_ARRAY_BUFFER, 4 * 4 * 4, self.vertexes, GL.GL_STATIC_DRAW)
+        GL.glBufferData(GL.GL_ARRAY_BUFFER, len(self.vertexes) * sizeof(c_float), self.vertexes, GL.GL_STATIC_DRAW)
         self.texture_id = GL.glGenTextures(1)
         GL.glBindTexture(GL.GL_TEXTURE_2D, self.texture_id)
         GL.glPixelStorei(GL.GL_UNPACK_ALIGNMENT, 1)  # In case width is odd
         GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_NEAREST)
         GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_NEAREST)
+        # row stride required for horizontal tiling
+        GL.glPixelStorei(GL.GL_UNPACK_ROW_LENGTH, self.image.width)
+        GL.glPixelStorei(GL.GL_UNPACK_SKIP_PIXELS, self.left)
+        GL.glPixelStorei(GL.GL_UNPACK_SKIP_ROWS, self.top)
         GL.glTexImage2D(
             GL.GL_TEXTURE_2D,
             0,
@@ -98,6 +110,10 @@ class Tile(object):
             GL.GL_UNSIGNED_BYTE,
             self.image.tobytes(),
         )
+        # Restore normal unpack settings
+        GL.glPixelStorei(GL.GL_UNPACK_ROW_LENGTH, 0)
+        GL.glPixelStorei(GL.GL_UNPACK_SKIP_PIXELS, 0)
+        GL.glPixelStorei(GL.GL_UNPACK_SKIP_ROWS, 0)
         self.load_sync = GL.glFenceSync(GL.GL_SYNC_GPU_COMMANDS_COMPLETE, 0)
 
     def is_ready(self) -> bool:
@@ -304,8 +320,8 @@ def main():
     QSurfaceFormat.setDefaultFormat(f)
     app = QApplication(sys.argv)
     window = RenderWindow(
-        "../test/images/Grace_Hopper.jpg"
-        # "C:/Users/cmbruns/Pictures/_Bundles_for_Berlin__More_production!.jpg"
+        # "../test/images/Grace_Hopper.jpg"
+        "C:/Users/cmbruns/Pictures/_Bundles_for_Berlin__More_production!.jpg"
     )
     window.show()
     sys.exit(app.exec())
