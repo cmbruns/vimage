@@ -24,8 +24,18 @@ class OffscreenContext(QtCore.QObject):
         assert self.context.isValid()
 
     def __enter__(self):
-        self.init_gl()
+        if self.context is None:
+            self.surface = QtGui.QOffscreenSurface()
+            self.surface.setFormat(self.format)
+            self.surface.create()
+            assert self.surface.isValid()
+            self.context = QtGui.QOpenGLContext()
+            self.context.setShareContext(self.parent_context)
+            self.context.setFormat(self.surface.requestedFormat())
+            self.context.create()
+            assert self.context.isValid()
         self.context.makeCurrent(self.surface)
+        return self
 
-    def __exit__(self, _type, _value, _traceback):
+    def __exit__(self, exc_type, exc_val, exc_tb):
         self.context.doneCurrent()

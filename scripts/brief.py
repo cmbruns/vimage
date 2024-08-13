@@ -29,7 +29,6 @@ class MyGLContext(object):
         self.gl_format = gl_format
         self.context = None
         self.surface = None
-        self.max_texture_size = None
 
     def __enter__(self):
         if self.context is None:
