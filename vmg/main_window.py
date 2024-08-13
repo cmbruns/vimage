@@ -177,7 +177,6 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         # Three stages of cancel signaling
         self.progress_status.cancel_load_requested.connect(self.cancel_image_load)  # noqa
         self.cancel_load_requested.connect(self.image_loader.cancel_load, Qt.QueuedConnection)  # noqa
-        self.image_loader.load_canceled.connect(self.complete_cancel_load, Qt.QueuedConnection)  # noqa
         #
         # Logging
         self.log_window = LogDialog(self)
@@ -198,9 +197,6 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         self.progress_status.set_state(ProgressState.LOAD_CANCELLED)
         if QtWidgets.QApplication.overrideCursor() is not None:
             QtWidgets.QApplication.restoreOverrideCursor()
-
-    def complete_cancel_load(self, file_name):
-        pass
 
     cancel_load_requested = QtCore.Signal(str)
 

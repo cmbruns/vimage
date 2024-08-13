@@ -4,7 +4,7 @@ import turbojpeg
 from OpenGL import GL
 from PIL import Image
 from PySide6 import QtCore
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QCoreApplication
 
 from vmg.elapsed_time import ElapsedTime
 from vmg.image_data import ImageData
@@ -20,45 +20,42 @@ class ImageLoader(QtCore.QObject):
     def __init__(self):
         super().__init__()
         self.current_image_data = None
-        # Connect the loading process via a series of signals,
-        # so the process can be interrupted when a new file is requested
-        self.pil_image_assigned.connect(self.load_metadata, Qt.QueuedConnection)  # noqa
-        self.turbo_jpeg_texture_requested.connect(self.texture_turbo_jpeg, Qt.QueuedConnection)  # noqa
-        self.pil_texture_requested.connect(self.texture_pil, Qt.QueuedConnection)  # noqa
-        self.bytes_loaded.connect(self.process_texture, Qt.QueuedConnection)  # noqa
         self.offscreen_context = None
-        self.threaded_texture_feature = True
 
-    load_canceled = QtCore.Signal(str)
     load_failed = QtCore.Signal(str)
-    pil_image_assigned = QtCore.Signal(ImageData)
-    turbo_jpeg_texture_requested = QtCore.Signal(ImageData)
-    pil_texture_requested = QtCore.Signal(ImageData)
-    bytes_loaded = QtCore.Signal(ImageData)
     texture_created = QtCore.Signal(ImageData)
 
     @QtCore.Slot(str)  # noqa
     def cancel_load(self):
         if self.current_image_data is None:
             return  # already canceled?
-        file_name = self.current_image_data.file_name
         self.current_image_data = None
-        self.load_canceled.emit(file_name)
+
+    def _is_current(self, image_data: ImageData) -> bool:
+        QCoreApplication.processEvents()  # drain queue, in case load was canceled
+        if self.current_image_data is not image_data:
+            image_data.setParent(None)  # noqa  allow deletion of image_data maybe
+            logger.info(f"ceasing stale load of {image_data.file_name}")
+            return False  # Latest file is something else
+        else:
+            return True
 
     @QtCore.Slot(str)  # noqa
     def load_from_file_name(self, file_name: str):
         image_data = ImageData(file_name, parent=self)
         self.current_image_data = image_data
+        if not self._is_current(image_data):
+            return
         if not image_data.file_is_readable():
             self.load_failed.emit(image_data.file_name)  # noqa
             return
-        self.progress_changed.emit(2)
+        self.progress_changed.emit(2)  # noqa
         et = ElapsedTime()
         if not image_data.open_pil_image():
             self.load_failed.emit(image_data.file_name)  # noqa
             return
         logger.info(f"Opening PIL image took {et}")
-        self.pil_image_assigned.emit(image_data)  # noqa
+        self.load_metadata(image_data)
 
     @QtCore.Slot(Image.Image, str)  # noqa
     def load_from_pil_image(self, pil_image: Image.Image, file_name: str):
@@ -67,15 +64,7 @@ class ImageLoader(QtCore.QObject):
         self.current_image_data = image_data
         self.progress_changed.emit(5)
         image_data.pil_image = pil_image
-        self.pil_image_assigned.emit(image_data)  # noqa
-
-    def _is_current(self, image_data: ImageData) -> bool:
-        if self.current_image_data is not image_data:
-            image_data.setParent(None)  # noqa  allow deletion of image_data maybe
-            logger.info(f"ceasing stale load of {image_data.file_name}")
-            return False  # Latest file is something else
-        else:
-            return True
+        self.load_metadata(image_data)
 
     @QtCore.Slot(ImageData)  # noqa
     def load_metadata(self, image_data: ImageData):
@@ -90,9 +79,9 @@ class ImageLoader(QtCore.QObject):
         image_data.read_pil_metadata()
         logger.info(f"Loading metadata took {et}")
         if image_data.pil_image.format == "JPEG" and image_data.file_is_readable():
-            self.turbo_jpeg_texture_requested.emit(image_data)  # noqa
+            self.texture_turbo_jpeg(image_data)
         else:
-            self.pil_texture_requested.emit(image_data)  # noqa
+            self.texture_pil(image_data)  # noqa
 
     @QtCore.Slot(OffscreenContext)  # noqa
     def on_context_created(self, offscreen_context) -> None:
@@ -115,7 +104,7 @@ class ImageLoader(QtCore.QObject):
         if self.offscreen_context is None:
             self.texture_created.emit(image_data)  # noqa
         else:
-            self.bytes_loaded.emit(image_data)  # noqa
+            self.process_texture(image_data)  # noqa
 
     @QtCore.Slot(ImageData)  # noqa
     def texture_pil(self, image_data: ImageData):
@@ -152,23 +141,22 @@ class ImageLoader(QtCore.QObject):
         if self.offscreen_context is None:
             self.texture_created.emit(image_data)  # noqa
         else:
-            self.bytes_loaded.emit(image_data)  # noqa
+            self.process_texture(image_data)  # noqa
 
     @QtCore.Slot(ImageData)  # noqa
     def process_texture(self, image_data: ImageData):
         if not self._is_current(image_data):
             return
         self.progress_changed.emit(60)
-        if self.threaded_texture_feature:
-            # Upload the texture in the image loading thread, using
-            # our shared OpenGL context
-            et = ElapsedTime()
-            with self.offscreen_context:
-                image_data.texture.bind_gl()
-                # Make sure texture is fully uploaded before switching to another QThread
-                GL.glFinish()  # glFinish blocks, glFlush does not
-                logger.info(f"(Loading thread) texture upload took {et}")
-                self.progress_changed.emit(90)
+        # Upload the texture in the image loading thread, using
+        # our shared OpenGL context
+        et = ElapsedTime()
+        with self.offscreen_context:
+            image_data.texture.bind_gl()
+            # Make sure texture is fully uploaded before switching to another QThread
+            GL.glFinish()  # glFinish blocks, glFlush does not
+            logger.info(f"(Loading thread) texture upload took {et}")
+            self.progress_changed.emit(90)
         self.texture_created.emit(image_data)  # noqa
 
     progress_changed = QtCore.Signal(int)
