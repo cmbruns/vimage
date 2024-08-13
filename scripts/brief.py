@@ -2,10 +2,12 @@
 Minimal image viewing example, as basis for testing deconstruction. Aug 8, 2024
 """
 
+from ctypes import c_float, c_void_p, cast, sizeof
 import inspect
 import sys
 import time
 
+import numpy
 from OpenGL import GL
 from OpenGL.GL.shaders import compileProgram, compileShader
 from PIL import Image
@@ -50,8 +52,6 @@ class MyGLContext(object):
             self.context.setFormat(self.surface.requestedFormat())
             self.context.create()
             assert self.context.isValid()
-            self.context.makeCurrent(self.surface)
-            self.max_texture_size = GL.glGetIntegerv(GL.GL_MAX_TEXTURE_SIZE)
         self.context.makeCurrent(self.surface)
         return self
 
@@ -60,15 +60,28 @@ class MyGLContext(object):
 
 
 class Tile(object):
-    def __init__(self, image):
+    def __init__(self, image, left, top, width, height):
+        self.vao = None
+        self.vbo = None
+        self.vertexes = numpy.array([
+            # nic_x, nic_y, txc_x, txc_y
+            [-1, +1, 0, 0],  # upper left
+            [-1, -1, 0, 1],  # lower left
+            [+1, +1, 1, 0],  # upper right
+            [+1, -1, 1, 1],  # lower right
+        ], dtype=numpy.float32).flatten()
         self.texture_id = None
         self.load_sync = None
         self.image = image
-
-    def bind(self):
-        GL.glBindTexture(GL.GL_TEXTURE_2D, self.texture_id)
+        self.left = left
+        self.top = top
+        self.width = width
+        self.height = height
 
     def initialize_gl(self):
+        self.vbo = GL.glGenBuffers(1)
+        GL.glBindBuffer(GL.GL_ARRAY_BUFFER, self.vbo)
+        GL.glBufferData(GL.GL_ARRAY_BUFFER, 4 * 4 * 4, self.vertexes, GL.GL_STATIC_DRAW)
         self.texture_id = GL.glGenTextures(1)
         GL.glBindTexture(GL.GL_TEXTURE_2D, self.texture_id)
         GL.glPixelStorei(GL.GL_UNPACK_ALIGNMENT, 1)  # In case width is odd
@@ -78,8 +91,8 @@ class Tile(object):
             GL.GL_TEXTURE_2D,
             0,
             GL.GL_RGB,
-            self.image.width,
-            self.image.height,
+            self.width,
+            self.height,
             0,
             GL.GL_RGB,
             GL.GL_UNSIGNED_BYTE,
@@ -91,10 +104,43 @@ class Tile(object):
         load_status = GL.glGetSynciv(self.load_sync, GL.GL_SYNC_STATUS, 1)[1]
         return load_status == GL.GL_SIGNALED
 
+    def paint_gl(self):
+        if not self.is_ready():
+            return
+        GL.glBindTexture(GL.GL_TEXTURE_2D, self.texture_id)
+        # VAO must be created here, in the render thread
+        if self.vao is None:
+            self.vao = GL.glGenVertexArrays(1)
+            GL.glBindVertexArray(self.vao)
+            GL.glBindBuffer(GL.GL_ARRAY_BUFFER, self.vbo)
+            f_size = sizeof(c_float)
+            GL.glVertexAttribPointer(  # normalized image coordinates
+                1,  # attribute index
+                2,  # size (#components)
+                GL.GL_FLOAT,  # type
+                False,  # normalized
+                f_size * 4,  # stride (bytes)
+                cast(0 * f_size, c_void_p),  # pointer offset
+            )
+            GL.glEnableVertexAttribArray(1)
+            GL.glVertexAttribPointer(  # texture coordinates
+                2,  # attribute index
+                2,  # size (#components)
+                GL.GL_FLOAT,  # type
+                False,  # normalized
+                f_size * 4,  # stride (bytes)
+                cast(2 * f_size, c_void_p),  # pointer offset
+            )
+            GL.glEnableVertexAttribArray(2)
+        GL.glBindVertexArray(self.vao)
+        GL.glDrawArrays(GL.GL_TRIANGLE_STRIP, 0, 4)
 
-class Texture(object):
+
+class Texture(QObject):
     def __init__(self, image_file_name: str):
+        super().__init__()
         with open(image_file_name, "rb") as img:
+            # TODO: modular loading: PIL, jpeg turbo, ctjpeg, etc
             pil = Image.open(MyFileWrapper(img))
             pil.load()
         self.image = pil
@@ -107,14 +153,33 @@ class Texture(object):
         return len(self.tiles)
 
     def initialize_gl(self):
-        self.tiles.append(Tile(self.image))  # TODO: more tiles
+        max_texture_size = GL.glGetIntegerv(GL.GL_MAX_TEXTURE_SIZE)
+        if self.image.width > max_texture_size or self.image.height > max_texture_size:
+            tile_size = 8192
+            assert tile_size < max_texture_size
+            top = 0
+            while top <= self.image.height:
+                left = 0
+                while left <= self.image.width:
+                    width = min(tile_size, self.image.width - left)
+                    height = min(tile_size, self.image.height - top)
+                    print(left, top, width, height)
+                    self.tiles.append(Tile(self.image, left, top, width, height))
+                    left += tile_size
+                top += tile_size
+        else:
+            self.tiles.append(Tile(self.image, 0, 0, self.image.width, self.image.height))  # just one tile needed
         for tile in self.tiles:
             tile.initialize_gl()
 
+    def paint_gl(self):
+        for tile in self:
+            tile.paint_gl()
+
 
 class ImageLoader(QObject):
-    def __init__(self, parent, parent_gl_context, gl_format):
-        super().__init__(parent)
+    def __init__(self, parent_gl_context, gl_format):
+        super().__init__()
         self.parent_context = parent_gl_context
         self.gl_format = gl_format
         self.texture = None
@@ -147,15 +212,14 @@ class ImageLoader(QObject):
             self.texture.initialize_gl()
             if self._check_cancel():
                 return
-            loaded_tile_count = 0
-            for tile in self.texture:
-                if tile.is_ready():
-                    loaded_tile_count += 1
-        while self._loaded_tile_count() < len(self.texture):
+        previous_num_loaded_tiles = 0
+        num_loaded_tiles = self._loaded_tile_count()
+        while num_loaded_tiles < len(self.texture):
             print("waiting for tile upload")
             time.sleep(0.050)
             if self._check_cancel():
                 return
+            num_loaded_tiles = self._loaded_tile_count()
         print("ImageLoader.texture_loaded()")
         self.texture_loaded.emit(self.texture)
 
@@ -169,29 +233,23 @@ class RenderWindow(QOpenGLWidget):
         self.resize(640, 480)
         self.image_loader = None
         self.loading_thread = QThread()
-        self.vao = None
         self.shader = None
         self.texture = None
 
     def initializeGL(self):
-        self.vao = GL.glGenVertexArrays(1)
-        GL.glBindVertexArray(self.vao)
         GL.glClearColor(0, 0, 1, 1)
         self.shader = compileProgram(
             compileShader(inspect.cleandoc("""
                 #version 410
 
-                const vec4 SCREEN_QUAD_NDC[4] = vec4[4](
-                    vec4( 1, -1, 0.5, 1),  // lower right
-                    vec4( 1,  1, 0.5, 1),  // upper right
-                    vec4(-1, -1, 0.5, 1),  // lower left
-                    vec4(-1,  1, 0.5, 1)   // upper left
-                );
+                layout(location = 1) in vec2 pos_nic;  // normalized image coordinates
+                layout(location = 2) in vec2 pos_txc;  // texture coordinates
+
                 out vec2 texCoord;
 
                 void main() {
-                    gl_Position = SCREEN_QUAD_NDC[gl_VertexID];
-                    texCoord = gl_Position.xy * vec2(0.5, -0.5) + vec2(0.5, 0.5);
+                    gl_Position = vec4(pos_nic, 0.5, 1);
+                    texCoord = pos_txc;
                 }
             """), GL.GL_VERTEX_SHADER),
             compileShader(inspect.cleandoc("""
@@ -202,13 +260,13 @@ class RenderWindow(QOpenGLWidget):
                 out vec4 color;
 
                 void main() {
-                    color = vec4(1, 0, 0, 1);
                     color = texture(image, texCoord);
                 }
             """), GL.GL_FRAGMENT_SHADER),
         )
-        self.image_loader = ImageLoader(self, self.context(), self.format())
+        self.image_loader = ImageLoader(self.context(), self.format())
         self.image_loader.moveToThread(self.loading_thread)
+        self.loading_thread.start()
         self.request_image.connect(self.image_loader.load_image, Qt.QueuedConnection)
         self.image_loader.texture_loaded.connect(self.set_texture, Qt.QueuedConnection)
         self.image_loader.image_size_changed.connect(self.update_image_size, Qt.QueuedConnection)  # noqa
@@ -217,12 +275,8 @@ class RenderWindow(QOpenGLWidget):
     def paintGL(self):
         GL.glClear(GL.GL_COLOR_BUFFER_BIT)
         if self.texture is not None:
-            GL.glBindVertexArray(self.vao)
             GL.glUseProgram(self.shader)
-            for tile in self.texture:
-                if tile.is_ready():
-                    tile.bind()
-                    GL.glDrawArrays(GL.GL_TRIANGLE_STRIP, 0, 4)
+            self.texture.paint_gl()
         else:
             print("Texture not loaded yet")
 
@@ -251,7 +305,7 @@ def main():
     app = QApplication(sys.argv)
     window = RenderWindow(
         "../test/images/Grace_Hopper.jpg"
-        # r"C:\Users\cmbruns\Pictures\_Bundles_for_Berlin__More_production!.jpg"
+        # "C:/Users/cmbruns/Pictures/_Bundles_for_Berlin__More_production!.jpg"
     )
     window.show()
     sys.exit(app.exec())
