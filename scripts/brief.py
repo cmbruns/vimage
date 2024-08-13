@@ -86,7 +86,7 @@ class Tile(object):
         self.width = width
         self.height = height
 
-    def initialize_gl(self):
+    def initialize_gl(self, image_bytes):
         self.vbo = GL.glGenBuffers(1)
         GL.glBindBuffer(GL.GL_ARRAY_BUFFER, self.vbo)
         GL.glBufferData(GL.GL_ARRAY_BUFFER, len(self.vertexes) * sizeof(c_float), self.vertexes, GL.GL_STATIC_DRAW)
@@ -108,7 +108,7 @@ class Tile(object):
             0,
             GL.GL_RGB,
             GL.GL_UNSIGNED_BYTE,
-            self.image.tobytes(),
+            image_bytes,
         )
         # Restore normal unpack settings
         GL.glPixelStorei(GL.GL_UNPACK_ROW_LENGTH, 0)
@@ -169,24 +169,22 @@ class Texture(QObject):
         return len(self.tiles)
 
     def initialize_gl(self):
+        tile_size = 8192
         max_texture_size = GL.glGetIntegerv(GL.GL_MAX_TEXTURE_SIZE)
-        if self.image.width > max_texture_size or self.image.height > max_texture_size:
-            tile_size = 8192
-            assert tile_size < max_texture_size
-            top = 0
-            while top <= self.image.height:
-                left = 0
-                while left <= self.image.width:
-                    width = min(tile_size, self.image.width - left)
-                    height = min(tile_size, self.image.height - top)
-                    print(left, top, width, height)
-                    self.tiles.append(Tile(self.image, left, top, width, height))
-                    left += tile_size
-                top += tile_size
-        else:
-            self.tiles.append(Tile(self.image, 0, 0, self.image.width, self.image.height))  # just one tile needed
-        for tile in self.tiles:
-            tile.initialize_gl()
+        assert max_texture_size >= tile_size
+        image_bytes = self.image.tobytes()
+        top = 0
+        while top <= self.image.height:
+            left = 0
+            while left <= self.image.width:
+                width = min(tile_size, self.image.width - left)
+                height = min(tile_size, self.image.height - top)
+                print(left, top, width, height)
+                tile = Tile(self.image, left, top, width, height)
+                self.tiles.append(tile)
+                tile.initialize_gl(image_bytes)
+                left += tile_size
+            top += tile_size
 
     def paint_gl(self):
         for tile in self:
