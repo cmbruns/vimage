@@ -58,7 +58,6 @@ class RectangularShader(IImageShader):
         GL.glUniform4i(self.sel_rect_omp_location, *state.sel_rect.left_top_right_bottom)
         GL.glUniform4f(self.background_color_location, *self.background_color)
         GL.glUniformMatrix2fv(self.raw_rot_omp_location, 1, True, state.raw_rot_omp)
-        GL.glDrawArrays(GL.GL_TRIANGLE_STRIP, 0, 4)
 
 
 class SphericalShader(IImageShader):
@@ -105,4 +104,3 @@ class SphericalShader(IImageShader):
         GL.glUniformMatrix3fv(self.raw_rot_ont_location, 1, True, state.raw_rot_ont)
         GL.glUniform2i(self.window_size_location, *state.window_size)
         GL.glUniform1i(self.projection_location, state.projection.value)
-        GL.glDrawArrays(GL.GL_TRIANGLE_STRIP, 0, 4)

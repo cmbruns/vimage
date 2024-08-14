@@ -1,10 +1,11 @@
 import logging
+import time
 
 import turbojpeg
 from OpenGL import GL
 from PIL import Image
 from PySide6 import QtCore
-from PySide6.QtCore import Qt, QCoreApplication
+from PySide6.QtCore import QCoreApplication
 
 from vmg.elapsed_time import ElapsedTime
 from vmg.image_data import ImageData
@@ -62,11 +63,10 @@ class ImageLoader(QtCore.QObject):
         """Load a PIL image without a corresponding file"""
         image_data = ImageData(file_name, parent=self)
         self.current_image_data = image_data
-        self.progress_changed.emit(5)
+        self.progress_changed.emit(5)  # noqa
         image_data.pil_image = pil_image
         self.load_metadata(image_data)
 
-    @QtCore.Slot(ImageData)  # noqa
     def load_metadata(self, image_data: ImageData):
         if not self._is_current(image_data):
             return
@@ -75,7 +75,7 @@ class ImageLoader(QtCore.QObject):
         if image_data.pil_image.width < 1 or image_data.pil_image.height < 1:
             self.load_failed.emit(file_name)  # noqa
             return
-        self.progress_changed.emit(10)
+        self.progress_changed.emit(10)  # noqa
         image_data.read_pil_metadata()
         logger.info(f"Loading metadata took {et}")
         if image_data.pil_image.format == "JPEG" and image_data.file_is_readable():
@@ -94,7 +94,7 @@ class ImageLoader(QtCore.QObject):
         if not self._is_current(image_data):
             return
         assert image_data.file_name is not None
-        self.progress_changed.emit(15)
+        self.progress_changed.emit(15)  # noqa
         et = ElapsedTime()
         with open(image_data.file_name, "rb") as in_file:
             jpeg_bytes = in_file.read()
@@ -113,7 +113,7 @@ class ImageLoader(QtCore.QObject):
         et = ElapsedTime()
         img = image_data.pil_image
         assert img is not None
-        self.progress_changed.emit(15)
+        self.progress_changed.emit(15)  # noqa
         if img.mode in ["P",]:
             image_data.pil_image = image_data.pil_image.convert("RGBA")  # TODO: palette shader
             img = image_data.pil_image
@@ -143,19 +143,36 @@ class ImageLoader(QtCore.QObject):
         else:
             self.process_texture(image_data)  # noqa
 
+    def _loaded_tile_count(self, image_data) -> int:
+        loaded_tile_count = 0
+        with self.offscreen_context:
+            for tile in image_data.texture:
+                if tile.is_ready():
+                    loaded_tile_count += 1
+        return loaded_tile_count
+
     @QtCore.Slot(ImageData)  # noqa
     def process_texture(self, image_data: ImageData):
         if not self._is_current(image_data):
             return
-        self.progress_changed.emit(60)
+        self.progress_changed.emit(60)  # noqa
         # Upload the texture in the image loading thread, using
         # our shared OpenGL context
         et = ElapsedTime()
         with self.offscreen_context:
-            image_data.texture.bind_gl()
-            # Make sure texture is fully uploaded before switching to another QThread
-            GL.glFinish()  # glFinish blocks, glFlush does not
-            logger.info(f"(Loading thread) texture upload took {et}")
+            image_data.texture.initialize_gl()
+            if not self._is_current(image_data):
+                return
+            num_loaded_tiles = self._loaded_tile_count(image_data)
+            while num_loaded_tiles < len(image_data.texture):
+                print("waiting for tile upload")  # TODO: logging
+                time.sleep(0.050)
+                if not self._is_current(image_data):
+                    return
+                num_loaded_tiles = self._loaded_tile_count(image_data)
+            print("ImageLoader.texture_loaded()")  # TODO: logging
+            # self.texture_changed.emit(image_data.texture)  # noqa
+            logger.info(f"(Loading thread) tile upload took {et}")
             self.progress_changed.emit(90)
         self.texture_created.emit(image_data)  # noqa
 

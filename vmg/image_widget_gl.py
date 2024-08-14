@@ -127,15 +127,10 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         if self.image_data is None:
             return
         GL.glBindVertexArray(self.vao)
-        try:
-            self.image_data.texture.bind_gl()
-        except ValueError:
-            if not self.image_data.has_displayed:
-                self.load_failed.emit(self.image_data.file_name)
-            raise
         if not self.image_data.has_displayed:
             self.progress_changed.emit(95)
         self.program.paint_gl(self.view_state)
+        self.image_data.texture.paint_gl()
         if not self.image_data.has_displayed:
             self.image_data.has_displayed = True
             self.progress_changed.emit(98)

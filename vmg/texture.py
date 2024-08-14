@@ -32,7 +32,6 @@ class Tile(object):
             self,
             image_size: Tuple[GLint, GLint],
             data_type: GLenum,
-            data,
             internal_format: GLenum,
             tex_format: GLenum,
             # portion of the image covered by this tile
@@ -64,13 +63,12 @@ class Tile(object):
         ).flatten()
         self.texture_id = None
         self.load_sync = None
-        self.data = data
         self.left = left
         self.top = top
         self.width = width
         self.height = height
 
-    def initialize_gl(self):
+    def initialize_gl(self, image_bytes):
         self.vbo = GL.glGenBuffers(1)
         GL.glBindBuffer(GL.GL_ARRAY_BUFFER, self.vbo)
         GL.glBufferData(GL.GL_ARRAY_BUFFER, len(self.vertexes) * sizeof(c_float), self.vertexes, GL.GL_STATIC_DRAW)
@@ -102,7 +100,7 @@ class Tile(object):
             0,
             self.tex_format,
             self.data_type,
-            self.data,
+            image_bytes,
         )
         # Restore normal unpack settings
         GL.glPixelStorei(GL.GL_UNPACK_ROW_LENGTH, 0)
@@ -162,12 +160,13 @@ class Texture(object):
         if self.tex_format is None:
             self.tex_format = self.internal_format
         self.data_type = data_type
-        self.texture_id = None
+        self.tiles = []
 
-    def bind_gl(self) -> None:
-        if self.texture_id is None:
-            self.upload_gl()
-        GL.glBindTexture(GL.GL_TEXTURE_2D, self.texture_id)
+    def __getitem__(self, key):
+        return self.tiles[key]
+
+    def __len__(self):
+        return len(self.tiles)
 
     @staticmethod
     def from_numpy(array, tex_format=None) -> "Texture":
@@ -184,33 +183,33 @@ class Texture(object):
             data_type=gl_type_for_numpy_dtype[array.dtype],
         )
 
-    def upload_gl(self) -> None:
-        max_size = GL.glGetIntegerv(GL.GL_MAX_TEXTURE_SIZE)
-        if self.size[0] > max_size or self.size[1] > max_size:
-            raise ValueError(f"Texture is too large for OpenGL; max size = {max_size}; texture size = {self.size}")  # TODO: tiled implementation
-        assert self.texture_id is None
-        self.texture_id = GL.glGenTextures(1)
-        GL.glBindTexture(GL.GL_TEXTURE_2D, self.texture_id)
-        GL.glPixelStorei(GL.GL_UNPACK_ALIGNMENT, 1)  # In case width is odd
-        GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_NEAREST)
-        GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_LINEAR_MIPMAP_LINEAR)
-        GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_S, GL.GL_REPEAT)  # for equirectangular
-        GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_T, GL.GL_MIRRORED_REPEAT)  # for equirectangular
-        # Show monochrome images as gray, not red
-        if self.internal_format == GL.GL_RED:
-            GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_SWIZZLE_G, GL.GL_RED)
-            GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_SWIZZLE_B, GL.GL_RED)
-        f_largest = GL.glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT)
-        GL.glTexParameterf(GL.GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, f_largest)
-        GL.glTexImage2D(
-            GL.GL_TEXTURE_2D,
-            0,
-            self.internal_format,
-            self.size[0],
-            self.size[1],
-            0,
-            self.tex_format,
-            self.data_type,
-            self.data,
-        )
-        GL.glGenerateMipmap(GL.GL_TEXTURE_2D)
+    def initialize_gl(self):
+        tile_size = 8192
+        max_texture_size = GL.glGetIntegerv(GL.GL_MAX_TEXTURE_SIZE)
+        assert max_texture_size >= tile_size
+        # Loop over tiles
+        top = 0
+        while top <= self.size[1]:
+            left = 0
+            while left <= self.size[0]:
+                width = min(tile_size, self.size[0] - left)
+                height = min(tile_size, self.size[1] - top)
+                print(left, top, width, height)
+                tile = Tile(
+                    image_size=self.size,
+                    data_type=self.data_type,
+                    internal_format=self.internal_format,
+                    tex_format=self.tex_format,
+                    left=left,
+                    top=top,
+                    width=width,
+                    height=height
+                )
+                self.tiles.append(tile)
+                tile.initialize_gl(self.data)
+                left += tile_size
+            top += tile_size
+
+    def paint_gl(self):
+        for tile in self:
+            tile.paint_gl()
