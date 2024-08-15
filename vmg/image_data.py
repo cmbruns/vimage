@@ -10,7 +10,7 @@ from PySide6 import QtCore
 import turbojpeg
 
 from vmg.frame import DimensionsOmp
-from vmg.texture import Texture
+from vmg.texture import Texture, ExifOrientation
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +25,7 @@ class ImageData(QtCore.QObject):
         self.xmp = {}
         self.size_raw = [0, 0]
         self.size_omp = DimensionsOmp(0, 0)
+        self.orientation = ExifOrientation.UNSPECIFIED
         self._raw_rot_ont = numpy.eye(3, dtype=numpy.float32)
         self._raw_rot_omp = numpy.eye(2, dtype=numpy.float32)
         self._is_360 = False
@@ -90,6 +91,7 @@ class ImageData(QtCore.QObject):
         self.xmp = xmp
         self.exif = exif
         orientation_code: int = exif.get("Orientation", 1)
+        self.orientation = ExifOrientation(orientation_code)
         self._raw_rot_omp = self.rotation_for_exif_orientation.get(orientation_code, numpy.eye(2, dtype=numpy.float32))
         self.size_omp = DimensionsOmp(*[abs(x) for x in (self.raw_rot_omp.T @ self.size_raw)])
         if self.size_omp.x == 2 * self.size_omp.y:

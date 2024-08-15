@@ -9,8 +9,7 @@ from vmg.image_data import ImageData
 from vmg.offscreen_context import OffscreenContext
 from vmg.selection_box import (CursorHolder)
 from vmg.state import ViewState
-from vmg.shader import RectangularShader, IImageShader, SphericalShader
-
+from vmg.shader import RectangularShader, IImageShader, SphericalShader, RectangularTileShader
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +29,7 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         self.vao = None
         self.rect_shader = RectangularShader()
         self.sphere_shader = SphericalShader()
+        self.rect_tile_shader = RectangularTileShader()
         self.program: IImageShader = self.rect_shader
         self.view_state = ViewState(window_size=self.size())
         self.view_state.cursor_changed.connect(self.change_cursor)
@@ -88,6 +88,7 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         GL.glBindVertexArray(self.vao)
         self.rect_shader.initialize_gl()
         self.sphere_shader.initialize_gl()
+        self.rect_tile_shader.initialize_gl()
         offscreen_context = OffscreenContext(self, self.context(), self.format())
         self.context_created.emit(offscreen_context)
 

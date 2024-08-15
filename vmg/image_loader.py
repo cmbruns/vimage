@@ -99,7 +99,11 @@ class ImageLoader(QtCore.QObject):
         with open(image_data.file_name, "rb") as in_file:
             jpeg_bytes = in_file.read()
         bgr_array = jpeg.decode(jpeg_bytes)
-        image_data.texture = Texture.from_numpy(array=bgr_array, tex_format=GL.GL_BGR)
+        image_data.texture = Texture.from_numpy(
+            array=bgr_array,
+            tex_format=GL.GL_BGR,
+            orientation=image_data.orientation,
+        )
         logger.info(f"jpeg loading/decoding took {et}")
         if self.offscreen_context is None:
             self.texture_created.emit(image_data)  # noqa
@@ -136,6 +140,7 @@ class ImageLoader(QtCore.QObject):
             data_type=GL.GL_UNSIGNED_BYTE,  # TODO...
             data=data,
             # tex_format=?,  # TODO:
+            orientation=image_data.orientation,
         )
         logger.info(f"PIL image processing took {et}")
         if self.offscreen_context is None:

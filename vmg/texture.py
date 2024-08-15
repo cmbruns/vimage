@@ -1,4 +1,5 @@
 from ctypes import c_float, c_void_p, cast, sizeof
+import enum
 import numpy
 from typing import Tuple, Optional
 
@@ -27,6 +28,75 @@ gl_type_for_numpy_dtype = {
 }
 
 
+class ExifOrientation(enum.Enum):
+    """Names describe the transformation from raw to oriented"""
+    UNSPECIFIED = 0
+    ROTATE_0 = 1
+    FLIP_HORIZONTAL = 2
+    ROTATE_180 = 3
+    FLIP_VERTICAL = 4
+    FLIP_HORIZONTAL_ROTATE_90_CCW = 5
+    ROTATE_90_CW = 6
+    FLIP_HORIZONTAL_ROTATE_90_CW = 7
+    ROTATE_90_CCW = 8
+
+
+def omp_for_rmp(rmp: tuple[int, int], size_rmp: tuple[int, int], orientation: ExifOrientation) -> tuple[int, int]:
+    x = numpy.eye(3, dtype=numpy.int32)  # default transform is identity
+    w, h = size_rmp
+
+    if orientation == ExifOrientation.FLIP_HORIZONTAL:  # 2
+        x = numpy.array([
+            [-1, 0, w],
+            [0, +1, 0],
+            [0, 0, +1],
+        ], dtype=numpy.int32)
+    elif orientation == ExifOrientation.ROTATE_180:  # 3
+        x = numpy.array([
+            [-1, 0, w],
+            [0, -1, h],
+            [0, 0, +1],
+        ], dtype=numpy.int32)
+    elif orientation == ExifOrientation.FLIP_VERTICAL:  # 4
+        x = numpy.array([
+            [+1, 0, 0],
+            [0, -1, h],
+            [0, 0, +1],
+        ], dtype=numpy.int32)
+    elif orientation == ExifOrientation.FLIP_HORIZONTAL_ROTATE_90_CCW:  # 5
+        x = numpy.array([
+            [0, +1, 0],
+            [+1, 0, 0],
+            [0, 0, +1],
+        ], dtype=numpy.int32)
+    elif orientation == ExifOrientation.ROTATE_90_CW:  # 6
+        x = numpy.array([
+            [0, +1, 0],
+            [-1, 0, w],
+            [0, 0, +1],
+        ], dtype=numpy.int32)
+    elif orientation == ExifOrientation.FLIP_HORIZONTAL_ROTATE_90_CW:  # 7
+        x = numpy.array([
+            [0, -1, h],
+            [-1, 0, w],
+            [0, 0, +1],
+        ], dtype=numpy.int32)
+    elif orientation == ExifOrientation.ROTATE_90_CCW:  # 8
+        x = numpy.array([
+            [0, -1, h],
+            [+1, 0, 0],
+            [0, 0, +1],
+        ], dtype=numpy.int32)
+
+    result = x @ (*rmp, 1)
+    assert result[2] == 1
+    assert result[0] >= 0
+    assert result[1] >= 0
+    assert result[0] <= max(w, h)
+    assert result[1] <= max(w, h)
+    return int(result[0]), int(result[1])
+
+
 class Tile(object):
     def __init__(
             self,
@@ -40,20 +110,18 @@ class Tile(object):
         self.texture = texture
         self.vao = None
         self.vbo = None
-        # Convert to normalized image coordinates
-        left_nic = 2 * left / texture.width - 1
-        right_nic = 2 * (left + width) / texture.width - 1
-        top_nic = 1 - 2 * top / texture.height
-        bottom_nic = 1 - 2 * (top + height) / texture.height
+        # Convert to oriented image pixel coordinates (omp)
+        left_omp, top_omp = omp_for_rmp((left, top), texture.size, texture.orientation)
+        right_omp, bottom_omp = omp_for_rmp((left+width, top+height), texture.size, texture.orientation)
         self.vertexes = numpy.array(
             [
-                # nic_x, nic_y, txc_x, txc_y
-                [left_nic, top_nic, 0, 0],  # upper left
-                [left_nic, bottom_nic, 0, 1],  # lower left
-                [right_nic, top_nic, 1, 0],  # upper right
-                [right_nic, bottom_nic, 1, 1],  # lower right
+                # omp_x, omp_y, txc_x, txc_y
+                [left_omp, top_omp, 0, 0],  # upper left
+                [left_omp, bottom_omp, 0, 1],  # lower left
+                [right_omp, top_omp, 1, 0],  # upper right
+                [right_omp, bottom_omp, 1, 1],  # lower right
             ],
-            dtype=numpy.float32
+            dtype=numpy.float32,
         ).flatten()
         self.texture_id = None
         self.load_sync = None
@@ -146,6 +214,7 @@ class Texture(object):
             data_type: GLenum,
             data=None,
             tex_format: Optional[GLenum] = None,
+            orientation=ExifOrientation.UNSPECIFIED,
     ):
         self.size = size
         self.data = data
@@ -154,6 +223,7 @@ class Texture(object):
         if self.tex_format is None:
             self.tex_format = self.internal_format
         self.data_type = data_type
+        self.orientation = orientation
         self.tiles = []
 
     def __getitem__(self, key):
@@ -163,7 +233,7 @@ class Texture(object):
         return len(self.tiles)
 
     @staticmethod
-    def from_numpy(array, tex_format=None) -> "Texture":
+    def from_numpy(array, tex_format=None, orientation=ExifOrientation.UNSPECIFIED) -> "Texture":
         h, w = array.shape[:2]
         if len(array.shape) == 2:
             channel_count = 1
@@ -175,6 +245,7 @@ class Texture(object):
             data=array,
             tex_format=tex_format,
             data_type=gl_type_for_numpy_dtype[array.dtype],
+            orientation=orientation,
         )
 
     @property

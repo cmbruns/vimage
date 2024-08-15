@@ -81,24 +81,19 @@ class RectangularTileShader(IImageShader):
         GL.glAttachShader(self.shader, vertex_shader)
         GL.glAttachShader(self.shader, fragment_shader)
         GL.glLinkProgram(self.shader)
-        GL.glGetUniformIndices()
-        self.zoom_location = GL.glGetUniformLocation(self.shader, "window_zoom")
-        self.window_size_location = GL.glGetUniformLocation(self.shader, "window_size")
-        self.image_center_img_location = GL.glGetUniformLocation(self.shader, "image_center_img")
-        self.pixelFilter_location = GL.glGetUniformLocation(self.shader, "pixelFilter")
-        self.raw_rot_omp_location = GL.glGetUniformLocation(self.shader, "raw_rot_omp")
+        self.ndc_x_omp_location = GL.glGetUniformLocation(self.shader, "ndc_X_omp")
         self.sel_rect_omp_location = GL.glGetUniformLocation(self.shader, "sel_rect_omp")
         self.background_color_location = GL.glGetUniformLocation(self.shader, "background_color")
+        self.pixelFilter_location = GL.glGetUniformLocation(self.shader, "pixel_filter")
+        self.omp_scale_qwn_location = GL.glGetUniformLocation(self.shader, "omp_scale_qwn")
 
     def paint_gl(self, state: ViewState) -> None:
         GL.glUseProgram(self.shader)
-        GL.glUniform1f(self.zoom_location, state.zoom)
-        GL.glUniform2i(self.window_size_location, *state.window_size)
-        GL.glUniform2f(self.image_center_img_location, *state.center_rel)
         GL.glUniform1i(self.pixelFilter_location, state.pixel_filter.value)
         GL.glUniform4i(self.sel_rect_omp_location, *state.sel_rect.left_top_right_bottom)
         GL.glUniform4f(self.background_color_location, *self.background_color)
-        GL.glUniformMatrix2fv(self.raw_rot_omp_location, 1, True, state.raw_rot_omp)
+        GL.glUniformMatrix2fv(self.ndc_x_omp_location, 1, True, state.ndc_x_omp)
+        GL.glUniformMatrix2fv(self.omp_scale_qwn, 1, True, state.omp_scale_qwn)
 
 
 class SphericalShader(IImageShader):

@@ -18,11 +18,11 @@ void main()
     image_color = vec4(0, 1, 0, 1);
     return;
 
-    float mipmapLevel = textureQueryLod(image, p_tcr).x;
+    float mipmapLevel = textureQueryLod(tile, p_tcr).x;
     if (mipmapLevel > 0 || pixel_filter == FILTER_NEAREST)
         image_color = texture(tile, p_tcr);
     else
-        image_color = catrom(tile, p_tcr);
+        image_color = catrom(tile, p_tcr, false);
 
     image_color = selection_box(p_omp, image_color, background_color, sel_rect_omp, omp_scale_qwn);
 }
