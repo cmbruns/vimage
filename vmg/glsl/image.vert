@@ -2,6 +2,9 @@
 
 // Vertex shader for vimage
 
+layout(location = 1) in vec2 pos_nic;  // normalized image coordinates
+layout(location = 2) in vec2 pos_txc;  // texture coordinates
+
 // host side draw call should be "glDrawArrays(GL_TRIANGLE_STRIP, 0, 4)"
 const vec4 SCREEN_QUAD[4] = vec4[4](
     vec4( 1, -1, 0.5, 1),  // lower right
