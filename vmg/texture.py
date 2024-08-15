@@ -106,6 +106,10 @@ class Tile(object):
             top: int,
             width: int,
             height: int,
+            left_pad: int,
+            top_pad: int,
+            right_pad: int,
+            bottom_pad: int,
     ):
         self.texture = texture
         self.vao = None
@@ -113,13 +117,17 @@ class Tile(object):
         # Convert to oriented image pixel coordinates (omp)
         left_omp, top_omp = omp_for_rmp((left, top), texture.size, texture.orientation)
         right_omp, bottom_omp = omp_for_rmp((left+width, top+height), texture.size, texture.orientation)
+        left_tc = left_pad / width
+        right_tc = 1 - right_pad / width
+        top_tc = top_pad / height
+        bottom_tc = 1 - bottom_pad / height
         self.vertexes = numpy.array(
             [
                 # omp_x, omp_y, txc_x, txc_y
-                [left_omp, top_omp, 0, 0],  # upper left
-                [left_omp, bottom_omp, 0, 1],  # lower left
-                [right_omp, top_omp, 1, 0],  # upper right
-                [right_omp, bottom_omp, 1, 1],  # lower right
+                [left_omp + left_pad, top_omp + top_pad, left_tc, top_tc],  # upper left
+                [left_omp + left_pad, bottom_omp - bottom_pad, left_tc, bottom_tc],  # lower left
+                [right_omp - right_pad, top_omp + top_pad, right_tc, top_tc],  # upper right
+                [right_omp - right_pad, bottom_omp - bottom_pad, right_tc, bottom_tc],  # lower right
             ],
             dtype=numpy.float32,
         ).flatten()
@@ -141,6 +149,8 @@ class Tile(object):
         # TODO: change to GL.GL_LINEAR_MIPMAP_LINEAR after generating mipmaps
         GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_NEAREST)
         # TODO: test and debug 360 boundary conditions with tiled image
+        GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_S, GL.GL_CLAMP_TO_EDGE)
+        GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_T, GL.GL_CLAMP_TO_EDGE)
         # Show monochrome images as gray, not red
         if self.texture.internal_format == GL.GL_RED:
             GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_SWIZZLE_G, GL.GL_RED)
@@ -253,14 +263,23 @@ class Texture(object):
         return self.size[1]
 
     def initialize_gl(self):
-        tile_size = 8192
+        tile_size = 128
         max_texture_size = GL.glGetIntegerv(GL.GL_MAX_TEXTURE_SIZE)
         assert max_texture_size >= tile_size
         # Loop over tiles
         top = 0
+        # pad tiles by 2 pixels so cubic interpolation is seamless
+        top_pad = 0
+        bottom_pad = 2
         while top <= self.height:
+            if top + tile_size - 4 >= self.height:  # TODO: is 4 correct here?
+                bottom_pad = 0
             left = 0
+            left_pad = 0
+            right_pad = 2
             while left <= self.width:
+                if left + tile_size - 4 >= self.width:
+                    right_pad = 0
                 width = min(tile_size, self.width - left)
                 height = min(tile_size, self.height - top)
                 print(left, top, width, height)
@@ -269,12 +288,18 @@ class Texture(object):
                     left=left,
                     top=top,
                     width=width,
-                    height=height
+                    height=height,
+                    left_pad=left_pad,
+                    top_pad=top_pad,
+                    right_pad=right_pad,
+                    bottom_pad=bottom_pad,
                 )
                 self.tiles.append(tile)
                 tile.initialize_gl(self.data)
-                left += tile_size
-            top += tile_size
+                left += tile_size - 4
+                left_pad = 2
+            top += tile_size - 4
+            top_pad = 2
 
     def paint_gl(self):
         for tile in self:
