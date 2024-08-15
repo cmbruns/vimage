@@ -9,15 +9,12 @@ uniform float omp_scale_qwn = 1.0;
 
 in vec2 p_omp;
 in vec2 p_tcr;
+in vec4 test_color;
 
 out vec4 image_color;
 
 void main()
 {
-    // debugging
-    image_color = vec4(0, 1, 0, 1);
-    return;
-
     float mipmapLevel = textureQueryLod(tile, p_tcr).x;
     if (mipmapLevel > 0 || pixel_filter == FILTER_NEAREST)
         image_color = texture(tile, p_tcr);

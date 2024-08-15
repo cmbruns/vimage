@@ -92,8 +92,8 @@ class RectangularTileShader(IImageShader):
         GL.glUniform1i(self.pixelFilter_location, state.pixel_filter.value)
         GL.glUniform4i(self.sel_rect_omp_location, *state.sel_rect.left_top_right_bottom)
         GL.glUniform4f(self.background_color_location, *self.background_color)
-        GL.glUniformMatrix2fv(self.ndc_x_omp_location, 1, True, state.ndc_x_omp)
-        GL.glUniformMatrix2fv(self.omp_scale_qwn, 1, True, state.omp_scale_qwn)
+        GL.glUniformMatrix3fv(self.ndc_x_omp_location, 1, True, state.ndc_xform_omp())
+        GL.glUniform1f(self.omp_scale_qwn_location, state.omp_scale_qwn())
 
 
 class SphericalShader(IImageShader):

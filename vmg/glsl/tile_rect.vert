@@ -11,8 +11,8 @@ out vec2 p_tcr;  // output tile raw texture coordinates
 
 void main()
 {
-    vec3 p_ndc = ndc_X_omp * vec3(p_omp, 1);
-    gl_Position = vec4(p_ndc.xy / p_ndc.z, 0.5, 1);
+    vec3 p_ndc = ndc_X_omp * vec3(vp_omp, 1);
+    gl_Position = vec4(p_ndc.xy/p_ndc.z, 0.5, 1);
     p_omp = vp_omp;
     p_tcr = vp_tcr;
 }

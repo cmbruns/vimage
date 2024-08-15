@@ -177,6 +177,15 @@ class ViewState(QObject):
         p_omp = self.omp_for_qpoint(event.pos())
         self.sel_rect.mouse_release_event(event, p_omp)
 
+    def ndc_xform_omp(self) -> numpy.ndarray:
+        s1 = 2.0 * self.asc_qwn * self.zoom / self.asc_omp
+        w_qwn, h_qwn = self._size_qwn
+        return numpy.array([
+            [s1 / w_qwn, 0, -s1 * self.center_omp.x / w_qwn],
+            [0, -s1 / h_qwn, s1 * self.center_omp.y / h_qwn],
+            [0, 0, 1],
+        ], dtype=numpy.float32)
+
     def nic_for_qwn(self, p_qwn: LocationQwn) -> LocationNic:
         w_qwn, h_qwn = self._size_qwn
         zoom = self.zoom
@@ -235,6 +244,9 @@ class ViewState(QObject):
             [0, 0, 1],
         ], dtype=numpy.float32)
         return LocationOmp(*omp_xform_nic @ p_nic)
+
+    def omp_scale_qwn(self) -> float:
+        return self._size_omp[1] / self._size_qwn[1] / self.zoom
 
     def omp_xform_ndc(self) -> numpy.ndarray:
         scale = self.asc_omp / 2.0 / self.asc_qwn / self.zoom
