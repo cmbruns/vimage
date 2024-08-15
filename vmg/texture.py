@@ -30,27 +30,21 @@ gl_type_for_numpy_dtype = {
 class Tile(object):
     def __init__(
             self,
-            image_size: Tuple[GLint, GLint],
-            data_type: GLenum,
-            internal_format: GLenum,
-            tex_format: GLenum,
+            texture: "Texture",
             # portion of the image covered by this tile
             left: int,
             top: int,
             width: int,
             height: int,
     ):
-        self.image_size = image_size
-        self.data_type = data_type
-        self.internal_format = internal_format
-        self.tex_format = tex_format
+        self.texture = texture
         self.vao = None
         self.vbo = None
         # Convert to normalized image coordinates
-        left_nic = 2 * left / image_size[0] - 1
-        right_nic = 2 * (left + width) / image_size[0] - 1
-        top_nic = 1 - 2 * top / image_size[1]
-        bottom_nic = 1 - 2 * (top + height) / image_size[1]
+        left_nic = 2 * left / texture.width - 1
+        right_nic = 2 * (left + width) / texture.width - 1
+        top_nic = 1 - 2 * top / texture.height
+        bottom_nic = 1 - 2 * (top + height) / texture.height
         self.vertexes = numpy.array(
             [
                 # nic_x, nic_y, txc_x, txc_y
@@ -80,7 +74,7 @@ class Tile(object):
         GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_NEAREST)
         # TODO: test and debug 360 boundary conditions with tiled image
         # Show monochrome images as gray, not red
-        if self.internal_format == GL.GL_RED:
+        if self.texture.internal_format == GL.GL_RED:
             GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_SWIZZLE_G, GL.GL_RED)
             GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_SWIZZLE_B, GL.GL_RED)
         # Anisotropic filtering
@@ -88,18 +82,18 @@ class Tile(object):
         GL.glTexParameterf(GL.GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, f_largest)
         # TODO: use preferred internal format in image data...
         # row stride required for horizontal tiling
-        GL.glPixelStorei(GL.GL_UNPACK_ROW_LENGTH, self.image_size[0])
+        GL.glPixelStorei(GL.GL_UNPACK_ROW_LENGTH, self.texture.width)
         GL.glPixelStorei(GL.GL_UNPACK_SKIP_PIXELS, self.left)
         GL.glPixelStorei(GL.GL_UNPACK_SKIP_ROWS, self.top)
         GL.glTexImage2D(
             GL.GL_TEXTURE_2D,
             0,
-            self.internal_format,
+            self.texture.internal_format,
             self.width,
             self.height,
             0,
-            self.tex_format,
-            self.data_type,
+            self.texture.tex_format,
+            self.texture.data_type,
             image_bytes,
         )
         # Restore normal unpack settings
@@ -183,23 +177,24 @@ class Texture(object):
             data_type=gl_type_for_numpy_dtype[array.dtype],
         )
 
+    @property
+    def height(self):
+        return self.size[1]
+
     def initialize_gl(self):
         tile_size = 8192
         max_texture_size = GL.glGetIntegerv(GL.GL_MAX_TEXTURE_SIZE)
         assert max_texture_size >= tile_size
         # Loop over tiles
         top = 0
-        while top <= self.size[1]:
+        while top <= self.height:
             left = 0
-            while left <= self.size[0]:
-                width = min(tile_size, self.size[0] - left)
-                height = min(tile_size, self.size[1] - top)
+            while left <= self.width:
+                width = min(tile_size, self.width - left)
+                height = min(tile_size, self.height - top)
                 print(left, top, width, height)
                 tile = Tile(
-                    image_size=self.size,
-                    data_type=self.data_type,
-                    internal_format=self.internal_format,
-                    tex_format=self.tex_format,
+                    texture=self,
                     left=left,
                     top=top,
                     width=width,
@@ -213,3 +208,7 @@ class Texture(object):
     def paint_gl(self):
         for tile in self:
             tile.paint_gl()
+
+    @property
+    def width(self):
+        return self.size[0]
