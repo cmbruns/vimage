@@ -9,7 +9,6 @@ uniform float omp_scale_qwn = 1.0;
 
 in vec2 p_omp;
 in vec2 p_tcr;
-in vec4 test_color;
 
 out vec4 image_color;
 
