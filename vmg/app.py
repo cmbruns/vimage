@@ -62,7 +62,7 @@ class VimageApp(object):
         f.setVersion(4, 1)
         QSurfaceFormat.setDefaultFormat(f)
         # Respect dark mode setting on windows
-        if platform.system == "Windows":
+        if platform.system() == "Windows":
             sys.argv += ['-platform', 'windows:darkmode=2']
         app = VimageApplication(sys.argv)
         app.setStyle("fusion")  # Maybe looks better than default Vista style?

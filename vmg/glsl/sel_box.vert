@@ -45,6 +45,12 @@ const vtx_mask outline[10] = vtx_mask[10](
 
 void main()
 {
+    // If selection box is empty, generate degenerate equal vertexes
+    if (sel_rect_omp.x == 0 && sel_rect_omp.z == 0) {
+        gl_Position = vec4(0);
+        return;
+    }
+
     // host side draw call should be "glDrawArrays(GL_TRIANGLE_STRIP, 0, 10)"
     vtx_mask vtx = outline[gl_VertexID];
     float hlw = 0.5 * omp_scale_qwn * line_width_qwn;  // half line width, in image pixels

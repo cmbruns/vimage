@@ -36,6 +36,15 @@ class ViewState(QObject):
         self.sel_rect.cursor_changed.connect(self.on_rect_cursor_changed)
         self._is_dragging = False
         self._previous_mouse_position = None
+        self._background_color = [0.5, 0.5, 0.5, 0]
+
+    @property
+    def background_color(self):
+        return self._background_color
+
+    @background_color.setter
+    def background_color(self, color):
+        self._background_color[:3] = color[:3]
 
     @property
     def center_omp(self) -> LocationOmp:

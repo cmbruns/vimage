@@ -119,8 +119,8 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         self.view_state.mouse_release_event(event)
 
     def paintGL(self) -> None:
-        bg_color = self.palette().color(self.backgroundRole()).getRgbF()
-        GL.glClearColor(*bg_color)
+        self.view_state.background_color = self.palette().color(self.backgroundRole()).getRgbF()
+        GL.glClearColor(*self.view_state.background_color)
         GL.glClear(GL.GL_COLOR_BUFFER_BIT)
         if self.image_data is None:
             return
