@@ -14,7 +14,7 @@ class IImageShader(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def paint_gl(self, state: ViewState) -> None:
+    def paint_gl(self, state: ViewState, texture) -> None:
         pass
 
 
@@ -27,6 +27,7 @@ class RectangularTileShader(IImageShader):
         self.background_color_location = None
         self.omp_scale_qwn_location = None
         self.background_color = [0.5, 0.5, 0.5, 0.5]
+        self.box_shader = SelectionBoxShader()
 
     def initialize_gl(self) -> None:
         vertex_shader = compileShader(pkg_resources.resource_string(
@@ -44,14 +45,50 @@ class RectangularTileShader(IImageShader):
         self.background_color_location = GL.glGetUniformLocation(self.shader, "background_color")
         self.pixelFilter_location = GL.glGetUniformLocation(self.shader, "pixel_filter")
         self.omp_scale_qwn_location = GL.glGetUniformLocation(self.shader, "omp_scale_qwn")
+        self.box_shader.initialize_gl()
 
-    def paint_gl(self, state: ViewState) -> None:
+    def paint_gl(self, state: ViewState, texture) -> None:
+        self.box_shader.paint_gl(state, texture)
         GL.glUseProgram(self.shader)
         GL.glUniform1i(self.pixelFilter_location, state.pixel_filter.value)
         GL.glUniform4i(self.sel_rect_omp_location, *state.sel_rect.left_top_right_bottom)
-        GL.glUniform4f(self.background_color_location, *self.background_color)
+        GL.glUniform4f(self.background_color_location, *state.background_color)
         GL.glUniformMatrix3fv(self.ndc_x_omp_location, 1, True, state.ndc_xform_omp())
         GL.glUniform1f(self.omp_scale_qwn_location, state.omp_scale_qwn())
+        texture.paint_gl()
+
+
+class SelectionBoxShader(IImageShader):
+    def __init__(self):
+        self.shader = None
+        self.ndc_x_omp_location = None
+        self.sel_rect_omp_location = None
+        self.background_color_location = None
+        self.omp_scale_qwn_location = None
+
+    def initialize_gl(self) -> None:
+        vertex_shader = compileShader(pkg_resources.resource_string(
+            "vmg.glsl", "sel_box.vert", ), GL.GL_VERTEX_SHADER)
+        fragment_shader = compileShader(
+            pkg_resources.resource_string("vmg.glsl", "shared.frag") +
+            pkg_resources.resource_string("vmg.glsl", "sel_box.frag"),
+            GL.GL_FRAGMENT_SHADER)
+        self.shader = GL.glCreateProgram()
+        GL.glAttachShader(self.shader, vertex_shader)
+        GL.glAttachShader(self.shader, fragment_shader)
+        GL.glLinkProgram(self.shader)
+        self.ndc_x_omp_location = GL.glGetUniformLocation(self.shader, "ndc_X_omp")
+        self.sel_rect_omp_location = GL.glGetUniformLocation(self.shader, "sel_rect_omp")
+        self.background_color_location = GL.glGetUniformLocation(self.shader, "background_color")
+        self.omp_scale_qwn_location = GL.glGetUniformLocation(self.shader, "omp_scale_qwn")
+
+    def paint_gl(self, state: ViewState, texture) -> None:
+        GL.glUseProgram(self.shader)
+        GL.glUniform4i(self.sel_rect_omp_location, *state.sel_rect.left_top_right_bottom)
+        GL.glUniform4f(self.background_color_location, *state.background_color)
+        GL.glUniformMatrix3fv(self.ndc_x_omp_location, 1, True, state.ndc_xform_omp())
+        GL.glUniform1f(self.omp_scale_qwn_location, state.omp_scale_qwn())
+        GL.glDrawArrays(GL.GL_TRIANGLE_STRIP, 0, 10)
 
 
 class SphericalShader(IImageShader):
@@ -82,7 +119,7 @@ class SphericalShader(IImageShader):
         self.window_size_location = GL.glGetUniformLocation(self.shader, "window_size")
         self.projection_location = GL.glGetUniformLocation(self.shader, "projection")
 
-    def paint_gl(self, state: ViewState) -> None:
+    def paint_gl(self, state: ViewState, texture) -> None:
         # both nearest and catmull-rom use nearest at the moment.
         GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_NEAREST)
         GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_LINEAR_MIPMAP_NEAREST)
@@ -98,3 +135,4 @@ class SphericalShader(IImageShader):
         GL.glUniformMatrix3fv(self.raw_rot_ont_location, 1, True, state.raw_rot_ont)
         GL.glUniform2i(self.window_size_location, *state.window_size)
         GL.glUniform1i(self.projection_location, state.projection.value)
+        texture.paint_gl()

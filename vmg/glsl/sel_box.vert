@@ -30,7 +30,7 @@ struct vtx_mask {
 };
 
 // values used to construct the outline vertices for a triangle strip with ten vertices
-const vtx_mask outline[10] = outline[10](
+const vtx_mask outline[10] = vtx_mask[10](
     vtx_mask(left, top, outer),
     vtx_mask(left, top, inner),
     vtx_mask(right, top, outer),
@@ -49,10 +49,10 @@ void main()
     vtx_mask vtx = outline[gl_VertexID];
     float hlw = 0.5 * omp_scale_qwn * line_width_qwn;  // half line width, in image pixels
     vec3 p_omp = vec3(  // vertex in image pixel coordinates
-        sel_rect_omp[vtx.x] + outer_dir[vtx.x] * mask.edge * hlw,
-        sel_rect_omp[vtx.y] + outer_dir[vtx.y] * mask.edge * hlw,
+        sel_rect_omp[vtx.x] + outer_dir[vtx.x] * vtx.edge * hlw,
+        sel_rect_omp[vtx.y] + outer_dir[vtx.y] * vtx.edge * hlw,
         1);
     // convert image pixel coordinates to opengl ndc coordinates
-    vec3 p_ndc = ndx_X_omp * p_omp;
+    vec3 p_ndc = ndc_X_omp * p_omp;
     gl_Position = vec4(p_ndc.xy / p_ndc.z, 0.5, 1);
 }
