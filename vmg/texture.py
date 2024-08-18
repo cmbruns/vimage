@@ -125,11 +125,11 @@ class Tile(object):
         right_tc = 1 - right_pad / width
         top_tc = top_pad / height
         bottom_tc = 1 - bottom_pad / height
-        print(
-            f" rmp: {left_rmp},{top_rmp},{right_rmp},{bottom_rmp}"
-            f"\n omp: {left_omp},{top_omp},{right_omp},{bottom_omp}"
-            f"\n txc: {left_tc:.5f},{top_tc:.5f},{right_tc:.5f},{bottom_tc:.5f}"
-        )
+        # print(
+        #     f" rmp: {left_rmp},{top_rmp},{right_rmp},{bottom_rmp}"
+        #     f"\n omp: {left_omp},{top_omp},{right_omp},{bottom_omp}"
+        #     f"\n txc: {left_tc:.5f},{top_tc:.5f},{right_tc:.5f},{bottom_tc:.5f}"
+        # )
         # TODO: understand why this is needed...
         if texture.orientation in [
             ExifOrientation.FLIP_HORIZONTAL_ROTATE_90_CCW,
@@ -173,12 +173,6 @@ class Tile(object):
         self.texture_id = GL.glGenTextures(1)
         GL.glBindTexture(GL.GL_TEXTURE_2D, self.texture_id)
         GL.glPixelStorei(GL.GL_UNPACK_ALIGNMENT, 1)  # In case width is odd
-        GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_NEAREST)
-        # TODO: change to GL.GL_LINEAR_MIPMAP_LINEAR after generating mipmaps
-        GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_NEAREST)
-        # TODO: test and debug 360 boundary conditions with tiled image
-        GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_S, GL.GL_CLAMP_TO_EDGE)
-        GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_T, GL.GL_CLAMP_TO_EDGE)
         # Show monochrome images as gray, not red
         if self.texture.internal_format == GL.GL_RED:
             GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_SWIZZLE_G, GL.GL_RED)
@@ -202,6 +196,12 @@ class Tile(object):
             self.texture.data_type,
             image_bytes,
         )
+        GL.glGenerateMipmap(GL.GL_TEXTURE_2D)
+        GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_NEAREST)
+        GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_LINEAR_MIPMAP_LINEAR)
+        # TODO: test and debug 360 boundary conditions with tiled image
+        GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_S, GL.GL_CLAMP_TO_EDGE)
+        GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_T, GL.GL_CLAMP_TO_EDGE)
         # Restore normal unpack settings
         GL.glPixelStorei(GL.GL_UNPACK_ROW_LENGTH, 0)
         GL.glPixelStorei(GL.GL_UNPACK_SKIP_PIXELS, 0)
@@ -253,6 +253,7 @@ class Texture(object):
             data=None,
             tex_format: Optional[GLenum] = None,
             orientation=ExifOrientation.UNSPECIFIED,
+            tile_size = 8192
     ):
         self.size = size
         self.data = data
@@ -262,6 +263,7 @@ class Texture(object):
             self.tex_format = self.internal_format
         self.data_type = data_type
         self.orientation = orientation
+        self.tile_size = tile_size
         self.tiles = []
 
     def __getitem__(self, key):
@@ -291,7 +293,7 @@ class Texture(object):
         return self.size[1]
 
     def initialize_gl(self):
-        tile_size = 128
+        tile_size = self.tile_size
         max_texture_size = GL.glGetIntegerv(GL.GL_MAX_TEXTURE_SIZE)
         assert max_texture_size >= tile_size
         # Loop over tiles
@@ -310,7 +312,7 @@ class Texture(object):
                     right_pad = 0
                 width = min(tile_size, self.width - left)
                 height = min(tile_size, self.height - top)
-                print(left, top, width, height)
+                # print(left, top, width, height)
                 tile = Tile(
                     texture=self,
                     left=left,

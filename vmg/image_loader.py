@@ -170,12 +170,12 @@ class ImageLoader(QtCore.QObject):
                 return
             num_loaded_tiles = self._loaded_tile_count(image_data)
             while num_loaded_tiles < len(image_data.texture):
-                print("waiting for tile upload")  # TODO: logging
+                # print("waiting for tile upload")  # TODO: logging
                 time.sleep(0.050)
                 if not self._is_current(image_data):
                     return
                 num_loaded_tiles = self._loaded_tile_count(image_data)
-            print("ImageLoader.texture_loaded()")  # TODO: logging
+            # print("ImageLoader.texture_loaded()")  # TODO: logging
             # self.texture_changed.emit(image_data.texture)  # noqa
             logger.info(f"(Loading thread) tile upload took {et}")
             self.progress_changed.emit(90)

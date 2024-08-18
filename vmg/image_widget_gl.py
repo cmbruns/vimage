@@ -9,7 +9,7 @@ from vmg.image_data import ImageData
 from vmg.offscreen_context import OffscreenContext
 from vmg.selection_box import (CursorHolder)
 from vmg.state import ViewState
-from vmg.shader import RectangularShader, IImageShader, SphericalShader, RectangularTileShader
+from vmg.shader import IImageShader, SphericalShader, RectangularTileShader
 
 logger = logging.getLogger(__name__)
 
@@ -27,10 +27,9 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         self.image_data = None
         self.setMinimumSize(10, 10)
         self.vao = None
-        self.rect_shader = RectangularShader()
         self.sphere_shader = SphericalShader()
         self.rect_tile_shader = RectangularTileShader()
-        self.program: IImageShader = self.rect_shader
+        self.program: IImageShader = self.rect_tile_shader
         self.view_state = ViewState(window_size=self.size())
         self.view_state.cursor_changed.connect(self.change_cursor)
         self.view_state.request_message.connect(self.request_message)
@@ -86,11 +85,10 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         )
         self.vao = GL.glGenVertexArrays(1)
         GL.glBindVertexArray(self.vao)
-        self.rect_shader.initialize_gl()
-        self.sphere_shader.initialize_gl()
         self.rect_tile_shader.initialize_gl()
+        self.sphere_shader.initialize_gl()
         offscreen_context = OffscreenContext(self, self.context(), self.format())
-        self.context_created.emit(offscreen_context)
+        self.context_created.emit(offscreen_context)  # noqa
 
     def keyPressEvent(self, event):
         self.view_state.key_press_event(event)
@@ -122,21 +120,19 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
 
     def paintGL(self) -> None:
         bg_color = self.palette().color(self.backgroundRole()).getRgbF()
-        self.rect_shader.background_color[:] = bg_color[:]
         GL.glClearColor(*bg_color)
         GL.glClear(GL.GL_COLOR_BUFFER_BIT)
         if self.image_data is None:
             return
         GL.glBindVertexArray(self.vao)
         if not self.image_data.has_displayed:
-            self.progress_changed.emit(95)
-        self.rect_tile_shader.paint_gl(self.view_state)
-        # self.program.paint_gl(self.view_state)
+            self.progress_changed.emit(95)  # noqa
+        self.program.paint_gl(self.view_state)
         self.image_data.texture.paint_gl()
         if not self.image_data.has_displayed:
             self.image_data.has_displayed = True
-            self.progress_changed.emit(98)
-            self.image_displayed.emit(self.image_data)
+            self.progress_changed.emit(98)  # noqa
+            self.image_displayed.emit(self.image_data)  # noqa
 
     progress_changed = QtCore.Signal(int)
 
@@ -160,7 +156,7 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
             self.program = self.sphere_shader
         else:
             self.is_360 = False
-            self.program = self.rect_shader
+            self.program = self.rect_tile_shader
         self.signal_360.emit(self.is_360)  # noqa
         w, h = self.image_data.size
         self.image_size_changed.emit(int(w), int(h))  # noqa
