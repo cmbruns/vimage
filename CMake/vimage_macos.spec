@@ -6,8 +6,8 @@ a = Analysis(
     pathex=['../'],
     binaries=[],
     datas=[
-        ("../vmg/*.vert", "vmg"),
-        ("../vmg/*.frag", "vmg"),
+        ("../vmg/glsl/*.vert", "vmg"),
+        ("../vmg/glsl/*.frag", "vmg"),
         ("../vmg/images/*", "vmg/images"),
         ("../vmg/git_hash.txt", "vmg"),
     ],
