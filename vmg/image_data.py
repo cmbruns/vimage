@@ -92,6 +92,7 @@ class ImageData(QtCore.QObject):
         self.exif = exif
         orientation_code: int = exif.get("Orientation", 1)
         self.orientation = ExifOrientation(orientation_code)
+        logger.info(f"Image EXIF orientation = {self.orientation}")
         self._raw_rot_omp = self.rotation_for_exif_orientation.get(orientation_code, numpy.eye(2, dtype=numpy.float32))
         self.size_omp = DimensionsOmp(*[abs(x) for x in (self.raw_rot_omp.T @ self.size_raw)])
         if self.size_omp.x == 2 * self.size_omp.y:
