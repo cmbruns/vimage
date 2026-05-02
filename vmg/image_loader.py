@@ -22,6 +22,8 @@ class ImageLoader(QtCore.QObject):
         super().__init__()
         self.current_image_data = None
         self.offscreen_context = None
+        self.pending_image_data = None
+        self.context_ready = False
 
     load_failed = QtCore.Signal(str)
     texture_created = QtCore.Signal(ImageData)
@@ -40,6 +42,15 @@ class ImageLoader(QtCore.QObject):
             return False  # Latest file is something else
         else:
             return True
+
+    def _defer_texture_until_context(self, image_data: ImageData) -> bool:
+        if not self.context_ready:
+            self.pending_image_data = image_data
+            logger.info(
+                f"Deferring texture initialization for {image_data.file_name} until OpenGL context is ready"
+            )
+            return True
+        return False
 
     @QtCore.Slot(str)  # noqa
     def load_from_file_name(self, file_name: str):
@@ -88,6 +99,12 @@ class ImageLoader(QtCore.QObject):
         logger.info("OpenGL context created")
         assert self.offscreen_context is None
         self.offscreen_context = offscreen_context
+        self.context_ready = True
+        if self.pending_image_data is not None:
+            pending_image_data = self.pending_image_data
+            self.pending_image_data = None
+            if self._is_current(pending_image_data):
+                self.processTexture(pending_image_data)
 
     @QtCore.Slot(ImageData)  # noqa
     def texture_turbo_jpeg(self, image_data: ImageData):
