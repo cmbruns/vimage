@@ -26,12 +26,12 @@ from PySide6.QtWidgets import QFileDialog, QMessageBox
 from vmg.circular_combo_box import CircularComboBox
 from vmg.command import CropToSelection
 from vmg.image_loader import ImageLoader
-from vmg.image_data import ImageData
+from vmg.image_data import ImageData, InputProjection
 from vmg.log import LogDialog
 from vmg.natural_sort import natural_sort_key
 from vmg.pixel_filter import PixelFilter
 from vmg.progress import ProgressStatus, ProgressState
-from vmg.projection_360 import Projection360
+from vmg.display_projection import DisplayProjection
 from vmg.recent_file import RecentFileList
 from vmg.ui_vimage import Ui_MainWindow
 from vmg.version import __version__
@@ -304,7 +304,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         self.actionSave_As.setEnabled(True)
         self.actionSave_Current_View_As.setEnabled(True)
         self.actionCopy.setEnabled(True)
-        self.actionSelect_Rectangle.setEnabled(not self.imageWidgetGL.view_state.is_360)
+        self.actionSelect_Rectangle.setEnabled(self.imageWidgetGL.view_state.input_projection == InputProjection.PERSPECTIVE)
         self.actionSelect_None.trigger()
         # self.imageWidgetGL.update()
 
@@ -387,11 +387,11 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         self.load_image_from_file(self.image_list[self.image_index])
         self.update_previous_next()
 
-    def set_360_projection(self, projection: Projection360, action: QtGui.QAction) -> None:
-        if self.imageWidgetGL.view_state.projection == projection:
+    def set_display_projection(self, projection: DisplayProjection, action: QtGui.QAction) -> None:
+        if self.imageWidgetGL.view_state.display_projection == projection:
             return
         logger.info(f"Changing 360 projection to {projection.name}")
-        self.imageWidgetGL.view_state.projection = projection
+        self.imageWidgetGL.view_state.display_projection = projection
         if self.projectionComboBox.currentText() != action.text():
             self.projectionComboBox.setCurrentText(action.text())
         self.imageWidgetGL.update()
@@ -504,12 +504,12 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
     @QtCore.Slot(bool)  # noqa
     def on_actionEquidistant_toggled(self, is_checked: bool):  # noqa
         if is_checked:
-            self.set_360_projection(Projection360.EQUIDISTANT, self.actionEquidistant)
+            self.set_display_projection(DisplayProjection.EQUIDISTANT, self.actionEquidistant)
 
     @QtCore.Slot(bool)  # noqa
     def on_actionEquirectangular_toggled(self, is_checked: bool):  # noqa
         if is_checked:
-            self.set_360_projection(Projection360.EQUIRECTANGULAR, self.actionEquirectangular)
+            self.set_display_projection(DisplayProjection.EQUIRECTANGULAR, self.actionEquirectangular)
 
     @QtCore.Slot()  # noqa
     def on_actionExit_triggered(self):  # noqa
@@ -598,7 +598,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
     @QtCore.Slot(bool)  # noqa
     def on_actionPerspective_toggled(self, is_checked: bool):  # noqa
         if is_checked:
-            self.set_360_projection(Projection360.GNOMONIC, self.actionPerspective)
+            self.set_display_projection(DisplayProjection.GNOMONIC, self.actionPerspective)
 
     @QtCore.Slot()  # noqa
     def on_actionPrevious_triggered(self):  # noqa
@@ -667,7 +667,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
     @QtCore.Slot(bool)  # noqa
     def on_actionStereographic_toggled(self, is_checked: bool):  # noqa
         if is_checked:
-            self.set_360_projection(Projection360.STEREOGRAPHIC, self.actionStereographic)
+            self.set_display_projection(DisplayProjection.STEREOGRAPHIC, self.actionStereographic)
 
     @QtCore.Slot()  # noqa
     def on_actionView_Log_triggered(self):  # noqa

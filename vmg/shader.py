@@ -99,7 +99,8 @@ class SphericalShader(IImageShader):
         self.ont_rot_obq_location = None
         self.raw_rot_ont_location = None
         self.window_size_location = None
-        self.projection_location = None
+        self.input_projection_location = None
+        self.display_projection_location = None
 
     def initialize_gl(self) -> None:
         vertex_shader = compileShader(pkg_resources.resource_string(
@@ -117,7 +118,8 @@ class SphericalShader(IImageShader):
         self.ont_rot_obq_location = GL.glGetUniformLocation(self.shader, "ont_rot_obq")
         self.raw_rot_ont_location = GL.glGetUniformLocation(self.shader, "raw_rot_ont")
         self.window_size_location = GL.glGetUniformLocation(self.shader, "window_size")
-        self.projection_location = GL.glGetUniformLocation(self.shader, "projection")
+        self.input_projection_location = GL.glGetUniformLocation(self.shader, "input_projection")
+        self.display_projection_location = GL.glGetUniformLocation(self.shader, "display_projection")
 
     def paint_gl(self, state: ViewState, texture) -> None:
         # both nearest and catmull-rom use nearest at the moment.
@@ -134,5 +136,6 @@ class SphericalShader(IImageShader):
         GL.glUniformMatrix3fv(self.ont_rot_obq_location, 1, True, state.ont_rot_obq)
         GL.glUniformMatrix3fv(self.raw_rot_ont_location, 1, True, state.raw_rot_ont)
         GL.glUniform2i(self.window_size_location, *state.window_size)
-        GL.glUniform1i(self.projection_location, state.projection.value)
+        GL.glUniform1i(self.input_projection_location, state.input_projection.value)
+        GL.glUniform1i(self.display_projection_location, state.display_projection.value)
         texture.paint_gl()

@@ -9,11 +9,16 @@ const float PI = 3.1415926535897932384626433832795;
 const int FILTER_NEAREST = 1;
 const int FILTER_CATROM = 2;
 
-// Keep these constants in sync with projection_360.py
-const int GNOMONIC_PROJECTION = 0;
-const int STEREOGRAPHIC_PROJECTION = 1;
-const int AZ_EQ_PROJECTION = 2;
-const int EQUIRECT_PROJECTION = 3;
+// Keep these constants in sync with display_projection.py
+const int GNOMONIC_DISPLAY_PROJECTION = 0;
+const int STEREOGRAPHIC_DISPLAY_PROJECTION = 1;
+const int AZ_EQ_DISPLAY_PROJECTION = 2;
+const int EQUIRECT_DISPLAY_PROJECTION = 3;
+
+// Keep these in sync with image_data.py
+const int EQUIRECT_INPUT_PROJECTION = 0;
+const int DUAL_FISHEYE_INPUT_PROJECTION = 1;
+const int PERSPECTIVE_INPUT_PROJECTION = 2;
 
 vec4 equirect_color(sampler2D image, vec2 tex_coord)
 {

@@ -5,7 +5,7 @@ from OpenGL import GL
 from PySide6 import QtCore, QtGui, QtOpenGLWidgets, QtWidgets
 from PySide6.QtCore import QEvent, Qt, QPoint
 
-from vmg.image_data import ImageData
+from vmg.image_data import ImageData, InputProjection
 from vmg.offscreen_context import OffscreenContext
 from vmg.selection_box import (CursorHolder)
 from vmg.state import ViewState
@@ -34,7 +34,6 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         self.view_state.cursor_changed.connect(self.change_cursor)
         self.view_state.request_message.connect(self.request_message)
         self.view_state.sel_rect.selection_shown.connect(self.update)
-        self.is_360 = False
         self.raw_rot_ont2 = numpy.eye(2, dtype=numpy.float32)  # For flatty images
         self.raw_rot_ont3 = numpy.eye(3, dtype=numpy.float32)  # For spherical panos
         self.offscreen_context_is_ready = False
@@ -151,15 +150,15 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
     def set_image_data(self, image_data: ImageData):
         self.image_data = image_data
         self.view_state.reset()
-        self.view_state.set_360(self.image_data.is_360)
+        self.view_state.set_input_projection(self.image_data.input_projection)
         self.view_state.set_image_data(self.image_data)
-        if self.view_state.is_360:
-            self.is_360 = True
+        if self.view_state.input_projection == InputProjection.EQUIRECTANGULAR:
+            self.program = self.sphere_shader
+        elif self.view_state.input_projection == InputProjection.DUAL_FISHEYE:
             self.program = self.sphere_shader
         else:
-            self.is_360 = False
             self.program = self.rect_tile_shader
-        self.signal_360.emit(self.is_360)  # noqa
+        self.signal_360.emit(self.view_state.input_projection != InputProjection.PERSPECTIVE)  # noqa
         w, h = self.image_data.size
         self.image_size_changed.emit(int(w), int(h))  # noqa
         self.update()

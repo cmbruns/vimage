@@ -8,9 +8,9 @@ from PySide6.QtGui import Qt
 
 from vmg.frame import DimensionsOmp, DimensionsQwn, LocationHpd, LocationObq, LocationNic, LocationOmp, LocationOnt, \
     LocationPrj, LocationQwn, LocationRelative
-from vmg.image_data import ImageData
+from vmg.image_data import ImageData, InputProjection
 from vmg.pixel_filter import PixelFilter
-from vmg.projection_360 import Projection360
+from vmg.display_projection import DisplayProjection
 from vmg.selection_box import SelectionBox, CursorHolder
 
 
@@ -24,9 +24,9 @@ class ViewState(QObject):
         super().__init__()
         self._size_qwn = DimensionsQwn(window_size.width(), window_size.height())
         self._size_omp = DimensionsOmp(* image_size)
-        self.projection = Projection360.STEREOGRAPHIC
+        self.display_projection = DisplayProjection.STEREOGRAPHIC
         self._zoom = 1.0  # windows per image
-        self._is_360 = False
+        self._input_projection = InputProjection.PERSPECTIVE
         self._center_rel = LocationRelative(0.5, 0.5)
         self._update_aspect_scale()
         self._raw_rot_omp = numpy.eye(2, dtype=numpy.float32)
@@ -67,7 +67,9 @@ class ViewState(QObject):
     def context_menu_actions(self, qpoint: QPoint) -> list:
         result = []
         p_omp = self.omp_for_qpoint(qpoint)
-        result.extend(self.sel_rect.context_menu_actions(p_omp, self.is_360))
+        result.extend(self.sel_rect.context_menu_actions(
+            p_omp,
+            self.input_projection != InputProjection.PERSPECTIVE))
         return result
 
     cursor_changed = QtCore.Signal(CursorHolder)
@@ -85,7 +87,10 @@ class ViewState(QObject):
     def drag_relative(self, prev: QPoint, curr: QPoint):
         prev_qwn = LocationQwn.from_qpoint(prev)
         curr_qwn = LocationQwn.from_qpoint(curr)
-        if self.is_360:
+        if self.input_projection in (
+            InputProjection.EQUIRECTANGULAR,  # ok
+            InputProjection.DUAL_FISHEYE, # TODO: not quite
+        ):
             prev_hpd = self.hpd_for_qwn(prev_qwn)
             curr_hpd = self.hpd_for_qwn(curr_qwn)
             d_hpd = curr_hpd - prev_hpd
@@ -126,18 +131,18 @@ class ViewState(QObject):
         return self.hpd_for_ont(self.ont_for_qwn(p_ont))
 
     @property
-    def is_360(self) -> bool:
+    def input_projection(self) -> InputProjection:
         """
         View state can override image 360-ness
         """
-        return self._is_360
+        return self._input_projection
 
     def key_press_event(self, event: QtGui.QKeyEvent):
-        if not self.is_360:
+        if self.input_projection == InputProjection.PERSPECTIVE:
             self.sel_rect.key_press_event(event)
 
     def key_release_event(self, event: QtGui.QKeyEvent):
-        if not self.is_360:
+        if self.input_projection == InputProjection.PERSPECTIVE:
             self.sel_rect.key_release_event(event)
 
     def mouse_move_event(self, event) -> bool:
@@ -145,7 +150,7 @@ class ViewState(QObject):
         update_display = False
         event_consumed = False
         p_omp = self.omp_for_qpoint(event.pos())
-        if not self.is_360:
+        if self.input_projection == InputProjection.PERSPECTIVE:
             event_consumed, update_display = self.sel_rect.mouse_move_event(event, p_omp, self.hover_min_omp)
         if event_consumed:
             pass
@@ -155,7 +160,10 @@ class ViewState(QObject):
             update_display = True
         else:
             p_qwn = LocationQwn.from_qpoint(event.pos())
-            if self.is_360:
+            if self.input_projection in (
+                    InputProjection.EQUIRECTANGULAR,
+                    InputProjection.DUAL_FISHEYE,  # TODO
+            ):
                 p_hpd = self.hpd_for_qwn(p_qwn)
                 self.request_message.emit(  # noqa
                     f"heading = {p_hpd.heading:.1f}°  pitch = {p_hpd.pitch:.1f}°",
@@ -207,14 +215,14 @@ class ViewState(QObject):
         return LocationNic(*nic_xform_qwn @ p_qwn)
 
     def obq_for_prj(self, p_prj: LocationPrj) -> LocationObq:
-        if self.projection == Projection360.GNOMONIC:
+        if self.display_projection == DisplayProjection.GNOMONIC:
             d = 1.0 / (p_prj[0] ** 2 + p_prj[1] ** 2 + 1) ** 0.5
             p_obq = numpy.array([  # sphere orientation as viewed on screen
                 d * p_prj[0],
                 d * p_prj[1],
                 -d,
             ], dtype=numpy.float32)
-        elif self.projection == Projection360.EQUIDISTANT:
+        elif self.display_projection == DisplayProjection.EQUIDISTANT:
             r = (p_prj[0] ** 2 + p_prj[1] ** 2) ** 0.5
             d = sin(r) / r
             p_obq = numpy.array([  # sphere orientation as viewed on screen
@@ -222,14 +230,14 @@ class ViewState(QObject):
                 d * p_prj[1],
                 -cos(r),
             ], dtype=numpy.float32)
-        elif self.projection == Projection360.EQUIRECTANGULAR:
+        elif self.display_projection == DisplayProjection.EQUIRECTANGULAR:
             cy = cos(p_prj[1])
             p_obq = numpy.array([  # sphere orientation as viewed on screen
                 sin(p_prj[0]) * cy,
                 sin(p_prj[1]),
                 -cos(p_prj[0]) * cy,
             ], dtype=numpy.float32)
-        elif self.projection == Projection360.STEREOGRAPHIC:
+        elif self.display_projection == DisplayProjection.STEREOGRAPHIC:
             d = p_prj[0] ** 2 + p_prj[1] ** 2 + 4
             p_obq = numpy.array([  # sphere orientation as viewed on screen
                 4 * p_prj[0] / d,
@@ -313,8 +321,8 @@ class ViewState(QObject):
         self.view_heading_degrees = 0.0
         self.view_pitch_degrees = 0.0
 
-    def set_360(self, is_360: bool) -> None:
-        self._is_360 = is_360
+    def set_input_projection(self, input_projection: InputProjection) -> None:
+        self._input_projection = input_projection
         self._update_aspect_scale()
 
     def set_image_data(self, image_data: ImageData):
@@ -334,7 +342,7 @@ class ViewState(QObject):
     def _update_aspect_scale(self):
         w_omp, h_omp = self._size_omp
         w_qwn, h_qwn = self._size_qwn
-        if self.is_360:
+        if self.input_projection in (InputProjection.EQUIRECTANGULAR, InputProjection.DUAL_FISHEYE):
             if 1 > w_qwn/h_qwn:
                 # window aspect is thin
                 # So use width in scaling factor
@@ -395,7 +403,10 @@ class ViewState(QObject):
         self._zoom = new_zoom
         if zoom_center is not None:
             p_qwn = LocationQwn(zoom_center.x(), zoom_center.y(), 1)
-            if self.is_360:
+            if self.input_projection in (
+                    InputProjection.EQUIRECTANGULAR,
+                    InputProjection.DUAL_FISHEYE,  # TODO: close enough?
+            ):
                 self._zoom = old_zoom
                 before_hpd = self.hpd_for_qwn(p_qwn)  # Before position
                 self._zoom = new_zoom
@@ -412,5 +423,5 @@ class ViewState(QObject):
                 dx = after_omp.x - before_omp.x
                 dy = after_omp.y - before_omp.y
                 self._center_rel = self._center_rel - (dx/self._size_omp.x, dy/self._size_omp.y)
-        if not self.is_360:
+        if self.input_projection == InputProjection.PERSPECTIVE:
             self._clamp_center()

@@ -1,3 +1,4 @@
+from enum import auto, Enum
 import logging
 from math import cos, radians, sin
 from os import access, R_OK
@@ -15,6 +16,12 @@ from vmg.texture import Texture, ExifOrientation
 logger = logging.getLogger(__name__)
 
 
+class InputProjection(Enum):
+    EQUIRECTANGULAR = 0   # stitched pano
+    DUAL_FISHEYE = 1      # raw fisheye pair
+    PERSPECTIVE = 2       # normal 2D photo
+
+
 class ImageData(QtCore.QObject):
     def __init__(self, file_name: str, parent=None):
         super().__init__(parent=parent)
@@ -28,7 +35,7 @@ class ImageData(QtCore.QObject):
         self.orientation = ExifOrientation.UNSPECIFIED
         self._raw_rot_ont = numpy.eye(3, dtype=numpy.float32)
         self._raw_rot_omp = numpy.eye(2, dtype=numpy.float32)
-        self._is_360 = False
+        self._input_projection = InputProjection.PERSPECTIVE
         self.has_displayed = False
 
     def file_is_readable(self) -> bool:
@@ -40,8 +47,8 @@ class ImageData(QtCore.QObject):
         return True
 
     @property
-    def is_360(self) -> bool:
-        return self._is_360
+    def input_projection(self) -> InputProjection:
+        return self._input_projection
 
     def load_jpeg_image(self) -> bool:
         # TODO: split into smaller parts
@@ -95,40 +102,43 @@ class ImageData(QtCore.QObject):
         logger.info(f"Image EXIF orientation = {self.orientation}")
         self._raw_rot_omp = self.rotation_for_exif_orientation.get(orientation_code, numpy.eye(2, dtype=numpy.float32))
         self.size_omp = DimensionsOmp(*[abs(x) for x in (self.raw_rot_omp.T @ self.size_raw)])
-        if self.size_omp.x == 2 * self.size_omp.y:
-            try:
-                self._is_360 = True
-                try:
-                    # TODO: InitialViewHeadingDegrees
-                    desc = xmp["xmpmeta"]["RDF"]["Description"]
-                    heading = radians(float(desc["PoseHeadingDegrees"]))
-                    pitch = radians(float(desc["PosePitchDegrees"]))
-                    roll = radians(float(desc["PoseRollDegrees"]))
-                    m = numpy.array([
-                        [cos(roll), -sin(roll), 0],
-                        [sin(roll), cos(roll), 0],
-                        [0, 0, 1],
-                    ], dtype=numpy.float32)
-                    m = m @ [
-                        [1, 0, 0],
-                        [0, cos(pitch), sin(pitch)],
-                        [0, -sin(pitch), cos(pitch)],
-                    ]
-                    m = m @ [
-                        [cos(heading), 0, sin(heading)],
-                        [0, 1, 0],
-                        [-sin(heading), 0, cos(heading)],
-                    ]
-                    self._raw_rot_ont = m
-                except (KeyError, TypeError):
-                    pass
-                if exif["Model"].lower().startswith("ricoh theta"):
-                    # print("360")
-                    pass  # TODO 360 image
-            except KeyError:
-                pass
+        w, h = self.size_omp.x, self.size_omp.y
+        model = exif.get("Model", "").lower()
+        logger.info(f"Camera model = '{model}'")
+        if self.size_omp.x != 2 * self.size_omp.y:
+            self._input_projection = InputProjection.PERSPECTIVE  # Non-2:1 aspect is always a regular photo
         else:
-            self._is_360 = False
+            # 2016 Gear 360 raw image has certain sizes
+            if (w, h) == (7776, 3888) or (w, h) == (5792, 2896):
+                self._input_projection = InputProjection.DUAL_FISHEYE
+            elif model.startswith("ricoh theta"):
+                self._input_projection = InputProjection.EQUIRECTANGULAR
+            else:
+                self._input_projection = InputProjection.EQUIRECTANGULAR
+            try:
+                # TODO: InitialViewHeadingDegrees
+                desc = xmp["xmpmeta"]["RDF"]["Description"]
+                heading = radians(float(desc["PoseHeadingDegrees"]))
+                pitch = radians(float(desc["PosePitchDegrees"]))
+                roll = radians(float(desc["PoseRollDegrees"]))
+                m = numpy.array([
+                    [cos(roll), -sin(roll), 0],
+                    [sin(roll), cos(roll), 0],
+                    [0, 0, 1],
+                ], dtype=numpy.float32)
+                m = m @ [
+                    [1, 0, 0],
+                    [0, cos(pitch), sin(pitch)],
+                    [0, -sin(pitch), cos(pitch)],
+                ]
+                m = m @ [
+                    [cos(heading), 0, sin(heading)],
+                    [0, 1, 0],
+                    [-sin(heading), 0, cos(heading)],
+                ]
+                self._raw_rot_ont = m
+            except (KeyError, TypeError):
+                pass
 
     @property
     def raw_rot_omp(self) -> numpy.array:
