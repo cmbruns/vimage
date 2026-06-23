@@ -109,12 +109,12 @@ class ImageData(QtCore.QObject):
             self._input_projection = InputProjection.PERSPECTIVE  # Non-2:1 aspect is always a regular photo
         else:
             # 2016 Gear 360 raw image has certain sizes
-            if (w, h) == (7776, 3888) or (w, h) == (5792, 2896):
+            if model == "sm-c200" and ((w, h) == (7776, 3888) or (w, h) == (5792, 2896)):
                 self._input_projection = InputProjection.DUAL_FISHEYE
             elif model.startswith("ricoh theta"):
                 self._input_projection = InputProjection.EQUIRECTANGULAR
             else:
-                self._input_projection = InputProjection.EQUIRECTANGULAR
+                self._input_projection = InputProjection.EQUIRECTANGULAR  # Too inclusive...
             try:
                 # TODO: InitialViewHeadingDegrees
                 desc = xmp["xmpmeta"]["RDF"]["Description"]
