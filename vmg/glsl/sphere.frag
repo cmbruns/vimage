@@ -38,7 +38,8 @@ void main() {
     }
 
     vec3 p_raw = raw_rot_ont * ont_rot_obq * p_obq;
-    vec2 p_tex = equirect_tex_coord(p_raw);
+    // vec2 p_tex = equirect_tex_coord(p_raw);
+    vec2 p_tex = gear360_2016_tex_coord(p_raw);
     color = clip_n_filter(image, p_tex, pixelFilter, true);
 
     // sRGB conversion should be the FINAL step of the fragment shader

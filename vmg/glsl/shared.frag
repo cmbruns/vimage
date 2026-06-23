@@ -74,6 +74,37 @@ vec2 equirect_tex_coord(vec3 dir)
     return tex_coord;
 }
 
+vec2 gear360_2016_tex_coord(vec3 p_sph)
+{
+    // input vector space is 3D unit sphere, x-right, y-up, z-back (i.e. -Z forward/center)
+    // range [-1, +1]
+
+    const float FOV = radians(195.0);  // field of view of Gear360 fisheye
+    // My camera has a slight relative rotation of the lenses
+    const float lens_rot = radians(-1.5);  // relative rotation correction of the lenses
+
+    float crot = cos(lens_rot/2.0);
+    float srot = sin(lens_rot/2.0);
+    mat2 rot_nfish = mat2(  // half rotation adjustment in the left/front fisheye
+        crot, srot,
+        -srot, crot);
+    vec2 center_tex = vec2(0.25, 0.5);  // left/front fisheye center in output texture coordinates
+    // Is this fragment drawn from the right/back fisheye image?
+    if (p_sph.z > 0) {  // right fisheye image is behind the camera
+        // right fisheye view is rotated 180 degrees about Y w.r.t left fisheye
+        p_sph = vec3(-p_sph.x, p_sph.y, -p_sph.z);  // Is there a glsl swizzle shortcut for this?
+        center_tex = vec2(0.75, 0.5);  // right fisheye is to the right in the image pair
+    }
+
+    // normalized fisheye space 2D x-right, y-up, range [-1, +1]
+    float radius_nfish = acos(-p_sph.z) / FOV;  // TODO: nonlinear calibration
+    vec2 p_nfish = normalize(p_sph.xy) * radius_nfish * rot_nfish;
+
+    // output gl texture coordinates 2D x-right, y-down, range[0, 1]
+    vec2 p_tex = center_tex + p_nfish * vec2(0.5, -1);  // Translate and scale
+    return p_tex;
+}
+
 vec4 nearest_nowrap(sampler2D image, vec2 tc) {
     return texture(image, tc);
 }
