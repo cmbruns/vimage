@@ -163,6 +163,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         self.loading_thread.start()
         self.image_load_requested.connect(self.image_loader.load_from_file_name, Qt.QueuedConnection)  # noqa
         self.pil_load_requested.connect(self.image_loader.load_from_pil_image, Qt.QueuedConnection)  # noqa
+        logger.info(f"Connecting texture_created signal")
         self.image_loader.texture_created.connect(self.image_texture_created, Qt.QueuedConnection)
         self.image_loader.load_failed.connect(self.image_load_failed, Qt.QueuedConnection)
         #
@@ -292,6 +293,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
 
     @QtCore.Slot(ImageData)  # noqa
     def image_texture_created(self, image_data: ImageData):
+        logger.info(f"{image_data.file_name} {self._current_file_name}")
         if image_data.file_name != self._current_file_name:
             logger.info(f"ignoring stale texture loaded for {image_data.file_name}")
             return
@@ -304,6 +306,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         self.actionCopy.setEnabled(True)
         self.actionSelect_Rectangle.setEnabled(not self.imageWidgetGL.view_state.is_360)
         self.actionSelect_None.trigger()
+        # self.imageWidgetGL.update()
 
     @QtCore.Slot(str)  # noqa
     def image_load_failed(self, file_name: str):
@@ -317,6 +320,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         self._current_file_name = None
 
     def load_main_image(self, file_name: str):
+        logger.info(f"Loading image {file_name}")
         path = Path(file_name)
         name = path.name
         paths_list = [path, ]

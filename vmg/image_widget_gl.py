@@ -37,6 +37,7 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         self.is_360 = False
         self.raw_rot_ont2 = numpy.eye(2, dtype=numpy.float32)  # For flatty images
         self.raw_rot_ont3 = numpy.eye(3, dtype=numpy.float32)  # For spherical panos
+        self.offscreen_context_is_ready = False
 
     @QtCore.Slot(CursorHolder)  # noqa
     def change_cursor(self, cursor_holder: CursorHolder):
@@ -87,8 +88,6 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         GL.glBindVertexArray(self.vao)
         self.rect_tile_shader.initialize_gl()
         self.sphere_shader.initialize_gl()
-        offscreen_context = OffscreenContext(self, self.context(), self.format())
-        self.context_created.emit(offscreen_context)  # noqa
 
     def keyPressEvent(self, event):
         self.view_state.key_press_event(event)
@@ -122,6 +121,10 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         self.view_state.background_color = self.palette().color(self.backgroundRole()).getRgbF()
         GL.glClearColor(*self.view_state.background_color)
         GL.glClear(GL.GL_COLOR_BUFFER_BIT)
+        if not self.offscreen_context_is_ready:
+            offscreen_context = OffscreenContext(self, self.context(), self.format())
+            self.offscreen_context_is_ready = True
+            self.context_created.emit(offscreen_context)  # noqa
         if self.image_data is None:
             return
         GL.glBindVertexArray(self.vao)

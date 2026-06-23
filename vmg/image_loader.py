@@ -97,14 +97,16 @@ class ImageLoader(QtCore.QObject):
     @QtCore.Slot(OffscreenContext)  # noqa
     def on_context_created(self, offscreen_context) -> None:
         logger.info("OpenGL context created")
+        logger.info(f"{self.pending_image_data}, {self.current_image_data}")
         assert self.offscreen_context is None
         self.offscreen_context = offscreen_context
         self.context_ready = True
         if self.pending_image_data is not None:
+            logger.info("Uploading pending image data")
             pending_image_data = self.pending_image_data
             self.pending_image_data = None
-            if self._is_current(pending_image_data):
-                self.processTexture(pending_image_data)
+            # if self._is_current(pending_image_data):
+            # self.process_texture(pending_image_data)
 
     @QtCore.Slot(ImageData)  # noqa
     def texture_turbo_jpeg(self, image_data: ImageData):
@@ -123,7 +125,7 @@ class ImageLoader(QtCore.QObject):
         )
         logger.info(f"jpeg loading/decoding took {et}")
         if self.offscreen_context is None:
-            self.texture_created.emit(image_data)  # noqa
+            self._defer_texture_until_context(image_data)
         else:
             self.process_texture(image_data)  # noqa
 
@@ -161,7 +163,7 @@ class ImageLoader(QtCore.QObject):
         )
         logger.info(f"PIL image processing took {et}")
         if self.offscreen_context is None:
-            self.texture_created.emit(image_data)  # noqa
+            self._defer_texture_until_context(image_data)
         else:
             self.process_texture(image_data)  # noqa
 
@@ -181,6 +183,7 @@ class ImageLoader(QtCore.QObject):
         # Upload the texture in the image loading thread, using
         # our shared OpenGL context
         et = ElapsedTime()
+        logger.info(f"Starting texture upload in loader thread")
         with self.offscreen_context:
             image_data.texture.initialize_gl()
             if not self._is_current(image_data):
