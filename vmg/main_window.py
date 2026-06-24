@@ -163,7 +163,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         self.loading_thread.start()
         self.image_load_requested.connect(self.image_loader.load_from_file_name, Qt.QueuedConnection)  # noqa
         self.pil_load_requested.connect(self.image_loader.load_from_pil_image, Qt.QueuedConnection)  # noqa
-        logger.info(f"Connecting texture_created signal")
+        logger.debug(f"Connecting texture_created signal")
         self.image_loader.texture_created.connect(self.image_texture_created, Qt.QueuedConnection)
         self.image_loader.load_failed.connect(self.image_load_failed, Qt.QueuedConnection)
         #
@@ -293,7 +293,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
 
     @QtCore.Slot(ImageData)  # noqa
     def image_texture_created(self, image_data: ImageData):
-        logger.info(f"{image_data.file_name} {self._current_file_name}")
+        logger.info(f"Received image texture {image_data.file_name}")
         if image_data.file_name != self._current_file_name:
             logger.info(f"ignoring stale texture loaded for {image_data.file_name}")
             return
@@ -421,6 +421,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
                 logger.warning("Unable to identify app language locale")
         if gui_locale is not None:
             logger.info(f"app language locale is {gui_locale}")
+        self.imageWidgetGL.create_offscreen_context()
 
     def update_previous_next(self):
         # Update progress label
@@ -676,7 +677,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
     @QtCore.Slot(ImageData)  # noqa
     def image_displayed(self, image_data):
         if image_data.file_name == self._current_file_name:
-            logger.info("Image displayed")
+            logger.debug("Image displayed")
             stem = pathlib.Path(self._current_file_name).stem
             self.progress_status.set_value(100)
             self.statusbar.showMessage(f"Loaded {stem}", 5000)

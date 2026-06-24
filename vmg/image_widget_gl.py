@@ -66,6 +66,7 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
     image_size_changed = QtCore.Signal(int, int)
 
     def initializeGL(self) -> None:
+        logger.debug("Starting initializeGL()...")
         # Use native-like background color
         bg_color = self.palette().color(self.backgroundRole()).getRgbF()
         GL.glClearColor(*bg_color)
@@ -116,15 +117,18 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
     def mouseReleaseEvent(self, event):
         self.view_state.mouse_release_event(event)
 
+    def create_offscreen_context(self):
+        offscreen_context = OffscreenContext(self, self.context(), self.format())
+        logger.debug("Created skeleton of shared offscreen OpenGL context")
+        self.context_created.emit(offscreen_context)  # noqa
+
     def paintGL(self) -> None:
+        logger.debug("Starting paintGL()")
         self.view_state.background_color = self.palette().color(self.backgroundRole()).getRgbF()
         GL.glClearColor(*self.view_state.background_color)
         GL.glClear(GL.GL_COLOR_BUFFER_BIT)
-        if not self.offscreen_context_is_ready:
-            offscreen_context = OffscreenContext(self, self.context(), self.format())
-            self.offscreen_context_is_ready = True
-            self.context_created.emit(offscreen_context)  # noqa
         if self.image_data is None:
+            logger.debug("image_data is None")
             return
         GL.glBindVertexArray(self.vao)
         if not self.image_data.has_displayed:
@@ -134,6 +138,7 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
             self.image_data.has_displayed = True
             self.progress_changed.emit(98)  # noqa
             self.image_displayed.emit(self.image_data)  # noqa
+        logger.debug("Finished paintGL()")
 
     progress_changed = QtCore.Signal(int)
 
@@ -148,6 +153,7 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         return numpy.where(image >= 0.04045, ((image + 0.055) / 1.055)**2.4, image/12.92)
 
     def set_image_data(self, image_data: ImageData):
+        logger.info("Received image data")
         self.image_data = image_data
         self.view_state.reset()
         self.view_state.set_input_projection(self.image_data.input_projection)

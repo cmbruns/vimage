@@ -5,7 +5,7 @@ import turbojpeg
 from OpenGL import GL
 from PIL import Image
 from PySide6 import QtCore
-from PySide6.QtCore import QCoreApplication
+from PySide6.QtCore import QCoreApplication, Qt
 
 from vmg.elapsed_time import ElapsedTime
 from vmg.image_data import ImageData
@@ -22,8 +22,7 @@ class ImageLoader(QtCore.QObject):
         super().__init__()
         self.current_image_data = None
         self.offscreen_context = None
-        self.pending_image_data = None
-        self.context_ready = False
+        self.image_data_is_pending = False
 
     load_failed = QtCore.Signal(str)
     texture_created = QtCore.Signal(ImageData)
@@ -42,15 +41,6 @@ class ImageLoader(QtCore.QObject):
             return False  # Latest file is something else
         else:
             return True
-
-    def _defer_texture_until_context(self, image_data: ImageData) -> bool:
-        if not self.context_ready:
-            self.pending_image_data = image_data
-            logger.info(
-                f"Deferring texture initialization for {image_data.file_name} until OpenGL context is ready"
-            )
-            return True
-        return False
 
     @QtCore.Slot(str)  # noqa
     def load_from_file_name(self, file_name: str):
@@ -96,17 +86,15 @@ class ImageLoader(QtCore.QObject):
 
     @QtCore.Slot(OffscreenContext)  # noqa
     def on_context_created(self, offscreen_context) -> None:
-        logger.info("OpenGL context created")
-        logger.info(f"{self.pending_image_data}, {self.current_image_data}")
+        logger.info("Received new opengl context.")
+        # logger.info(f"{self.pending_image_data}, {self.current_image_data}")
         assert self.offscreen_context is None
         self.offscreen_context = offscreen_context
-        self.context_ready = True
-        if self.pending_image_data is not None:
-            logger.info("Uploading pending image data")
-            pending_image_data = self.pending_image_data
-            self.pending_image_data = None
-            # if self._is_current(pending_image_data):
-            # self.process_texture(pending_image_data)
+        if self.image_data_is_pending:
+            logger.debug("Uploading pending image data")
+            self.image_data_is_pending = False
+            logger.debug("about to create context")
+            self.process_texture(self.current_image_data)
 
     @QtCore.Slot(ImageData)  # noqa
     def texture_turbo_jpeg(self, image_data: ImageData):
@@ -125,7 +113,10 @@ class ImageLoader(QtCore.QObject):
         )
         logger.info(f"jpeg loading/decoding took {et}")
         if self.offscreen_context is None:
-            self._defer_texture_until_context(image_data)
+            self.image_data_is_pending = True
+            logger.debug(
+                f"Deferring texture initialization for {image_data.file_name} until OpenGL context is ready"
+            )
         else:
             self.process_texture(image_data)  # noqa
 
@@ -163,7 +154,10 @@ class ImageLoader(QtCore.QObject):
         )
         logger.info(f"PIL image processing took {et}")
         if self.offscreen_context is None:
-            self._defer_texture_until_context(image_data)
+            self.image_data_is_pending = True
+            logger.debug(
+                f"Deferring texture initialization for {image_data.file_name} until OpenGL context is ready"
+            )
         else:
             self.process_texture(image_data)  # noqa
 
@@ -177,7 +171,9 @@ class ImageLoader(QtCore.QObject):
 
     @QtCore.Slot(ImageData)  # noqa
     def process_texture(self, image_data: ImageData):
+        logger.debug("running process_texture()")
         if not self._is_current(image_data):
+            logger.debug("image data is not current")
             return
         self.progress_changed.emit(60)  # noqa
         # Upload the texture in the image loading thread, using
@@ -185,14 +181,18 @@ class ImageLoader(QtCore.QObject):
         et = ElapsedTime()
         logger.info(f"Starting texture upload in loader thread")
         with self.offscreen_context:
+            logger.debug("Offscreen context is current")
             image_data.texture.initialize_gl()
+            logger.debug("Texture is initialized")
             if not self._is_current(image_data):
+                logger.debug("image data is not current")
                 return
             num_loaded_tiles = self._loaded_tile_count(image_data)
             while num_loaded_tiles < len(image_data.texture):
-                # print("waiting for tile upload")  # TODO: logging
+                logger.debug("waiting for tile upload")
                 time.sleep(0.050)
                 if not self._is_current(image_data):
+                    logger.debug("image data is not current")
                     return
                 num_loaded_tiles = self._loaded_tile_count(image_data)
             # print("ImageLoader.texture_loaded()")  # TODO: logging

@@ -1,11 +1,14 @@
 from ctypes import c_float, c_void_p, cast, sizeof
 import enum
+import logging
 import numpy
 from typing import Tuple, Optional
 
 from OpenGL import GL
 from OpenGL.GL import GLint, GLenum
 from OpenGL.GL.EXT.texture_filter_anisotropic import GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, GL_TEXTURE_MAX_ANISOTROPY_EXT
+
+logger = logging.getLogger(__name__)
 
 # Number of channels
 internal_format_for_channel_count = {
@@ -168,9 +171,11 @@ class Tile(object):
 
     def initialize_gl(self, image_bytes):
         self.vbo = GL.glGenBuffers(1)
+        logger.debug(f"VBO ID = {self.vbo}")
         GL.glBindBuffer(GL.GL_ARRAY_BUFFER, self.vbo)
         GL.glBufferData(GL.GL_ARRAY_BUFFER, len(self.vertexes) * sizeof(c_float), self.vertexes, GL.GL_STATIC_DRAW)
         self.texture_id = GL.glGenTextures(1)
+        logger.debug(f"texture ID = {self.texture_id}")
         GL.glBindTexture(GL.GL_TEXTURE_2D, self.texture_id)
         GL.glPixelStorei(GL.GL_UNPACK_ALIGNMENT, 1)  # In case width is odd
         # Show monochrome images as gray, not red
@@ -213,7 +218,9 @@ class Tile(object):
         return load_status == GL.GL_SIGNALED
 
     def paint_gl(self):
+        logger.debug("Rendering texture")
         if not self.is_ready():
+            logger.debug("Texture is not ready")
             return
         GL.glBindTexture(GL.GL_TEXTURE_2D, self.texture_id)
         # VAO must be created here, in the render thread
@@ -242,6 +249,7 @@ class Tile(object):
             GL.glEnableVertexAttribArray(2)
         GL.glBindVertexArray(self.vao)
         GL.glDrawArrays(GL.GL_TRIANGLE_STRIP, 0, 4)
+        logger.debug("Done rendering texture")
 
 
 class Texture(object):
