@@ -2,8 +2,9 @@ from math import asin, atan2, cos, degrees, pi, radians, sin
 from typing import Optional
 
 import numpy
+from numpy.typing import NDArray
 from PySide6 import QtCore, QtGui
-from PySide6.QtCore import QPoint, QSize, QObject
+from PySide6.QtCore import QPoint, QSize, QObject, QPointF
 from PySide6.QtGui import Qt
 
 from vmg.frame import DimensionsOmp, DimensionsQwn, LocationHpd, LocationObq, LocationNic, LocationOmp, LocationOnt, \
@@ -89,7 +90,7 @@ class ViewState(QObject):
         curr_qwn = LocationQwn.from_qpoint(curr)
         if self.input_projection in (
             InputProjection.EQUIRECTANGULAR,  # ok
-            InputProjection.DUAL_FISHEYE, # TODO: not quite
+            InputProjection.DUAL_FISHEYE,  # TODO: not quite
         ):
             prev_hpd = self.hpd_for_qwn(prev_qwn)
             curr_hpd = self.hpd_for_qwn(curr_qwn)
@@ -265,7 +266,7 @@ class ViewState(QObject):
     def omp_scale_qwn(self) -> float:
         return self._size_omp[1] / self._size_qwn[1] / self.zoom
 
-    def omp_xform_ndc(self) -> numpy.ndarray:
+    def omp_xform_ndc(self) -> NDArray[numpy.float32]:
         scale = self.asc_omp / 2.0 / self.asc_qwn / self.zoom
         w_qwn, h_qwn = self._size_qwn
         return numpy.array([
@@ -278,7 +279,7 @@ class ViewState(QObject):
         return LocationOnt(*self.ont_rot_obq @ p_obq)
 
     @property
-    def ont_rot_obq(self) -> numpy.array:
+    def ont_rot_obq(self) -> NDArray[numpy.float32]:
         c = cos(radians(self.view_heading_degrees))
         s = sin(radians(self.view_heading_degrees))
         rot_heading = numpy.array([
@@ -394,7 +395,7 @@ class ViewState(QObject):
     def zoom(self) -> float:
         return self._zoom
 
-    def zoom_relative(self, zoom_factor: float, zoom_center: Optional[QPoint]):
+    def zoom_relative(self, zoom_factor: float, zoom_center: Optional[QPointF]):
         old_zoom = self._zoom
         new_zoom = self._zoom * zoom_factor
         # Limit zoom-out because you never need more than twice the image dimension to move around
