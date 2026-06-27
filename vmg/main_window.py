@@ -36,7 +36,6 @@ from vmg.recent_file import RecentFileList
 from vmg.ui_vimage import Ui_MainWindow
 from vmg.version import __version__
 from vmg.git_hash import vimage_git_hash
-from vmg._debug_session import agent_log
 
 
 logger = logging.getLogger(__name__)
@@ -294,21 +293,6 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
 
     @QtCore.Slot(ImageData)  # noqa
     def image_texture_created(self, image_data: ImageData):
-        # #region agent log
-        gl_widget = self.imageWidgetGL
-        agent_log(
-            "main_window.py:image_texture_created",
-            "texture_created received on UI thread",
-            {
-                "file_name": image_data.file_name,
-                "current_file_name": self._current_file_name,
-                "gl_valid": gl_widget.isValid(),
-                "widget_size": [gl_widget.width(), gl_widget.height()],
-                "is_visible": gl_widget.isVisible(),
-            },
-            hypothesis_id="H1",
-        )
-        # #endregion
         logger.info(f"Received image texture {image_data.file_name}")
         if image_data.file_name != self._current_file_name:
             logger.info(f"ignoring stale texture loaded for {image_data.file_name}")
@@ -423,23 +407,6 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         self.actionSelect_Rectangle.setEnabled(not is_360)
 
     def showEvent(self, event: QtGui.QShowEvent) -> None:
-        # #region agent log
-        gl_widget = self.imageWidgetGL
-        display_ctx = gl_widget.context()
-        agent_log(
-            "main_window.py:showEvent",
-            "main window showEvent before create_offscreen_context",
-            {
-                "gl_valid": gl_widget.isValid(),
-                "display_ctx_valid": display_ctx.isValid() if display_ctx else False,
-                "widget_size": [gl_widget.width(), gl_widget.height()],
-                "current_file_name": self._current_file_name,
-                "loader_has_offscreen": self.image_loader.offscreen_context is not None,
-                "loader_pending": self.image_loader.image_data_is_pending,
-            },
-            hypothesis_id="H2",
-        )
-        # #endregion
         now = datetime.now().astimezone()
         logger.info(f"vimage main window shown at {now.strftime('%H:%M:%S.%f %Z on %x')}")
         region_locale = locale.getdefaultlocale()[0]

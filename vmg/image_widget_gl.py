@@ -10,7 +10,6 @@ from vmg.offscreen_context import OffscreenContext
 from vmg.selection_box import (CursorHolder)
 from vmg.state import ViewState
 from vmg.shader import IImageShader, SphericalShader, RectangularTileShader
-from vmg._debug_session import agent_log
 
 logger = logging.getLogger(__name__)
 
@@ -67,19 +66,6 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
     image_size_changed = QtCore.Signal(int, int)
 
     def initializeGL(self) -> None:
-        # #region agent log
-        display_ctx = self.context()
-        agent_log(
-            "image_widget_gl.py:initializeGL",
-            "display initializeGL started",
-            {
-                "ctx_valid": display_ctx.isValid() if display_ctx else False,
-                "widget_size": [self.width(), self.height()],
-                "has_image_data": self.image_data is not None,
-            },
-            hypothesis_id="H1",
-        )
-        # #endregion
         logger.debug("Starting initializeGL()...")
         # Use native-like background color
         bg_color = self.palette().color(self.backgroundRole()).getRgbF()
@@ -102,14 +88,6 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         GL.glBindVertexArray(self.vao)
         self.rect_tile_shader.initialize_gl()
         self.sphere_shader.initialize_gl()
-        # #region agent log
-        agent_log(
-            "image_widget_gl.py:initializeGL",
-            "display initializeGL finished",
-            {"has_image_data": self.image_data is not None},
-            hypothesis_id="H1",
-        )
-        # #endregion
 
     def keyPressEvent(self, event):
         self.view_state.key_press_event(event)
@@ -141,35 +119,11 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
 
     def create_offscreen_context(self):
         display_ctx = self.context()
-        # #region agent log
-        agent_log(
-            "image_widget_gl.py:create_offscreen_context",
-            "creating shared offscreen context skeleton",
-            {
-                "ctx_valid": display_ctx.isValid() if display_ctx else False,
-                "widget_size": [self.width(), self.height()],
-                "has_image_data": self.image_data is not None,
-            },
-            hypothesis_id="H2",
-        )
-        # #endregion
         offscreen_context = OffscreenContext(self, display_ctx, self.format())
         offscreen_context.init_gl()
         main_window = self.window()
         if main_window is not None and hasattr(main_window, "loading_thread"):
             offscreen_context.context.moveToThread(main_window.loading_thread)
-        # #region agent log
-        agent_log(
-            "image_widget_gl.py:create_offscreen_context",
-            "offscreen context initialized on GUI thread",
-            {
-                "ctx_valid": display_ctx.isValid() if display_ctx else False,
-                "offscreen_ctx_valid": offscreen_context.context.isValid(),
-                "moved_to_loader": main_window is not None and hasattr(main_window, "loading_thread"),
-            },
-            hypothesis_id="H7",
-        )
-        # #endregion
         logger.debug("Created shared offscreen OpenGL context")
         self.context_created.emit(offscreen_context)  # noqa
 
@@ -179,28 +133,8 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         GL.glClearColor(*self.view_state.background_color)
         GL.glClear(GL.GL_COLOR_BUFFER_BIT)
         if self.image_data is None:
-            # #region agent log
-            agent_log(
-                "image_widget_gl.py:paintGL",
-                "paintGL with no image_data",
-                {"widget_size": [self.width(), self.height()]},
-                hypothesis_id="H4",
-            )
-            # #endregion
             logger.debug("image_data is None")
             return
-        # #region agent log
-        agent_log(
-            "image_widget_gl.py:paintGL",
-            "paintGL drawing image",
-            {
-                "file_name": self.image_data.file_name,
-                "has_displayed": self.image_data.has_displayed,
-                "widget_size": [self.width(), self.height()],
-            },
-            hypothesis_id="H4",
-        )
-        # #endregion
         GL.glBindVertexArray(self.vao)
         if not self.image_data.has_displayed:
             self.progress_changed.emit(95)  # noqa
@@ -224,19 +158,6 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         return numpy.where(image >= 0.04045, ((image + 0.055) / 1.055)**2.4, image/12.92)
 
     def set_image_data(self, image_data: ImageData):
-        # #region agent log
-        agent_log(
-            "image_widget_gl.py:set_image_data",
-            "set_image_data on display widget",
-            {
-                "file_name": image_data.file_name,
-                "ctx_valid": self.context().isValid() if self.context() else False,
-                "widget_size": [self.width(), self.height()],
-                "is_visible": self.isVisible(),
-            },
-            hypothesis_id="H1",
-        )
-        # #endregion
         logger.info("Received image data")
         self.image_data = image_data
         self.view_state.reset()

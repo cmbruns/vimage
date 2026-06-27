@@ -8,8 +8,6 @@ from OpenGL import GL
 from OpenGL.GL import GLint, GLenum
 from OpenGL.GL.EXT.texture_filter_anisotropic import GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, GL_TEXTURE_MAX_ANISOTROPY_EXT
 
-from vmg._debug_session import agent_log
-
 logger = logging.getLogger(__name__)
 
 # Number of channels
@@ -233,16 +231,7 @@ class Tile(object):
 
     def paint_gl(self):
         logger.debug("Rendering texture")
-        ready = self.is_ready_for_display()
-        # #region agent log
-        agent_log(
-            "texture.py:Tile.paint_gl",
-            "tile paint attempt",
-            {"ready": ready, "texture_id": self.texture_id},
-            hypothesis_id="H7",
-        )
-        # #endregion
-        if not ready:
+        if not self.is_ready_for_display():
             logger.debug("Texture is not ready")
             return
         GL.glBindTexture(GL.GL_TEXTURE_2D, self.texture_id)
