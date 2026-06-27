@@ -31,7 +31,6 @@ class OffscreenContext(QtCore.QObject):
             )
         if not self.context.makeCurrent(self.surface):
             raise RuntimeError("Failed to make offscreen OpenGL context current")
-        self.context.makeCurrent(self.surface)
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
