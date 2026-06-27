@@ -10,6 +10,7 @@ from PySide6.QtGui import QIcon, QSurfaceFormat
 from .main_window import VimageMainWindow
 from .except_hook import ExceptHook
 from .log import StdIoRedirector
+from ._debug_session import agent_log
 
 
 logger = logging.getLogger(__name__)
@@ -42,11 +43,38 @@ class VimageApp(object):
     def run_main_window(app):
         with VimageMainWindow() as window:
             image_list = app.arguments()[1:]
+            # #region agent log
+            agent_log(
+                "app.py:run_main_window",
+                "startup argv image list",
+                {"image_count": len(image_list), "first_image": image_list[0] if image_list else None},
+                hypothesis_id="H4",
+            )
+            # #endregion
             if len(image_list) == 1:
                 window.load_main_image(image_list[0])
             else:
                 window.set_image_list(app.arguments()[1:], 0)
+            # #region agent log
+            agent_log(
+                "app.py:run_main_window",
+                "calling window.show()",
+                {"gl_initialized": window.imageWidgetGL.isValid()},
+                hypothesis_id="H1",
+            )
+            # #endregion
             window.show()
+            # #region agent log
+            agent_log(
+                "app.py:run_main_window",
+                "window.show() returned",
+                {
+                    "gl_initialized": window.imageWidgetGL.isValid(),
+                    "widget_size": [window.imageWidgetGL.width(), window.imageWidgetGL.height()],
+                },
+                hypothesis_id="H4",
+            )
+            # #endregion
             icon_file = pkg_resources.resource_filename("vmg", "images/vimage2.ico")
             icon = QIcon(icon_file)
             app.setWindowIcon(icon)

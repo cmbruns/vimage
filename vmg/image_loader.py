@@ -11,6 +11,7 @@ from vmg.elapsed_time import ElapsedTime
 from vmg.image_data import ImageData
 from vmg.offscreen_context import OffscreenContext
 from vmg.texture import Texture
+from vmg._debug_session import agent_log
 
 
 jpeg = turbojpeg.TurboJPEG()  # TODO: cache this?
@@ -86,6 +87,18 @@ class ImageLoader(QtCore.QObject):
 
     @QtCore.Slot(OffscreenContext)  # noqa
     def on_context_created(self, offscreen_context) -> None:
+        # #region agent log
+        agent_log(
+            "image_loader.py:on_context_created",
+            "loader received offscreen context",
+            {
+                "image_data_is_pending": self.image_data_is_pending,
+                "current_file_name": self.current_image_data.file_name if self.current_image_data else None,
+                "offscreen_already_set": self.offscreen_context is not None,
+            },
+            hypothesis_id="H3",
+        )
+        # #endregion
         logger.info("Received new opengl context.")
         # logger.info(f"{self.pending_image_data}, {self.current_image_data}")
         assert self.offscreen_context is None
@@ -162,11 +175,11 @@ class ImageLoader(QtCore.QObject):
             self.process_texture(image_data)  # noqa
 
     def _loaded_tile_count(self, image_data) -> int:
+        """Count ready tiles; offscreen context must already be current."""
         loaded_tile_count = 0
-        with self.offscreen_context:
-            for tile in image_data.texture:
-                if tile.is_ready():
-                    loaded_tile_count += 1
+        for tile in image_data.texture:
+            if tile.is_ready():
+                loaded_tile_count += 1
         return loaded_tile_count
 
     @QtCore.Slot(ImageData)  # noqa
@@ -195,10 +208,22 @@ class ImageLoader(QtCore.QObject):
                     logger.debug("image data is not current")
                     return
                 num_loaded_tiles = self._loaded_tile_count(image_data)
+            GL.glFinish()
             # print("ImageLoader.texture_loaded()")  # TODO: logging
             # self.texture_changed.emit(image_data.texture)  # noqa
             logger.info(f"(Loading thread) tile upload took {et}")
             self.progress_changed.emit(90)
+        # #region agent log
+        agent_log(
+            "image_loader.py:process_texture",
+            "emitting texture_created from loader thread",
+            {
+                "file_name": image_data.file_name,
+                "tile_count": len(image_data.texture),
+            },
+            hypothesis_id="H7",
+        )
+        # #endregion
         self.texture_created.emit(image_data)  # noqa
 
     progress_changed = QtCore.Signal(int)
