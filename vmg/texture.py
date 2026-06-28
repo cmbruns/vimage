@@ -212,6 +212,7 @@ class Tile(object):
         GL.glPixelStorei(GL.GL_UNPACK_SKIP_PIXELS, 0)
         GL.glPixelStorei(GL.GL_UNPACK_SKIP_ROWS, 0)
         self.load_sync = GL.glFenceSync(GL.GL_SYNC_GPU_COMMANDS_COMPLETE, 0)
+        GL.glFlush()
 
     def is_ready(self) -> bool:
         if self.load_sync is None:
