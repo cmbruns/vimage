@@ -195,7 +195,7 @@ class ImageLoader(QtCore.QObject):
                     logger.debug("image data is not current")
                     return
                 num_loaded_tiles = self._loaded_tile_count(image_data)
-            GL.glFinish()
+            # GL.glFinish()  # Maybe unnecessary and possibly GPU stalling
             # print("ImageLoader.texture_loaded()")  # TODO: logging
             # self.texture_changed.emit(image_data.texture)  # noqa
             logger.info(f"(Loading thread) tile upload took {et}")
