@@ -101,7 +101,7 @@ elseif(APPLE)
   install(DIRECTORY "${CMAKE_BINARY_DIR}/dist/vimage"
       DESTINATION "."
   )
-  configure_file(${CMAKE_SOURCE_DIR/CMake/resources/debian/postinst.in.sh
+  configure_file(${CMAKE_SOURCE_DIR}/CMake/resources/debian/postinst.in.sh
    ${CMAKE_BINARY_DIR}/postinst
    @ONLY
   )
