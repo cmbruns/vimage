@@ -52,8 +52,9 @@ if(GIT_FOUND)
     )
 endif()
 
-find_program(UIC PySide6-uic
+find_program(UIC NAMES PySide6-uic pyside6-uic
   HINTS
+    ${CMAKE_SOURCE_DIR}/.venv/bin/
     /Library/Frameworks/Python.framework/Versions/3.9/bin/
     /usr/local/bin/
 )
@@ -66,6 +67,7 @@ add_custom_command(
 
 find_program(PYINSTALLER pyinstaller
     HINTS
+      ${CMAKE_SOURCE_DIR}/.venv/bin/
       /Library/Frameworks/Python.framework/Versions/3.9/bin/
       /usr/local/bin/
 )
@@ -106,7 +108,7 @@ elseif(APPLE)
    @ONLY
   )
   install(FILES ${CMAKE_SOURCE_DIR/CMake/resources/debian/mimetypes-vimage.xml}
-    DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/mime/packages"
+    DESTINATION "share/mime/packages"
   )
 endif()
 

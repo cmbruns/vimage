@@ -9,7 +9,7 @@ a = Analysis(
     pathex=["..", ],
     binaries=[
      ('/opt/libjpeg-turbo/lib64/libjpeg.so', '.'),
-     ('/opt/libjpeg-turbo/lib64/libturbojpeg.so', '.'),
+     ('/opt/libjpeg-turbo/lib64/libturbojpeg.so.0', '.'),
     ],
     datas=[
      ("../vmg/glsl/*.vert", "vmg/glsl"),
