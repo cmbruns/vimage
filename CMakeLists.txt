@@ -111,6 +111,10 @@ elseif(UNIX)
    ${CMAKE_BINARY_DIR}/postinst
    @ONLY
   )
+  configure_file(${CMAKE_SOURCE_DIR}/CMake/resources/debian/postrm.in.sh
+   ${CMAKE_BINARY_DIR}/postrm
+   @ONLY
+  )
   install(FILES ${CMAKE_SOURCE_DIR/CMake/resources/debian/mimetypes-vimage.xml}
     DESTINATION "share/mime/packages"
   )
@@ -140,7 +144,10 @@ elseif(UNIX)
   set(CPACK_DEBIAN_PACKAGE_RELEASE 1)
   set(CPACK_SET_DESTDIR "ON")
   # TODO: flesh out and debug this sketch for setting file associations
-  set(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA "${CMAKE_BINARY_DIR}/postinst")
+  set(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA
+    "${CMAKE_BINARY_DIR}/postinst"
+    "${CMAKE_BINARY_DIR}/postrm"
+  )
 endif()
 
 include(CPack)
