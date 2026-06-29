@@ -99,9 +99,13 @@ elseif(APPLE)
       DESTINATION "."
       USE_SOURCE_PERMISSIONS
   )
- elseif(UNIX)
+elseif(UNIX)
   install(DIRECTORY "${CMAKE_BINARY_DIR}/dist/vimage"
       DESTINATION "."
+  )
+  install(
+     PROGRAMS "${CMAKE_BINARY_DIR}/dist/vimage/vimage"
+     DESTINATION "vimage"
   )
   configure_file(${CMAKE_SOURCE_DIR}/CMake/resources/debian/postinst.in.sh
    ${CMAKE_BINARY_DIR}/postinst
