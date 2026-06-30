@@ -3,10 +3,11 @@
 uniform int input_projection = EQUIRECT_INPUT_PROJECTION;
 uniform int display_projection = STEREOGRAPHIC_DISPLAY_PROJECTION;
 
-uniform sampler2D image;
+uniform sampler2D tile;
 uniform int pixelFilter = FILTER_NEAREST;
 uniform mat3 ont_rot_obq = mat3(1);
 uniform mat3 raw_rot_ont = mat3(1);
+uniform mat3 tile_X_img = mat3(1);
 
 in vec2 p_nic;
 out vec4 color;
@@ -39,17 +40,22 @@ void main() {
     }
 
     vec3 p_raw = raw_rot_ont * ont_rot_obq * p_obq;
-    vec2 p_tex;
+    vec2 p_img_tex;  // Texture coordinate in full image
     switch(input_projection) {
         case DUAL_FISHEYE_INPUT_PROJECTION:
-            p_tex = gear360_2016_tex_coord(p_raw);
+            p_img_tex = gear360_2016_tex_coord(p_raw);
             break;
         case EQUIRECT_INPUT_PROJECTION:
         default :
-            p_tex = equirect_tex_coord(p_raw);
+            p_img_tex = equirect_tex_coord(p_raw);
             break;
     }
-    color = clip_n_filter(image, p_tex, pixelFilter, true);
+
+    p_img_tex = p_img_tex - floor(p_img_tex); // Shift to range 0-1
+
+    vec2 p_tile_tex = (tile_X_img * vec3(p_img_tex, 1)).xy;
+
+    color = clip_n_filter(tile, p_tile_tex, pixelFilter, true);
 
     // sRGB conversion should be the FINAL step of the fragment shader
     // color = srgb_from_linear(color);

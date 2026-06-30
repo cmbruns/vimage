@@ -168,6 +168,11 @@ class Tile(object):
         self.top = top
         self.width = width
         self.height = height
+        self.tile_X_img = numpy.array([
+            [texture.width/width, 0, left_tc - left/width],
+            [0, texture.height/height, top_tc - top/height],
+            [0, 0, 1],
+        ], dtype=numpy.float32)
 
     def initialize_gl(self, image_bytes):
         self.vbo = GL.glGenBuffers(1)
@@ -261,7 +266,7 @@ class Tile(object):
             )
             GL.glEnableVertexAttribArray(2)
         GL.glBindVertexArray(self.vao)
-        GL.glDrawArrays(GL.GL_TRIANGLE_STRIP, 0, 4)
+        GL.glDrawArrays(GL.GL_TRIANGLE_STRIP, 0, 4)  # Full screen quad
         logger.debug("Done rendering texture")
 
 

@@ -101,6 +101,7 @@ class SphericalShader(IImageShader):
         self.window_size_location = None
         self.input_projection_location = None
         self.display_projection_location = None
+        self.tile_X_img_location = None
 
     def initialize_gl(self) -> None:
         vertex_shader = compileShader(pkg_resources.resource_string(
@@ -120,6 +121,7 @@ class SphericalShader(IImageShader):
         self.window_size_location = GL.glGetUniformLocation(self.shader, "window_size")
         self.input_projection_location = GL.glGetUniformLocation(self.shader, "input_projection")
         self.display_projection_location = GL.glGetUniformLocation(self.shader, "display_projection")
+        self.tile_X_img_location = GL.glGetUniformLocation(self.shader, "tile_X_img")
 
     def paint_gl(self, state: ViewState, texture) -> None:
         # both nearest and catmull-rom use nearest at the moment.
@@ -138,4 +140,6 @@ class SphericalShader(IImageShader):
         GL.glUniform2i(self.window_size_location, *state.window_size)
         GL.glUniform1i(self.input_projection_location, state.input_projection.value)
         GL.glUniform1i(self.display_projection_location, state.display_projection.value)
-        texture.paint_gl()
+        for tile in texture:
+            GL.glUniformMatrix3fv(self.tile_X_img_location, 1, True, tile.tile_X_img)
+            tile.paint_gl()
