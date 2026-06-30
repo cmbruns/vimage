@@ -11,7 +11,6 @@ import logging
 import os
 import pathlib
 from pathlib import Path
-import pkg_resources
 import time
 
 import PIL
@@ -36,6 +35,7 @@ from vmg.recent_file import RecentFileList
 from vmg.ui_vimage import Ui_MainWindow
 from vmg.version import __version__
 from vmg.git_hash import vimage_git_hash
+from vmg.resources import resource_filename
 
 
 logger = logging.getLogger(__name__)
@@ -94,7 +94,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         self.actionSave_As.setShortcut(QtGui.QKeySequence.SaveAs)
         sel_rect.selection_shown.connect(self.actionSelect_None.setEnabled)
         self.actionSelect_None.triggered.connect(sel_rect.clear)
-        rect_icon_file = pkg_resources.resource_filename("vmg.images", "box_icon.png")
+        rect_icon_file = resource_filename("vmg.images", "box_icon.png")
         self.actionSelect_Rectangle.setIcon(QtGui.QIcon(rect_icon_file))
         self.actionSelect_Rectangle.triggered.connect(self.imageWidgetGL.start_rect_with_no_point)
         # Allow action shortcuts even when toolbar and menu bar are hidden

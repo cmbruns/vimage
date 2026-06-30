@@ -1,5 +1,4 @@
 import enum
-import pkg_resources
 from typing import Optional, Tuple
 
 import numpy
@@ -7,6 +6,7 @@ from PySide6 import QtCore, QtGui
 from PySide6.QtGui import Qt
 
 from vmg.frame import LocationOmp
+from vmg.resources import resource_filename
 
 
 class SelState(enum.Enum):
@@ -305,7 +305,7 @@ class StartRectAction(QtGui.QAction):
     def __init__(self):
         global _rect_icon
         if _rect_icon is None:
-            _rect_icon = QtGui.QIcon(pkg_resources.resource_filename("vmg.images", "box_icon.png"))
+            _rect_icon = QtGui.QIcon(resource_filename("vmg.images", "box_icon.png"))
         super().__init__(
             text="Start selecting a rectangle here",
             icon=_rect_icon,

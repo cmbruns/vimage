@@ -1,5 +1,4 @@
 import logging
-import pkg_resources
 import platform
 import sys
 
@@ -10,6 +9,7 @@ from PySide6.QtGui import QIcon, QSurfaceFormat
 from .main_window import VimageMainWindow
 from .except_hook import ExceptHook
 from .log import StdIoRedirector
+from vmg.resources import resource_filename
 
 
 logger = logging.getLogger(__name__)
@@ -47,7 +47,7 @@ class VimageApp(object):
             else:
                 window.set_image_list(app.arguments()[1:], 0)
             window.show()
-            icon_file = pkg_resources.resource_filename("vmg", "images/vimage2.ico")
+            icon_file = resource_filename("vmg", "images/vimage2.ico")
             icon = QIcon(icon_file)
             app.setWindowIcon(icon)
             window.setWindowIcon(icon)

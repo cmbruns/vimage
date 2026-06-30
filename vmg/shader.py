@@ -1,10 +1,10 @@
 import abc
-import pkg_resources
 
 from OpenGL import GL
 from OpenGL.GL.shaders import compileShader
 from OpenGL.GL.EXT.texture_filter_anisotropic import GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, GL_TEXTURE_MAX_ANISOTROPY_EXT
 
+from vmg.resources import resource_string
 from vmg.state import ViewState
 
 
@@ -30,11 +30,11 @@ class RectangularTileShader(IImageShader):
         self.box_shader = SelectionBoxShader()
 
     def initialize_gl(self) -> None:
-        vertex_shader = compileShader(pkg_resources.resource_string(
+        vertex_shader = compileShader(resource_string(
             "vmg.glsl", "tile_rect.vert", ), GL.GL_VERTEX_SHADER)
         fragment_shader = compileShader(
-            pkg_resources.resource_string("vmg.glsl", "shared.frag") +
-            pkg_resources.resource_string("vmg.glsl", "tile_rect.frag"),
+            resource_string("vmg.glsl", "shared.frag") +
+            resource_string("vmg.glsl", "tile_rect.frag"),
             GL.GL_FRAGMENT_SHADER)
         self.shader = GL.glCreateProgram()
         GL.glAttachShader(self.shader, vertex_shader)
@@ -67,11 +67,11 @@ class SelectionBoxShader(IImageShader):
         self.omp_scale_qwn_location = None
 
     def initialize_gl(self) -> None:
-        vertex_shader = compileShader(pkg_resources.resource_string(
+        vertex_shader = compileShader(resource_string(
             "vmg.glsl", "sel_box.vert", ), GL.GL_VERTEX_SHADER)
         fragment_shader = compileShader(
-            pkg_resources.resource_string("vmg.glsl", "shared.frag") +
-            pkg_resources.resource_string("vmg.glsl", "sel_box.frag"),
+            resource_string("vmg.glsl", "shared.frag") +
+            resource_string("vmg.glsl", "sel_box.frag"),
             GL.GL_FRAGMENT_SHADER)
         self.shader = GL.glCreateProgram()
         GL.glAttachShader(self.shader, vertex_shader)
@@ -104,11 +104,11 @@ class SphericalShader(IImageShader):
         self.tile_X_img_location = None
 
     def initialize_gl(self) -> None:
-        vertex_shader = compileShader(pkg_resources.resource_string(
+        vertex_shader = compileShader(resource_string(
             "vmg.glsl", "sphere.vert", ), GL.GL_VERTEX_SHADER)
         fragment_shader = compileShader(
-            pkg_resources.resource_string("vmg.glsl", "shared.frag") +
-            pkg_resources.resource_string("vmg.glsl", "sphere.frag"),
+            resource_string("vmg.glsl", "shared.frag") +
+            resource_string("vmg.glsl", "sphere.frag"),
             GL.GL_FRAGMENT_SHADER)
         self.shader = GL.glCreateProgram()
         GL.glAttachShader(self.shader, vertex_shader)
@@ -137,7 +137,7 @@ class SphericalShader(IImageShader):
         GL.glUniform1i(self.pixelFilter_location, state.pixel_filter.value)
         GL.glUniformMatrix3fv(self.ont_rot_obq_location, 1, True, state.ont_rot_obq)
         GL.glUniformMatrix3fv(self.raw_rot_ont_location, 1, True, state.raw_rot_ont)
-        GL.glUniform2i(self.window_size_location, *state.window_size)
+        GL.glUniform2i(self.window_size_location, *[int(x) for x in state.window_size])
         GL.glUniform1i(self.input_projection_location, state.input_projection.value)
         GL.glUniform1i(self.display_projection_location, state.display_projection.value)
         for tile in texture:
