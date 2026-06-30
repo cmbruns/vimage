@@ -173,7 +173,6 @@ class Tile(object):
             [0, texture.height/height, top_pad/height - top/height],
             [0, 0, 1],
         ], dtype=numpy.float32)
-        print(left_pad)
 
     def initialize_gl(self, image_bytes):
         self.vbo = GL.glGenBuffers(1)
