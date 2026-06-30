@@ -169,10 +169,11 @@ class Tile(object):
         self.width = width
         self.height = height
         self.tile_X_img = numpy.array([
-            [texture.width/width, 0, left_tc - left/width],
-            [0, texture.height/height, top_tc - top/height],
+            [texture.width/width, 0, left_pad/width - left/width],
+            [0, texture.height/height, top_pad/height - top/height],
             [0, 0, 1],
         ], dtype=numpy.float32)
+        print(left_pad)
 
     def initialize_gl(self, image_bytes):
         self.vbo = GL.glGenBuffers(1)
@@ -279,7 +280,7 @@ class Texture(object):
             data=None,
             tex_format: Optional[GLenum] = None,
             orientation=ExifOrientation.UNSPECIFIED,
-            tile_size = 8192
+            tile_size=8192
     ):
         self.size = size
         self.data = data
