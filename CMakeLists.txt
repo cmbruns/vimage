@@ -55,7 +55,7 @@ endif()
 find_program(UIC NAMES PySide6-uic pyside6-uic
   HINTS
     ${CMAKE_SOURCE_DIR}/.venv/bin/
-    /Library/Frameworks/Python.framework/Versions/3.9/bin/
+    /Library/Frameworks/Python.framework/Versions/3.14/bin/
     /usr/local/bin/
 )
 add_custom_command(
@@ -68,7 +68,7 @@ add_custom_command(
 find_program(PYINSTALLER pyinstaller
     HINTS
       ${CMAKE_SOURCE_DIR}/.venv/bin/
-      /Library/Frameworks/Python.framework/Versions/3.9/bin/
+      /Library/Frameworks/Python.framework/Versions/3.14/bin/
       /usr/local/bin/
 )
 if (WIN32)
