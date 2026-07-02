@@ -79,17 +79,17 @@ vec2 equirect_tex_coord(vec3 dir)
     return tex_coord;
 }
 
-vec2 gear360_2016_tex_coord(vec3 p_sph)
+vec2 gear360_2016_tex_coord(vec3 p_sph, float fov_radians, float lens_rot_radians)
 {
     // input vector space is 3D unit sphere, x-right, y-up, z-back (i.e. -Z forward/center)
     // range [-1, +1]
 
-    const float FOV = radians(195.0);  // field of view of Gear360 fisheye
+    // const float FOV = radians(195.0);  // field of view of Gear360 fisheye
     // My camera has a slight relative rotation of the lenses
-    const float lens_rot = radians(-1.5);  // relative rotation correction of the lenses
+    // const float lens_rot = radians(-1.5);  // relative rotation correction of the lenses
 
-    float crot = cos(lens_rot/2.0);
-    float srot = sin(lens_rot/2.0);
+    float crot = cos(lens_rot_radians/2.0);
+    float srot = sin(lens_rot_radians/2.0);
     mat2 rot_nfish = mat2(  // half rotation adjustment in the left/front fisheye
         crot, srot,
         -srot, crot);
@@ -102,7 +102,7 @@ vec2 gear360_2016_tex_coord(vec3 p_sph)
     }
 
     // normalized fisheye space 2D x-right, y-up, range [-1, +1]
-    float radius_nfish = acos(-p_sph.z) / FOV;  // TODO: nonlinear calibration
+    float radius_nfish = acos(-p_sph.z) / fov_radians;  // TODO: nonlinear calibration
     vec2 p_nfish = normalize(p_sph.xy) * radius_nfish * rot_nfish;
 
     // output gl texture coordinates 2D x-right, y-down, range[0, 1]

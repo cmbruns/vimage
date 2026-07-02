@@ -157,19 +157,23 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
     def _linear_from_srgb(image: numpy.array):
         return numpy.where(image >= 0.04045, ((image + 0.055) / 1.055)**2.4, image/12.92)
 
+    def set_input_projection(self, input_projection: InputProjection):
+        self.view_state.set_input_projection(input_projection)
+        if input_projection == InputProjection.EQUIRECTANGULAR:
+            self.program = self.sphere_shader
+        elif input_projection == InputProjection.DUAL_FISHEYE:
+            self.program = self.sphere_shader
+        else:
+            self.program = self.rect_tile_shader
+        self.signal_360.emit(input_projection != InputProjection.PERSPECTIVE)  # noqa
+        logger.info(f"input projection = {input_projection}")
+
     def set_image_data(self, image_data: ImageData):
         logger.info("Received image data")
         self.image_data = image_data
         self.view_state.reset()
-        self.view_state.set_input_projection(self.image_data.input_projection)
         self.view_state.set_image_data(self.image_data)
-        if self.view_state.input_projection == InputProjection.EQUIRECTANGULAR:
-            self.program = self.sphere_shader
-        elif self.view_state.input_projection == InputProjection.DUAL_FISHEYE:
-            self.program = self.sphere_shader
-        else:
-            self.program = self.rect_tile_shader
-        self.signal_360.emit(self.view_state.input_projection != InputProjection.PERSPECTIVE)  # noqa
+        self.set_input_projection(self.image_data.input_projection)
         w, h = self.image_data.size
         self.image_size_changed.emit(int(w), int(h))  # noqa
         self.update()

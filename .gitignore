@@ -10,3 +10,4 @@
 /doc/jupyter-notebook.exe.lnk
 /vimage.spec
 /vmg/git_hash.txt
+__pycache__

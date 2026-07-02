@@ -8,6 +8,8 @@ uniform int pixelFilter = FILTER_NEAREST;
 uniform mat3 ont_rot_obq = mat3(1);
 uniform mat3 raw_rot_ont = mat3(1);
 uniform mat3 tile_X_img = mat3(1);
+uniform float df_fov_radians = radians(195.0);
+uniform float df_lens_rot_radians = 0.0;
 
 in vec2 p_nic;
 out vec4 color;
@@ -43,7 +45,10 @@ void main() {
     vec2 p_img_tex;  // Texture coordinate in full image
     switch(input_projection) {
         case DUAL_FISHEYE_INPUT_PROJECTION:
-            p_img_tex = gear360_2016_tex_coord(p_raw);
+            p_img_tex = gear360_2016_tex_coord(
+                    p_raw,
+                    df_fov_radians,  // fisheye field of view
+                    df_lens_rot_radians);  // lens rotation offset
             break;
         case EQUIRECT_INPUT_PROJECTION:
         default :

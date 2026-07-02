@@ -118,6 +118,14 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
                 self.projectionComboBox.setCurrentText(proj.text())
         self.projectionComboBox.setEnabled(False)
         self.projectionComboBox.currentIndexChanged.connect(self.projection_combo_box_current_index_changed)  # noqa
+        #
+        self.input_projection_group = QtGui.QActionGroup(self)
+        for proj in (
+            self.actionPerspectiveInput,
+            self.actionEquirectangularInput,
+            self.actionDual_FisheyeInput,
+        ):
+            self.input_projection_group.addAction(proj)
         # Add image list progress label to toolbar
         self.list_label = QtWidgets.QLabel("0/0")
         self.list_label.setMinimumWidth(40)
@@ -503,9 +511,22 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         ))
 
     @QtCore.Slot(bool)  # noqa
+    def on_actionDual_FisheyeInput_toggled(self, is_checked: bool):  # noqa
+        print("dual fisheye")
+        if is_checked:
+            self.imageWidgetGL.set_input_projection(InputProjection.DUAL_FISHEYE)
+            self.imageWidgetGL.update()
+
+    @QtCore.Slot(bool)  # noqa
     def on_actionEquidistant_toggled(self, is_checked: bool):  # noqa
         if is_checked:
             self.set_display_projection(DisplayProjection.EQUIDISTANT, self.actionEquidistant)
+
+    @QtCore.Slot(bool)  # noqa
+    def on_actionEquirectangularInput_toggled(self, is_checked: bool):  # noqa
+        if is_checked:
+            self.imageWidgetGL.set_input_projection(InputProjection.EQUIRECTANGULAR)
+            self.imageWidgetGL.update()
 
     @QtCore.Slot(bool)  # noqa
     def on_actionEquirectangular_toggled(self, is_checked: bool):  # noqa
@@ -600,6 +621,12 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
     def on_actionPerspective_toggled(self, is_checked: bool):  # noqa
         if is_checked:
             self.set_display_projection(DisplayProjection.GNOMONIC, self.actionPerspective)
+
+    @QtCore.Slot(bool)  # noqa
+    def on_actionPerspectiveInput_toggled(self, is_checked: bool):  # noqa
+        if is_checked:
+            self.imageWidgetGL.set_input_projection(InputProjection.PERSPECTIVE)
+            self.imageWidgetGL.update()
 
     @QtCore.Slot()  # noqa
     def on_actionPrevious_triggered(self):  # noqa

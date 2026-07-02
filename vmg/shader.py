@@ -1,3 +1,5 @@
+from math import radians
+
 import abc
 
 from OpenGL import GL
@@ -102,6 +104,11 @@ class SphericalShader(IImageShader):
         self.input_projection_location = None
         self.display_projection_location = None
         self.tile_X_img_location = None
+        # TODO dual fisheye parameters should be stored per-camera or whatever
+        self.df_fov_radians = radians(195.0)
+        self.df_lens_rot_radians = radians(0.0)
+        self.df_fov_radians_location = None
+        self.df_lens_rot_radians_location = None
 
     def initialize_gl(self) -> None:
         vertex_shader = compileShader(resource_string(
@@ -122,6 +129,8 @@ class SphericalShader(IImageShader):
         self.input_projection_location = GL.glGetUniformLocation(self.shader, "input_projection")
         self.display_projection_location = GL.glGetUniformLocation(self.shader, "display_projection")
         self.tile_X_img_location = GL.glGetUniformLocation(self.shader, "tile_X_img")
+        self.df_fov_radians_location = GL.glGetUniformLocation(self.shader, "df_fov_radians")
+        self.df_lens_rot_radians_location = GL.glGetUniformLocation(self.shader, "df_lens_rot_radians")
 
     def paint_gl(self, state: ViewState, texture) -> None:
         # both nearest and catmull-rom use nearest at the moment.
@@ -140,6 +149,8 @@ class SphericalShader(IImageShader):
         GL.glUniform2i(self.window_size_location, *[int(x) for x in state.window_size])
         GL.glUniform1i(self.input_projection_location, state.input_projection.value)
         GL.glUniform1i(self.display_projection_location, state.display_projection.value)
+        GL.glUniform1f(self.df_fov_radians_location, self.df_fov_radians)
+        GL.glUniform1f(self.df_lens_rot_radians_location, self.df_lens_rot_radians)
         for tile in texture:
             GL.glUniformMatrix3fv(self.tile_X_img_location, 1, True, tile.tile_X_img)
             tile.paint_gl()

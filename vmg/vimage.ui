@@ -77,6 +77,15 @@
      <addaction name="actionEquidistant"/>
      <addaction name="actionEquirectangular"/>
     </widget>
+    <widget class="QMenu" name="menuInput_Projection">
+     <property name="title">
+      <string>Input Projection</string>
+     </property>
+     <addaction name="actionPerspectiveInput"/>
+     <addaction name="actionEquirectangularInput"/>
+     <addaction name="actionDual_FisheyeInput"/>
+     <addaction name="actionConfigure_Dual_Fisheye"/>
+    </widget>
     <addaction name="actionReset_View"/>
     <addaction name="actionZoom_Out"/>
     <addaction name="actionZoom_In"/>
@@ -87,6 +96,7 @@
     <addaction name="actionSharp"/>
     <addaction name="actionFull_Screen"/>
     <addaction name="menu360_Projection"/>
+    <addaction name="menuInput_Projection"/>
     <addaction name="separator"/>
     <addaction name="actionView_Log"/>
    </widget>
@@ -362,6 +372,48 @@
   <action name="actionView_Log">
    <property name="text">
     <string>View Log</string>
+   </property>
+  </action>
+  <action name="actionPerspectiveInput">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Perspective</string>
+   </property>
+  </action>
+  <action name="actionEquirectangularInput">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Equirectangular</string>
+   </property>
+  </action>
+  <action name="action">
+   <property name="text">
+    <string>Dual Fisheye</string>
+   </property>
+  </action>
+  <action name="actionConfigure">
+   <property name="text">
+    <string>Configure...</string>
+   </property>
+  </action>
+  <action name="actionDual_FisheyeInput">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Dual Fisheye</string>
+   </property>
+  </action>
+  <action name="actionConfigure_Dual_Fisheye">
+   <property name="text">
+    <string>Configure Dual Fisheye...</string>
    </property>
   </action>
  </widget>
