@@ -65,8 +65,10 @@ class Ui_Dialog(object):
     # setupUi
 
     def retranslateUi(self, Dialog):
-        Dialog.setWindowTitle(QCoreApplication.translate("Dialog", u"Dialog", None))
-        self.label.setText(QCoreApplication.translate("Dialog", u"fisheye FOV", None))
-        self.label_2.setText(QCoreApplication.translate("Dialog", u"lens rotation offset", None))
+        Dialog.setWindowTitle(QCoreApplication.translate("Dialog", u"Dual Fisheye Lens Parameters", None))
+        self.label.setText(QCoreApplication.translate("Dialog", u"fisheye field of view", None))
+        self.fov_doubleSpinBox.setSuffix(QCoreApplication.translate("Dialog", u"\u00b0", None))
+        self.label_2.setText(QCoreApplication.translate("Dialog", u"interlens axial rotation", None))
+        self.lensrot_doubleSpinBox.setSuffix(QCoreApplication.translate("Dialog", u"\u00b0", None))
     # retranslateUi
 

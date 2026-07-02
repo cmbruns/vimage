@@ -520,6 +520,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
             l_ui = self.lens_dialog.ui
             glw = self.imageWidgetGL
             l_ui.lensrot_doubleSpinBox.valueChanged.connect(glw.update_df_lens_rot)
+            l_ui.fov_doubleSpinBox.valueChanged.connect(glw.update_df_fov)
         self.lens_dialog.show()
         self.lens_dialog.raise_()
         self.lens_dialog.activateWindow()

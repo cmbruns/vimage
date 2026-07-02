@@ -11,13 +11,13 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>Dialog</string>
+   <string>Dual Fisheye Lens Parameters</string>
   </property>
   <layout class="QGridLayout" name="gridLayout">
    <item row="0" column="0">
     <widget class="QLabel" name="label">
      <property name="text">
-      <string>fisheye FOV</string>
+      <string>fisheye field of view</string>
      </property>
      <property name="buddy">
       <cstring>fov_doubleSpinBox</cstring>
@@ -26,6 +26,9 @@
    </item>
    <item row="0" column="1">
     <widget class="QDoubleSpinBox" name="fov_doubleSpinBox">
+     <property name="suffix">
+      <string>°</string>
+     </property>
      <property name="decimals">
       <number>2</number>
      </property>
@@ -46,7 +49,7 @@
    <item row="1" column="0">
     <widget class="QLabel" name="label_2">
      <property name="text">
-      <string>lens rotation offset</string>
+      <string>interlens axial rotation</string>
      </property>
      <property name="buddy">
       <cstring>lensrot_doubleSpinBox</cstring>
@@ -55,6 +58,9 @@
    </item>
    <item row="1" column="1">
     <widget class="QDoubleSpinBox" name="lensrot_doubleSpinBox">
+     <property name="suffix">
+      <string>°</string>
+     </property>
      <property name="decimals">
       <number>2</number>
      </property>
