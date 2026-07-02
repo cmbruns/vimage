@@ -84,6 +84,7 @@
      <addaction name="actionPerspectiveInput"/>
      <addaction name="actionEquirectangularInput"/>
      <addaction name="actionDual_FisheyeInput"/>
+     <addaction name="separator"/>
      <addaction name="actionConfigure_Dual_Fisheye"/>
     </widget>
     <addaction name="actionReset_View"/>

@@ -188,6 +188,7 @@ class Ui_MainWindow(object):
         self.menuInput_Projection.addAction(self.actionPerspectiveInput)
         self.menuInput_Projection.addAction(self.actionEquirectangularInput)
         self.menuInput_Projection.addAction(self.actionDual_FisheyeInput)
+        self.menuInput_Projection.addSeparator()
         self.menuInput_Projection.addAction(self.actionConfigure_Dual_Fisheye)
         self.menuHelp.addAction(self.actionAbout)
         self.menuHelp.addAction(self.actionReport_a_Problem)

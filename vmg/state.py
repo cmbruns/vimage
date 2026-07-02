@@ -27,7 +27,7 @@ class ViewState(QObject):
         self._size_omp = DimensionsOmp(* image_size)
         self.display_projection = DisplayProjection.STEREOGRAPHIC
         self._zoom = 1.0  # windows per image
-        self._input_format = InputFormat.PERSPECTIVE
+        self._input_format = InputFormat.STANDARD_PHOTO
         self._center_rel = LocationRelative(0.5, 0.5)
         self._update_aspect_scale()
         self._raw_rot_omp = numpy.eye(2, dtype=numpy.float32)
@@ -70,7 +70,7 @@ class ViewState(QObject):
         p_omp = self.omp_for_qpoint(qpoint)
         result.extend(self.sel_rect.context_menu_actions(
             p_omp,
-            self.input_format != InputFormat.PERSPECTIVE))
+            self.input_format != InputFormat.STANDARD_PHOTO))
         return result
 
     cursor_changed = QtCore.Signal(CursorHolder)
@@ -139,11 +139,11 @@ class ViewState(QObject):
         return self._input_format
 
     def key_press_event(self, event: QtGui.QKeyEvent):
-        if self.input_format == InputFormat.PERSPECTIVE:
+        if self.input_format == InputFormat.STANDARD_PHOTO:
             self.sel_rect.key_press_event(event)
 
     def key_release_event(self, event: QtGui.QKeyEvent):
-        if self.input_format == InputFormat.PERSPECTIVE:
+        if self.input_format == InputFormat.STANDARD_PHOTO:
             self.sel_rect.key_release_event(event)
 
     def mouse_move_event(self, event) -> bool:
@@ -151,7 +151,7 @@ class ViewState(QObject):
         update_display = False
         event_consumed = False
         p_omp = self.omp_for_qpoint(event.pos())
-        if self.input_format == InputFormat.PERSPECTIVE:
+        if self.input_format == InputFormat.STANDARD_PHOTO:
             event_consumed, update_display = self.sel_rect.mouse_move_event(event, p_omp, self.hover_min_omp)
         if event_consumed:
             pass
@@ -424,5 +424,5 @@ class ViewState(QObject):
                 dx = after_omp.x - before_omp.x
                 dy = after_omp.y - before_omp.y
                 self._center_rel = self._center_rel - (dx/self._size_omp.x, dy/self._size_omp.y)
-        if self.input_format == InputFormat.PERSPECTIVE:
+        if self.input_format == InputFormat.STANDARD_PHOTO:
             self._clamp_center()

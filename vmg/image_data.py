@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 class InputFormat(Enum):
     EQUIRECTANGULAR = 0   # stitched pano
     DUAL_FISHEYE = 1      # raw fisheye pair
-    PERSPECTIVE = 2       # normal 2D photo
+    STANDARD_PHOTO = 2       # normal 2D photo
 
 
 class ImageData(QtCore.QObject):
@@ -35,7 +35,7 @@ class ImageData(QtCore.QObject):
         self.orientation = ExifOrientation.UNSPECIFIED
         self._raw_rot_ont = numpy.eye(3, dtype=numpy.float32)
         self._raw_rot_omp = numpy.eye(2, dtype=numpy.float32)
-        self._input_format = InputFormat.PERSPECTIVE
+        self._input_format = InputFormat.STANDARD_PHOTO
         self.has_displayed = False
 
     def file_is_readable(self) -> bool:
@@ -106,7 +106,7 @@ class ImageData(QtCore.QObject):
         model = exif.get("Model", "").lower()
         logger.info(f"Camera model = '{model}'")
         if self.size_omp.x != 2 * self.size_omp.y:
-            self._input_format = InputFormat.PERSPECTIVE  # Non-2:1 aspect is always a regular photo
+            self._input_format = InputFormat.STANDARD_PHOTO  # Non-2:1 aspect is always a regular photo
         else:
             # 2016 Gear 360 raw image has certain sizes
             if model == "sm-c200" and ((w, h) == (7776, 3888) or (w, h) == (5792, 2896)):

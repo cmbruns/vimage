@@ -27,7 +27,7 @@
    <item row="0" column="1">
     <widget class="QDoubleSpinBox" name="fov_doubleSpinBox">
      <property name="decimals">
-      <number>1</number>
+      <number>2</number>
      </property>
      <property name="minimum">
       <double>90.000000000000000</double>
@@ -36,7 +36,7 @@
       <double>360.000000000000000</double>
      </property>
      <property name="singleStep">
-      <double>0.100000000000000</double>
+      <double>0.200000000000000</double>
      </property>
      <property name="value">
       <double>185.000000000000000</double>
@@ -56,7 +56,7 @@
    <item row="1" column="1">
     <widget class="QDoubleSpinBox" name="lensrot_doubleSpinBox">
      <property name="decimals">
-      <number>1</number>
+      <number>2</number>
      </property>
      <property name="minimum">
       <double>-180.000000000000000</double>
@@ -65,7 +65,7 @@
       <double>180.000000000000000</double>
      </property>
      <property name="singleStep">
-      <double>0.100000000000000</double>
+      <double>0.200000000000000</double>
      </property>
     </widget>
    </item>

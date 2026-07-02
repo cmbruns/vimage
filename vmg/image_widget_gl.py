@@ -1,3 +1,5 @@
+from math import radians
+
 import logging
 
 import numpy
@@ -167,11 +169,11 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
             self.program = self.sphere_shader
         elif input_format == InputFormat.DUAL_FISHEYE:
             self.program = self.sphere_shader
-        elif input_format == InputFormat.PERSPECTIVE:
+        elif input_format == InputFormat.STANDARD_PHOTO:
             self.program = self.rect_tile_shader
         else:
             raise Exception("Unexpected input format")
-        self.signal_360.emit(input_format != InputFormat.PERSPECTIVE)  # noqa
+        self.signal_360.emit(input_format != InputFormat.STANDARD_PHOTO)  # noqa
         logger.info(f"input projection = {input_format}")
         self.input_format_changed.emit(input_format)
         return True
@@ -202,6 +204,18 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
     @QtCore.Slot()  # noqa
     def start_rect_with_no_point(self):
         self.view_state.sel_rect.begin(None)
+
+    @QtCore.Slot(float)
+    def update_df_lens_rot(self, rot_deg: float):
+        rot_rad = radians(rot_deg)
+        if rot_rad == self.sphere_shader.df_lens_rot_radians:
+            return  # No change
+        self.sphere_shader.df_lens_rot_radians = rot_rad
+        if self.program != self.sphere_shader:
+            return  # Wrong shader, no update needed
+        if self.view_state.input_format != InputFormat.DUAL_FISHEYE:
+            return  # Wrong format, no update needed
+        self.update()  # Live update as user changes parameter
 
     def wheelEvent(self, event: QtGui.QWheelEvent):
         d_scale = event.angleDelta().y() / 120.0

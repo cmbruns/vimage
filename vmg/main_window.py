@@ -26,6 +26,7 @@ from vmg.circular_combo_box import CircularComboBox
 from vmg.command import CropToSelection
 from vmg.image_loader import ImageLoader
 from vmg.image_data import ImageData, InputFormat
+from vmg.lens_dialog import LensDialog
 from vmg.log import LogDialog
 from vmg.natural_sort import natural_sort_key
 from vmg.pixel_filter import PixelFilter
@@ -190,6 +191,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         #
         # Logging
         self.log_window = LogDialog(self)
+        self.lens_dialog = None  # Instantiate just in time
 
     def activate_indexed_image(self):
         try:
@@ -313,7 +315,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         self.actionSave_As.setEnabled(True)
         self.actionSave_Current_View_As.setEnabled(True)
         self.actionCopy.setEnabled(True)
-        self.actionSelect_Rectangle.setEnabled(self.imageWidgetGL.view_state.input_format == InputFormat.PERSPECTIVE)
+        self.actionSelect_Rectangle.setEnabled(self.imageWidgetGL.view_state.input_format == InputFormat.STANDARD_PHOTO)
         self.actionSelect_None.trigger()
         # self.imageWidgetGL.update()
 
@@ -397,7 +399,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         self.update_previous_next()
 
     def set_input_format(self, input_format: InputFormat):
-        if input_format == InputFormat.PERSPECTIVE:
+        if input_format == InputFormat.STANDARD_PHOTO:
             self.actionPerspectiveInput.setChecked(True)
         elif input_format == InputFormat.EQUIRECTANGULAR:
             self.actionEquirectangularInput.setChecked(True)
@@ -509,6 +511,18 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
             QtGui.QImage.Format.Format_RGBA8888,
         )
         self.clipboard.setImage(qimage)
+
+    @QtCore.Slot()  # noqa
+    def on_actionConfigure_Dual_Fisheye_triggered(self):  # noqa
+        print("Configure...")
+        if self.lens_dialog is None:
+            self.lens_dialog = LensDialog(self)
+            l_ui = self.lens_dialog.ui
+            glw = self.imageWidgetGL
+            l_ui.lensrot_doubleSpinBox.valueChanged.connect(glw.update_df_lens_rot)
+        self.lens_dialog.show()
+        self.lens_dialog.raise_()
+        self.lens_dialog.activateWindow()
 
     @QtCore.Slot()  # noqa
     def on_actionCrop_to_Selection_triggered(self):  # noqa
@@ -636,7 +650,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
     @QtCore.Slot(bool)  # noqa
     def on_actionPerspectiveInput_toggled(self, is_checked: bool):  # noqa
         if is_checked:
-            if self.imageWidgetGL.set_input_format(InputFormat.PERSPECTIVE):
+            if self.imageWidgetGL.set_input_format(InputFormat.STANDARD_PHOTO):
                 self.imageWidgetGL.update()
 
     @QtCore.Slot()  # noqa
