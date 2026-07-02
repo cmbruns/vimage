@@ -16,9 +16,9 @@ const int AZ_EQ_DISPLAY_PROJECTION = 2;
 const int EQUIRECT_DISPLAY_PROJECTION = 3;
 
 // Keep these in sync with image_data.py
-const int EQUIRECT_INPUT_PROJECTION = 0;
-const int DUAL_FISHEYE_INPUT_PROJECTION = 1;
-const int PERSPECTIVE_INPUT_PROJECTION = 2;
+const int EQUIRECT_INPUT_FORMAT = 0;
+const int DUAL_FISHEYE_INPUT_FORMAT = 1;
+const int PERSPECTIVE_INPUT_FORMAT = 2;
 
 vec4 equirect_color(sampler2D image, vec2 tex_coord)
 {

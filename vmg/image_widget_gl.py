@@ -5,7 +5,7 @@ from OpenGL import GL
 from PySide6 import QtCore, QtGui, QtOpenGLWidgets, QtWidgets
 from PySide6.QtCore import QEvent, Qt, QPoint
 
-from vmg.image_data import ImageData, InputProjection
+from vmg.image_data import ImageData, InputFormat
 from vmg.offscreen_context import OffscreenContext
 from vmg.selection_box import (CursorHolder)
 from vmg.state import ViewState
@@ -89,6 +89,8 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         self.rect_tile_shader.initialize_gl()
         self.sphere_shader.initialize_gl()
 
+    input_format_changed = QtCore.Signal(InputFormat)
+
     def keyPressEvent(self, event):
         self.view_state.key_press_event(event)
 
@@ -157,23 +159,29 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
     def _linear_from_srgb(image: numpy.array):
         return numpy.where(image >= 0.04045, ((image + 0.055) / 1.055)**2.4, image/12.92)
 
-    def set_input_projection(self, input_projection: InputProjection):
-        self.view_state.set_input_projection(input_projection)
-        if input_projection == InputProjection.EQUIRECTANGULAR:
+    def set_input_format(self, input_format: InputFormat) -> bool:
+        if self.view_state.input_format == input_format:
+            return False
+        self.view_state.set_input_format(input_format)
+        if input_format == InputFormat.EQUIRECTANGULAR:
             self.program = self.sphere_shader
-        elif input_projection == InputProjection.DUAL_FISHEYE:
+        elif input_format == InputFormat.DUAL_FISHEYE:
             self.program = self.sphere_shader
-        else:
+        elif input_format == InputFormat.PERSPECTIVE:
             self.program = self.rect_tile_shader
-        self.signal_360.emit(input_projection != InputProjection.PERSPECTIVE)  # noqa
-        logger.info(f"input projection = {input_projection}")
+        else:
+            raise Exception("Unexpected input format")
+        self.signal_360.emit(input_format != InputFormat.PERSPECTIVE)  # noqa
+        logger.info(f"input projection = {input_format}")
+        self.input_format_changed.emit(input_format)
+        return True
 
     def set_image_data(self, image_data: ImageData):
         logger.info("Received image data")
         self.image_data = image_data
         self.view_state.reset()
         self.view_state.set_image_data(self.image_data)
-        self.set_input_projection(self.image_data.input_projection)
+        self.set_input_format(self.image_data.input_format)
         w, h = self.image_data.size
         self.image_size_changed.emit(int(w), int(h))  # noqa
         self.update()

@@ -25,7 +25,7 @@ from PySide6.QtWidgets import QFileDialog, QMessageBox
 from vmg.circular_combo_box import CircularComboBox
 from vmg.command import CropToSelection
 from vmg.image_loader import ImageLoader
-from vmg.image_data import ImageData, InputProjection
+from vmg.image_data import ImageData, InputFormat
 from vmg.log import LogDialog
 from vmg.natural_sort import natural_sort_key
 from vmg.pixel_filter import PixelFilter
@@ -77,6 +77,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
             settings_key="recent_files",
             menu=self.menuOpen_Recent,
         )
+        self.imageWidgetGL.input_format_changed.connect(self.set_input_format)
         sel_rect = self.imageWidgetGL.view_state.sel_rect
         sel_rect.selection_shown.connect(self.actionCrop_to_Selection.setEnabled)
         self.actionNext.setIcon(self.style().standardIcon(
@@ -119,13 +120,13 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         self.projectionComboBox.setEnabled(False)
         self.projectionComboBox.currentIndexChanged.connect(self.projection_combo_box_current_index_changed)  # noqa
         #
-        self.input_projection_group = QtGui.QActionGroup(self)
+        self.input_format_group = QtGui.QActionGroup(self)
         for proj in (
             self.actionPerspectiveInput,
             self.actionEquirectangularInput,
             self.actionDual_FisheyeInput,
         ):
-            self.input_projection_group.addAction(proj)
+            self.input_format_group.addAction(proj)
         # Add image list progress label to toolbar
         self.list_label = QtWidgets.QLabel("0/0")
         self.list_label.setMinimumWidth(40)
@@ -312,7 +313,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         self.actionSave_As.setEnabled(True)
         self.actionSave_Current_View_As.setEnabled(True)
         self.actionCopy.setEnabled(True)
-        self.actionSelect_Rectangle.setEnabled(self.imageWidgetGL.view_state.input_projection == InputProjection.PERSPECTIVE)
+        self.actionSelect_Rectangle.setEnabled(self.imageWidgetGL.view_state.input_format == InputFormat.PERSPECTIVE)
         self.actionSelect_None.trigger()
         # self.imageWidgetGL.update()
 
@@ -394,6 +395,16 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         assert self.image_index is not None
         self.load_image_from_file(self.image_list[self.image_index])
         self.update_previous_next()
+
+    def set_input_format(self, input_format: InputFormat):
+        if input_format == InputFormat.PERSPECTIVE:
+            self.actionPerspectiveInput.setChecked(True)
+        elif input_format == InputFormat.EQUIRECTANGULAR:
+            self.actionEquirectangularInput.setChecked(True)
+        elif input_format == InputFormat.DUAL_FISHEYE:
+            self.actionDual_FisheyeInput.setChecked(True)
+        else:
+            raise Exception("Unexpected InputProjection")
 
     def set_display_projection(self, projection: DisplayProjection, action: QtGui.QAction) -> None:
         if self.imageWidgetGL.view_state.display_projection == projection:
@@ -514,8 +525,8 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
     def on_actionDual_FisheyeInput_toggled(self, is_checked: bool):  # noqa
         print("dual fisheye")
         if is_checked:
-            self.imageWidgetGL.set_input_projection(InputProjection.DUAL_FISHEYE)
-            self.imageWidgetGL.update()
+            if self.imageWidgetGL.set_input_format(InputFormat.DUAL_FISHEYE):
+                self.imageWidgetGL.update()
 
     @QtCore.Slot(bool)  # noqa
     def on_actionEquidistant_toggled(self, is_checked: bool):  # noqa
@@ -525,8 +536,8 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
     @QtCore.Slot(bool)  # noqa
     def on_actionEquirectangularInput_toggled(self, is_checked: bool):  # noqa
         if is_checked:
-            self.imageWidgetGL.set_input_projection(InputProjection.EQUIRECTANGULAR)
-            self.imageWidgetGL.update()
+            if self.imageWidgetGL.set_input_format(InputFormat.EQUIRECTANGULAR):
+                self.imageWidgetGL.update()
 
     @QtCore.Slot(bool)  # noqa
     def on_actionEquirectangular_toggled(self, is_checked: bool):  # noqa
@@ -625,8 +636,8 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
     @QtCore.Slot(bool)  # noqa
     def on_actionPerspectiveInput_toggled(self, is_checked: bool):  # noqa
         if is_checked:
-            self.imageWidgetGL.set_input_projection(InputProjection.PERSPECTIVE)
-            self.imageWidgetGL.update()
+            if self.imageWidgetGL.set_input_format(InputFormat.PERSPECTIVE):
+                self.imageWidgetGL.update()
 
     @QtCore.Slot()  # noqa
     def on_actionPrevious_triggered(self):  # noqa

@@ -16,7 +16,7 @@ from vmg.texture import Texture, ExifOrientation
 logger = logging.getLogger(__name__)
 
 
-class InputProjection(Enum):
+class InputFormat(Enum):
     EQUIRECTANGULAR = 0   # stitched pano
     DUAL_FISHEYE = 1      # raw fisheye pair
     PERSPECTIVE = 2       # normal 2D photo
@@ -35,7 +35,7 @@ class ImageData(QtCore.QObject):
         self.orientation = ExifOrientation.UNSPECIFIED
         self._raw_rot_ont = numpy.eye(3, dtype=numpy.float32)
         self._raw_rot_omp = numpy.eye(2, dtype=numpy.float32)
-        self._input_projection = InputProjection.PERSPECTIVE
+        self._input_format = InputFormat.PERSPECTIVE
         self.has_displayed = False
 
     def file_is_readable(self) -> bool:
@@ -47,8 +47,8 @@ class ImageData(QtCore.QObject):
         return True
 
     @property
-    def input_projection(self) -> InputProjection:
-        return self._input_projection
+    def input_format(self) -> InputFormat:
+        return self._input_format
 
     def load_jpeg_image(self) -> bool:
         # TODO: split into smaller parts
@@ -106,15 +106,15 @@ class ImageData(QtCore.QObject):
         model = exif.get("Model", "").lower()
         logger.info(f"Camera model = '{model}'")
         if self.size_omp.x != 2 * self.size_omp.y:
-            self._input_projection = InputProjection.PERSPECTIVE  # Non-2:1 aspect is always a regular photo
+            self._input_format = InputFormat.PERSPECTIVE  # Non-2:1 aspect is always a regular photo
         else:
             # 2016 Gear 360 raw image has certain sizes
             if model == "sm-c200" and ((w, h) == (7776, 3888) or (w, h) == (5792, 2896)):
-                self._input_projection = InputProjection.DUAL_FISHEYE
+                self._input_format = InputFormat.DUAL_FISHEYE
             elif model.startswith("ricoh theta"):
-                self._input_projection = InputProjection.EQUIRECTANGULAR
+                self._input_format = InputFormat.EQUIRECTANGULAR
             else:
-                self._input_projection = InputProjection.EQUIRECTANGULAR  # Too inclusive...
+                self._input_format = InputFormat.EQUIRECTANGULAR  # Too inclusive...
             try:
                 # TODO: InitialViewHeadingDegrees
                 desc = xmp["xmpmeta"]["RDF"]["Description"]

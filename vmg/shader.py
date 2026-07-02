@@ -101,7 +101,7 @@ class SphericalShader(IImageShader):
         self.ont_rot_obq_location = None
         self.raw_rot_ont_location = None
         self.window_size_location = None
-        self.input_projection_location = None
+        self.input_format_location = None
         self.display_projection_location = None
         self.tile_X_img_location = None
         # TODO dual fisheye parameters should be stored per-camera or whatever
@@ -126,7 +126,7 @@ class SphericalShader(IImageShader):
         self.ont_rot_obq_location = GL.glGetUniformLocation(self.shader, "ont_rot_obq")
         self.raw_rot_ont_location = GL.glGetUniformLocation(self.shader, "raw_rot_ont")
         self.window_size_location = GL.glGetUniformLocation(self.shader, "window_size")
-        self.input_projection_location = GL.glGetUniformLocation(self.shader, "input_projection")
+        self.input_format_location = GL.glGetUniformLocation(self.shader, "input_format")
         self.display_projection_location = GL.glGetUniformLocation(self.shader, "display_projection")
         self.tile_X_img_location = GL.glGetUniformLocation(self.shader, "tile_X_img")
         self.df_fov_radians_location = GL.glGetUniformLocation(self.shader, "df_fov_radians")
@@ -147,7 +147,7 @@ class SphericalShader(IImageShader):
         GL.glUniformMatrix3fv(self.ont_rot_obq_location, 1, True, state.ont_rot_obq)
         GL.glUniformMatrix3fv(self.raw_rot_ont_location, 1, True, state.raw_rot_ont)
         GL.glUniform2i(self.window_size_location, *[int(x) for x in state.window_size])
-        GL.glUniform1i(self.input_projection_location, state.input_projection.value)
+        GL.glUniform1i(self.input_format_location, state.input_format.value)
         GL.glUniform1i(self.display_projection_location, state.display_projection.value)
         GL.glUniform1f(self.df_fov_radians_location, self.df_fov_radians)
         GL.glUniform1f(self.df_lens_rot_radians_location, self.df_lens_rot_radians)

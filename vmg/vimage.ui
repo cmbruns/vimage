@@ -79,7 +79,7 @@
     </widget>
     <widget class="QMenu" name="menuInput_Projection">
      <property name="title">
-      <string>Input Projection</string>
+      <string>Input Format</string>
      </property>
      <addaction name="actionPerspectiveInput"/>
      <addaction name="actionEquirectangularInput"/>
@@ -382,7 +382,7 @@
     <bool>true</bool>
    </property>
    <property name="text">
-    <string>Perspective</string>
+    <string>Standard Photo</string>
    </property>
   </action>
   <action name="actionEquirectangularInput">

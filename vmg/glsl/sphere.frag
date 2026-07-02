@@ -1,6 +1,6 @@
 #pragma include "shared.frag"
 
-uniform int input_projection = EQUIRECT_INPUT_PROJECTION;
+uniform int input_format = EQUIRECT_INPUT_FORMAT;
 uniform int display_projection = STEREOGRAPHIC_DISPLAY_PROJECTION;
 
 uniform sampler2D tile;
@@ -43,14 +43,14 @@ void main() {
 
     vec3 p_raw = raw_rot_ont * ont_rot_obq * p_obq;
     vec2 p_img_tex;  // Texture coordinate in full image
-    switch(input_projection) {
-        case DUAL_FISHEYE_INPUT_PROJECTION:
+    switch(input_format) {
+        case DUAL_FISHEYE_INPUT_FORMAT:
             p_img_tex = gear360_2016_tex_coord(
                     p_raw,
                     df_fov_radians,  // fisheye field of view
                     df_lens_rot_radians);  // lens rotation offset
             break;
-        case EQUIRECT_INPUT_PROJECTION:
+        case EQUIRECT_INPUT_FORMAT:
         default :
             p_img_tex = equirect_tex_coord(p_raw);
             break;
