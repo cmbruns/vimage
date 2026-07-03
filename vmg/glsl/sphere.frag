@@ -62,6 +62,8 @@ void main() {
 
     color = clip_n_filter(tile, p_tile_tex, pixelFilter, true);
 
+    color = texel_boundaries(color, p_tile_tex * textureSize(tile, 0));
+
     // sRGB conversion should be the FINAL step of the fragment shader
     // color = srgb_from_linear(color);
 }
