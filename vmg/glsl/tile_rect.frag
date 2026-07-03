@@ -20,5 +20,7 @@ void main()
     else
         image_color = catrom(tile, p_tcr, false);
 
+    image_color = texel_boundaries(image_color, p_tcr * textureSize(tile, 0));
+
     image_color = selection_box(p_omp, image_color, background_color, sel_rect_omp, omp_scale_qwn);
 }

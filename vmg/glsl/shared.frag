@@ -129,7 +129,7 @@ vec4 texel_boundaries(vec4 baseColor, vec2 texelCoord)
     // Screen pixels per texture pixel
     float pixelsPerTexel = 1.0 / texelsPerPixel;
     // Fade-in factor: 0 at 10px/texel, 1 at 20px/texel
-    float fade = smoothstep(15.0, 100.0, pixelsPerTexel);
+    float fade = smoothstep(12.0, 100.0, pixelsPerTexel);
     // If fully faded out, skip work
     if (fade <= 0.0) return baseColor;
 
