@@ -164,9 +164,9 @@ vec4 clip_n_filter(sampler2D image, vec2 tc, int pixelFilter, bool wrap)
     if (mipmapLevel > 0 || pixelFilter == FILTER_NEAREST)
     {
         if (wrap)
-           return nearest_wrap(image, tc);
+            return equirect_color(image, tc);
         else
-            return nearest_nowrap(image, tc);
+            return texture(image, tc);
     }
     else {
         return catrom(image, tc, wrap);

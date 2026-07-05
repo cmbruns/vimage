@@ -11,6 +11,7 @@ uniform mat3 tile_X_img = mat3(1);
 uniform float df_fov_radians = radians(195.0);
 uniform float df_lens_rot_radians = 0.0;
 uniform float brightness = 0.0;
+uniform bool input_is_linear = false;
 
 in vec2 p_nic;
 out vec4 color;
@@ -57,19 +58,22 @@ void main() {
             break;
     }
 
+    // TODO: two texture coordinates to blend for dual fisheye
+
     p_img_tex = p_img_tex - floor(p_img_tex); // Shift to range 0-1
 
     vec2 p_tile_tex = (tile_X_img * vec3(p_img_tex, 1)).xy;
 
     color = clip_n_filter(tile, p_tile_tex, pixelFilter, true);
 
-    // Apply brightness TODO: handle srgb and linear inputs...
-    vec4 linear = linear_from_srgb(color);
+    // Apply brightness
+    vec4 linear;
+    if (input_is_linear) linear = color;
+    else linear = linear_from_srgb(color);
     vec4 brightened = pow(2.0, brightness) * linear;  // apply to linear...
+
     color = srgb_from_linear(brightened);
 
+    // OK to do overlays like texel boundaries and bounding box in srgb space
     color = texel_boundaries(color, p_tile_tex * textureSize(tile, 0));
-
-    // sRGB conversion should be the FINAL step of the fragment shader
-    // color = srgb_from_linear(color);
 }

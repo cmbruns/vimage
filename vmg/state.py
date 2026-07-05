@@ -39,6 +39,7 @@ class ViewState(QObject):
         self._previous_mouse_position = None
         self._background_color = [0.5, 0.5, 0.5, 0]
         self.brightness = 0.0  # EV
+        self.input_is_linear = False
 
     @property
     def background_color(self):
@@ -322,12 +323,15 @@ class ViewState(QObject):
         self._center_rel = LocationRelative(0.5, 0.5)
         self.view_heading_degrees = 0.0
         self.view_pitch_degrees = 0.0
+        self.brightness = 0.0
+        self.input_is_linear = False
 
     def set_input_format(self, input_format: InputFormat) -> None:
         self._input_format = input_format
         self._update_aspect_scale()
 
     def set_image_data(self, image_data: ImageData):
+        self.input_is_linear = image_data.is_linear
         self._size_omp = image_data.size
         self._raw_rot_omp = image_data.raw_rot_omp
         self.raw_rot_ont = image_data.raw_rot_ont

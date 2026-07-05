@@ -23,15 +23,16 @@ class IImageShader(abc.ABC):
 
 
 class Uniform:
-    def __init__(self, name: str):
+    def __init__(self, name: str, set_fn: Callable):
         self.name = name
         self.location = None
+        self.set_fn = set_fn
 
     def initialize_gl(self, program):
         self.location = GL.glGetUniformLocation(program, self.name)
 
-    def set(self, fn: Callable, *args):
-        fn(self.location, *args)
+    def set(self, *args):
+        self.set_fn(self.location, *args)
 
 
 class RectangularTileShader(IImageShader):
@@ -42,7 +43,8 @@ class RectangularTileShader(IImageShader):
         self.sel_rect_omp_location = None
         self.background_color_location = None
         self.omp_scale_qwn_location = None
-        self.brightness = Uniform("brightness")
+        self.brightness = Uniform("brightness", GL.glUniform1f)
+        self.input_is_linear = Uniform("input_is_linear", GL.glUniform1i)
         self.background_color = [0.5, 0.5, 0.5, 0.5]
         self.box_shader = SelectionBoxShader()
 
@@ -63,6 +65,7 @@ class RectangularTileShader(IImageShader):
         self.pixelFilter_location = GL.glGetUniformLocation(self.shader, "pixel_filter")
         self.omp_scale_qwn_location = GL.glGetUniformLocation(self.shader, "omp_scale_qwn")
         self.brightness.initialize_gl(self.shader)
+        self.input_is_linear.initialize_gl(self.shader)
         self.box_shader.initialize_gl()
 
     def paint_gl(self, state: ViewState, texture) -> None:
@@ -73,8 +76,8 @@ class RectangularTileShader(IImageShader):
         GL.glUniform4f(self.background_color_location, *state.background_color)
         GL.glUniformMatrix3fv(self.ndc_x_omp_location, 1, True, state.ndc_xform_omp())
         GL.glUniform1f(self.omp_scale_qwn_location, state.omp_scale_qwn())
-        self.brightness.set(GL.glUniform1f, state.brightness)
-        print(state.brightness)
+        self.brightness.set(state.brightness)
+        self.input_is_linear.set(state.input_is_linear)
         texture.paint_gl()
 
 
@@ -122,7 +125,8 @@ class SphericalShader(IImageShader):
         self.input_format_location = None
         self.display_projection_location = None
         self.tile_X_img_location = None
-        self.brightness = Uniform("brightness")
+        self.brightness = Uniform("brightness", GL.glUniform1f)
+        self.input_is_linear = Uniform("input_is_linear", GL.glUniform1i)
         # TODO dual fisheye parameters should be stored per-camera or whatever
         self.df_fov_radians = radians(195.0)
         self.df_lens_rot_radians = radians(0.0)
@@ -150,7 +154,8 @@ class SphericalShader(IImageShader):
         self.tile_X_img_location = GL.glGetUniformLocation(self.shader, "tile_X_img")
         self.df_fov_radians_location = GL.glGetUniformLocation(self.shader, "df_fov_radians")
         self.df_lens_rot_radians_location = GL.glGetUniformLocation(self.shader, "df_lens_rot_radians")
-        self.brightness.initialize_gl(self.shader)
+        for u in self.brightness, self.input_is_linear:
+            u.initialize_gl(self.shader)
 
     def paint_gl(self, state: ViewState, texture) -> None:
         # both nearest and catmull-rom use nearest at the moment.
@@ -171,7 +176,8 @@ class SphericalShader(IImageShader):
         GL.glUniform1i(self.display_projection_location, state.display_projection.value)
         GL.glUniform1f(self.df_fov_radians_location, self.df_fov_radians)
         GL.glUniform1f(self.df_lens_rot_radians_location, self.df_lens_rot_radians)
-        self.brightness.set(GL.glUniform1f, state.brightness)
+        self.brightness.set(state.brightness)
+        self.input_is_linear.set(state.input_is_linear)
         for tile in texture:
             GL.glUniformMatrix3fv(self.tile_X_img_location, 1, True, tile.tile_X_img)
             tile.paint_gl()

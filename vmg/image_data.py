@@ -39,6 +39,8 @@ class ImageData(QtCore.QObject):
         self._raw_rot_omp = numpy.eye(2, dtype=numpy.float32)
         self._input_format = InputFormat.STANDARD_PHOTO
         self.has_displayed = False
+        self.array = None
+        self.is_linear = False
 
     def file_is_readable(self) -> bool:
         file_name = self.file_name
@@ -59,6 +61,8 @@ class ImageData(QtCore.QObject):
                 jpeg_bytes = in_file.read()
             bgr_array = jpeg.decode(jpeg_bytes)
             self.texture = Texture.from_numpy(bgr_array, tex_format=GL.GL_BGR)
+            self.array = bgr_array
+            self.is_linear = False
             return True
         except ...:
             return False
@@ -66,6 +70,7 @@ class ImageData(QtCore.QObject):
     def open_pil_image(self) -> bool:
         try:
             self.pil_image = Image.open(self.file_name)
+            self.is_linear = False  # Maybe more subtleties here...
             return True
         except UnidentifiedImageError as exc:
             logger.warning("Error loading image with PIL")
@@ -77,11 +82,9 @@ class ImageData(QtCore.QObject):
                 logger.info("Loading dng file")
                 page = tif.pages[0]
                 raw = page.asarray()
-                print(raw.dtype)
                 self.array = raw
-                print(self.array.dtype)
+                self.is_linear = True
                 self.pil_image = Image.fromarray(raw)
-                print(self.pil_image.mode)
                 return True
         except TiffFileError:
             return False

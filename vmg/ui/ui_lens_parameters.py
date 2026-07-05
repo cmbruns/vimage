@@ -36,7 +36,7 @@ class Ui_Dialog(object):
         self.fov_doubleSpinBox.setMinimum(90.000000000000000)
         self.fov_doubleSpinBox.setMaximum(360.000000000000000)
         self.fov_doubleSpinBox.setSingleStep(0.200000000000000)
-        self.fov_doubleSpinBox.setValue(185.000000000000000)
+        self.fov_doubleSpinBox.setValue(195.000000000000000)
 
         self.gridLayout.addWidget(self.fov_doubleSpinBox, 0, 1, 1, 1)
 
@@ -50,7 +50,7 @@ class Ui_Dialog(object):
         self.lensrot_doubleSpinBox.setDecimals(2)
         self.lensrot_doubleSpinBox.setMinimum(-180.000000000000000)
         self.lensrot_doubleSpinBox.setMaximum(180.000000000000000)
-        self.lensrot_doubleSpinBox.setSingleStep(0.200000000000000)
+        self.lensrot_doubleSpinBox.setSingleStep(0.100000000000000)
 
         self.gridLayout.addWidget(self.lensrot_doubleSpinBox, 1, 1, 1, 1)
 

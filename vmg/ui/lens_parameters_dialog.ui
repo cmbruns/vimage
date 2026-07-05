@@ -42,7 +42,7 @@
       <double>0.200000000000000</double>
      </property>
      <property name="value">
-      <double>185.000000000000000</double>
+      <double>195.000000000000000</double>
      </property>
     </widget>
    </item>
@@ -71,7 +71,7 @@
       <double>180.000000000000000</double>
      </property>
      <property name="singleStep">
-      <double>0.200000000000000</double>
+      <double>0.100000000000000</double>
      </property>
     </widget>
    </item>
