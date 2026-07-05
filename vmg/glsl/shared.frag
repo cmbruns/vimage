@@ -79,35 +79,54 @@ vec2 equirect_tex_coord(vec3 dir)
     return tex_coord;
 }
 
-vec2 gear360_2016_tex_coord(vec3 p_sph, float fov_radians, float lens_rot_radians)
+struct TexCoordPair {
+    vec2 front_tc;
+    vec2 rear_tc;
+    float front_bias;  // range 0-1
+};
+
+TexCoordPair dual_fisheye_tex_coord(vec3 p_sph, float fov_radians, float lens_rot_radians)
 {
     // input vector space is 3D unit sphere, x-right, y-up, z-back (i.e. -Z forward/center)
     // range [-1, +1]
+    vec3 p_sph_front = p_sph;
+    vec3 p_sph_rear = p_sph * vec3(-1, 1, -1);  // rotate 180 about Y/up
 
-    // const float FOV = radians(195.0);  // field of view of Gear360 fisheye
-    // My camera has a slight relative rotation of the lenses
-    // const float lens_rot = radians(-1.5);  // relative rotation correction of the lenses
-
+    // The two lenses can be slightly misaligned by an axial rotation
     float crot = cos(lens_rot_radians/2.0);
     float srot = sin(lens_rot_radians/2.0);
     mat2 rot_nfish = mat2(  // half rotation adjustment in the left/front fisheye
         crot, srot,
         -srot, crot);
-    vec2 center_tex = vec2(0.25, 0.5);  // left/front fisheye center in output texture coordinates
-    // Is this fragment drawn from the right/back fisheye image?
-    if (p_sph.z > 0) {  // right fisheye image is behind the camera
-        // right fisheye view is rotated 180 degrees about Y w.r.t left fisheye
-        p_sph = vec3(-p_sph.x, p_sph.y, -p_sph.z);  // Is there a glsl swizzle shortcut for this?
-        center_tex = vec2(0.75, 0.5);  // right fisheye is to the right in the image pair
-    }
+
+    // Texture coordinates of each fisheye image center
+    vec2 center_front_tc = vec2(0.25, 0.5);  // left/front fisheye center in output texture coordinates
+    vec2 center_rear_tc = vec2(0.75, 0.5);  // rear camera occupies right half of image
+
+    // Amount the two lenses overlap determines the blending region
+    float z_limit = 0.5 * sin(fov_radians - radians(180));  // angular overlap region in z direction
+    float front_bias = smoothstep(+z_limit, -z_limit, p_sph_front.z);
 
     // normalized fisheye space 2D x-right, y-up, range [-1, +1]
-    float radius_nfish = acos(-p_sph.z) / fov_radians;  // TODO: nonlinear calibration
-    vec2 p_nfish = normalize(p_sph.xy) * radius_nfish * rot_nfish;
+    float radius_nfish_front = acos(-p_sph_front.z) / fov_radians;  // TODO: nonlinear calibration
+    float radius_nfish_rear = acos(-p_sph_rear.z) / fov_radians;  // TODO: nonlinear calibration
+    vec2 p_nfish_front = (normalize(p_sph_front.xy) * radius_nfish_front) * rot_nfish;
+    vec2 p_nfish_rear = (normalize(p_sph_rear.xy) * radius_nfish_rear) * rot_nfish;
 
     // output gl texture coordinates 2D x-right, y-down, range[0, 1]
-    vec2 p_tex = center_tex + p_nfish * vec2(0.5, -1);  // Translate and scale
-    return p_tex;
+    vec2 p_front_tc = center_front_tc + p_nfish_front * vec2(0.5, -1);  // Translate and scale
+    vec2 p_rear_tc = center_rear_tc + p_nfish_rear * vec2(0.5, -1);
+
+    if (p_front_tc.x >= 0.5) front_bias = 0.0;
+    if (p_front_tc.x <= 0.0) front_bias = 0.0;
+    if (p_front_tc.y >= 1.0) front_bias = 0.0;
+    if (p_front_tc.y <= 0.0) front_bias = 0.0;
+    if (p_rear_tc.x <= 0.5) front_bias = 1.0;
+    if (p_rear_tc.x >= 1.0) front_bias = 1.0;
+    if (p_rear_tc.y >= 1.0) front_bias = 1.0;
+    if (p_rear_tc.y <= 0.0) front_bias = 1.0;
+
+    return TexCoordPair(p_front_tc, p_rear_tc, front_bias);
 }
 
 vec4 nearest_nowrap(sampler2D image, vec2 tc) {

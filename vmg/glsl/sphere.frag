@@ -16,9 +16,16 @@ uniform bool input_is_linear = false;
 in vec2 p_nic;
 out vec4 color;
 
-void main() {
-    vec3 p_obq;
+vec2 tct_for_tcr(vec2 tcr) {
+    tcr = tcr - floor(tcr); // Shift to range 0-1
+    return (tile_X_img * vec3(tcr, 1)).xy;
+}
 
+void main()
+{
+    // Convert normalized image screen coordinates (nic) to
+    // app-view-modified world 3D coordinates (obq)
+    vec3 p_obq;
     switch(display_projection) {
         case STEREOGRAPHIC_DISPLAY_PROJECTION:
             p_obq = stereographic_xyz(p_nic);
@@ -43,28 +50,37 @@ void main() {
             break;
     }
 
+    // Convert direction to sky-up world frame (ont), then to camera frame (raw)
     vec3 p_raw = raw_rot_ont * ont_rot_obq * p_obq;
-    vec2 p_img_tex;  // Texture coordinate in full image
+
+    // Look up tile texture coordinate(s)
+    vec2 p_tct;  // Tile texture coordinate
     switch(input_format) {
         case DUAL_FISHEYE_INPUT_FORMAT:
-            p_img_tex = gear360_2016_tex_coord(
+            TexCoordPair pair = dual_fisheye_tex_coord(
                     p_raw,
                     df_fov_radians,  // fisheye field of view
                     df_lens_rot_radians);  // lens rotation offset
+            vec2 front_tct = tct_for_tcr(pair.front_tc);
+            vec2 rear_tct = tct_for_tcr(pair.rear_tc);
+            if (pair.front_bias > 0.5) {
+                p_tct = front_tct;
+            }
+            else {
+                p_tct = rear_tct;
+            }
+            vec4 front_color = clip_n_filter(tile, front_tct, pixelFilter, true);
+            vec4 rear_color = clip_n_filter(tile, rear_tct, pixelFilter, true);
+            color = mix(rear_color, front_color, pair.front_bias);
             break;
         case EQUIRECT_INPUT_FORMAT:
         default :
-            p_img_tex = equirect_tex_coord(p_raw);
+            vec2 p_img_tex = equirect_tex_coord(p_raw);
+            p_tct = tct_for_tcr(p_img_tex);
+            color = clip_n_filter(tile, p_tct, pixelFilter, true);
             break;
     }
 
-    // TODO: two texture coordinates to blend for dual fisheye
-
-    p_img_tex = p_img_tex - floor(p_img_tex); // Shift to range 0-1
-
-    vec2 p_tile_tex = (tile_X_img * vec3(p_img_tex, 1)).xy;
-
-    color = clip_n_filter(tile, p_tile_tex, pixelFilter, true);
 
     // Apply brightness
     vec4 linear;
@@ -75,5 +91,5 @@ void main() {
     color = srgb_from_linear(brightened);
 
     // OK to do overlays like texel boundaries and bounding box in srgb space
-    color = texel_boundaries(color, p_tile_tex * textureSize(tile, 0));
+    color = texel_boundaries(color, p_tct * textureSize(tile, 0));
 }

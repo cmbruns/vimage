@@ -134,12 +134,16 @@ class SphericalShader(IImageShader):
         self.df_lens_rot_radians_location = None
 
     def initialize_gl(self) -> None:
-        vertex_shader = compileShader(resource_string(
-            "vmg.glsl", "sphere.vert", ), GL.GL_VERTEX_SHADER)
-        fragment_shader = compileShader(
-            resource_string("vmg.glsl", "shared.frag") +
-            resource_string("vmg.glsl", "sphere.frag"),
-            GL.GL_FRAGMENT_SHADER)
+        try:
+            vertex_shader = compileShader(resource_string(
+                "vmg.glsl", "sphere.vert", ), GL.GL_VERTEX_SHADER)
+            fragment_shader = compileShader(
+                resource_string("vmg.glsl", "shared.frag") +
+                resource_string("vmg.glsl", "sphere.frag"),
+                GL.GL_FRAGMENT_SHADER)
+        except BaseException as exc:
+            print(exc)
+            raise
         self.shader = GL.glCreateProgram()
         GL.glAttachShader(self.shader, vertex_shader)
         GL.glAttachShader(self.shader, fragment_shader)
