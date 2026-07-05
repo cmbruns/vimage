@@ -4,7 +4,7 @@ import sys
 
 from PySide6 import QtWidgets, QtGui, QtCore
 
-from vmg.ui_log import Ui_LogDialog
+from vmg.ui.ui_log import Ui_LogDialog
 
 logger = logging.getLogger(__name__)
 

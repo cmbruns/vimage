@@ -10,6 +10,7 @@ uniform mat3 raw_rot_ont = mat3(1);
 uniform mat3 tile_X_img = mat3(1);
 uniform float df_fov_radians = radians(195.0);
 uniform float df_lens_rot_radians = 0.0;
+uniform float brightness = 0.0;
 
 in vec2 p_nic;
 out vec4 color;
@@ -61,6 +62,11 @@ void main() {
     vec2 p_tile_tex = (tile_X_img * vec3(p_img_tex, 1)).xy;
 
     color = clip_n_filter(tile, p_tile_tex, pixelFilter, true);
+
+    // Apply brightness TODO: handle srgb and linear inputs...
+    vec4 linear = linear_from_srgb(color);
+    vec4 brightened = pow(2.0, brightness) * linear;  // apply to linear...
+    color = srgb_from_linear(brightened);
 
     color = texel_boundaries(color, p_tile_tex * textureSize(tile, 0));
 

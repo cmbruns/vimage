@@ -38,6 +38,7 @@ class ViewState(QObject):
         self._is_dragging = False
         self._previous_mouse_position = None
         self._background_color = [0.5, 0.5, 0.5, 0]
+        self.brightness = 0.0  # EV
 
     @property
     def background_color(self):

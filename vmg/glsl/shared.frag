@@ -173,6 +173,23 @@ vec4 clip_n_filter(sampler2D image, vec2 tc, int pixelFilter, bool wrap)
     }
 }
 
+float linear_from_srgb(in float srgb)
+{
+    if (srgb <= 0.04045)
+        return srgb / 12.92;
+    else
+        return pow((srgb + 0.055) / 1.055, 2.4);
+}
+
+vec4 linear_from_srgb(in vec4 srgb)
+{
+    return vec4(
+        linear_from_srgb(srgb.r),
+        linear_from_srgb(srgb.g),
+        linear_from_srgb(srgb.b),
+        srgb.a);
+}
+
 float srgb_from_linear(in float linear)
 {
     if (linear <= 0.0031308)

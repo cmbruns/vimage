@@ -33,7 +33,7 @@ from vmg.pixel_filter import PixelFilter
 from vmg.progress import ProgressStatus, ProgressState
 from vmg.display_projection import DisplayProjection
 from vmg.recent_file import RecentFileList
-from vmg.ui_vimage import Ui_MainWindow
+from vmg.ui.ui_vimage import Ui_MainWindow
 from vmg.version import __version__
 from vmg.git_hash import vimage_git_hash
 from vmg.resources import resource_filename
@@ -493,6 +493,18 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
             <p><b>Maintainer</b>: Christopher Bruns</p>
         """)
         QMessageBox.information(self, "About", msg)
+
+    @QtCore.Slot()  # noqa
+    def on_actionBrightnessMinus_triggered(self):
+        self.imageWidgetGL.view_state.brightness -= 0.25
+        self.imageWidgetGL.update()
+        self.statusbar.showMessage(f"EV = {self.imageWidgetGL.view_state.brightness}")
+
+    @QtCore.Slot()  # noqa
+    def on_actionBrightnessPlus_triggered(self):
+        self.imageWidgetGL.view_state.brightness += 0.25
+        self.imageWidgetGL.update()
+        self.statusbar.showMessage(f"EV = {self.imageWidgetGL.view_state.brightness}")
 
     @QtCore.Slot()  # noqa
     def on_actionCopy_triggered(self):  # noqa

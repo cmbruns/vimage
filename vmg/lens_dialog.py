@@ -1,6 +1,6 @@
 from PySide6 import QtWidgets
 
-from vmg.ui_lens_parameters import Ui_Dialog
+from vmg.ui.ui_lens_parameters import Ui_Dialog
 
 
 class LensDialog(QtWidgets.QDialog):
