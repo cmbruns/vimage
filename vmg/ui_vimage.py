@@ -3,7 +3,7 @@
 ################################################################################
 ## Form generated from reading UI file 'vimage.ui'
 ##
-## Created by: Qt User Interface Compiler version 6.11.1
+## Created by: Qt User Interface Compiler version 6.2.1
 ##
 ## WARNING! All changes made in this file will be lost when recompiling UI file!
 ################################################################################
@@ -120,6 +120,10 @@ class Ui_MainWindow(object):
         self.actionDual_FisheyeInput.setCheckable(True)
         self.actionConfigure_Dual_Fisheye = QAction(MainWindow)
         self.actionConfigure_Dual_Fisheye.setObjectName(u"actionConfigure_Dual_Fisheye")
+        self.actionBrightness = QAction(MainWindow)
+        self.actionBrightness.setObjectName(u"actionBrightness")
+        self.actionBrightness_2 = QAction(MainWindow)
+        self.actionBrightness_2.setObjectName(u"actionBrightness_2")
         self.centralwidget = QWidget(MainWindow)
         self.centralwidget.setObjectName(u"centralwidget")
         self.verticalLayout = QVBoxLayout(self.centralwidget)
@@ -156,7 +160,7 @@ class Ui_MainWindow(object):
         MainWindow.setStatusBar(self.statusbar)
         self.toolBar = QToolBar(MainWindow)
         self.toolBar.setObjectName(u"toolBar")
-        MainWindow.addToolBar(Qt.ToolBarArea.TopToolBarArea, self.toolBar)
+        MainWindow.addToolBar(Qt.TopToolBarArea, self.toolBar)
 
         self.menubar.addAction(self.menuFile.menuAction())
         self.menubar.addAction(self.menuEdit.menuAction())
@@ -169,11 +173,15 @@ class Ui_MainWindow(object):
         self.menuFile.addSeparator()
         self.menuFile.addAction(self.actionExit)
         self.menuView.addAction(self.actionReset_View)
-        self.menuView.addAction(self.actionZoom_Out)
+        self.menuView.addSeparator()
         self.menuView.addAction(self.actionZoom_In)
+        self.menuView.addAction(self.actionZoom_Out)
         self.menuView.addSeparator()
         self.menuView.addAction(self.actionPrevious)
         self.menuView.addAction(self.actionNext)
+        self.menuView.addSeparator()
+        self.menuView.addAction(self.actionBrightness)
+        self.menuView.addAction(self.actionBrightness_2)
         self.menuView.addSeparator()
         self.menuView.addAction(self.actionSharp)
         self.menuView.addAction(self.actionFull_Screen)
@@ -265,7 +273,13 @@ class Ui_MainWindow(object):
         self.actionCrop_to_Current_View.setText(QCoreApplication.translate("MainWindow", u"Crop to Current View", None))
         self.actionSelect_None.setText(QCoreApplication.translate("MainWindow", u"Select None", None))
         self.actionZoom_Out.setText(QCoreApplication.translate("MainWindow", u"Zoom Out", None))
+#if QT_CONFIG(shortcut)
+        self.actionZoom_Out.setShortcut(QCoreApplication.translate("MainWindow", u"Ctrl+-", None))
+#endif // QT_CONFIG(shortcut)
         self.actionZoom_In.setText(QCoreApplication.translate("MainWindow", u"Zoom In", None))
+#if QT_CONFIG(shortcut)
+        self.actionZoom_In.setShortcut(QCoreApplication.translate("MainWindow", u"Ctrl+=", None))
+#endif // QT_CONFIG(shortcut)
         self.actionReport_a_Problem.setText(QCoreApplication.translate("MainWindow", u"Report a Problem...", None))
         self.actionView_Log.setText(QCoreApplication.translate("MainWindow", u"View Log", None))
         self.actionPerspectiveInput.setText(QCoreApplication.translate("MainWindow", u"Standard Photo", None))
@@ -274,6 +288,14 @@ class Ui_MainWindow(object):
         self.actionConfigure.setText(QCoreApplication.translate("MainWindow", u"Configure...", None))
         self.actionDual_FisheyeInput.setText(QCoreApplication.translate("MainWindow", u"Dual Fisheye", None))
         self.actionConfigure_Dual_Fisheye.setText(QCoreApplication.translate("MainWindow", u"Configure Dual Fisheye...", None))
+        self.actionBrightness.setText(QCoreApplication.translate("MainWindow", u"Brightness+", None))
+#if QT_CONFIG(shortcut)
+        self.actionBrightness.setShortcut(QCoreApplication.translate("MainWindow", u"]", None))
+#endif // QT_CONFIG(shortcut)
+        self.actionBrightness_2.setText(QCoreApplication.translate("MainWindow", u"Brightness-", None))
+#if QT_CONFIG(shortcut)
+        self.actionBrightness_2.setShortcut(QCoreApplication.translate("MainWindow", u"[", None))
+#endif // QT_CONFIG(shortcut)
         self.menuFile.setTitle(QCoreApplication.translate("MainWindow", u"File", None))
         self.menuOpen_Recent.setTitle(QCoreApplication.translate("MainWindow", u"Open Recent", None))
         self.menuView.setTitle(QCoreApplication.translate("MainWindow", u"View", None))

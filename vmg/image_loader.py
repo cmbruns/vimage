@@ -53,11 +53,15 @@ class ImageLoader(QtCore.QObject):
             return
         self.progress_changed.emit(2)  # noqa
         et = ElapsedTime()
-        if not image_data.open_pil_image():
+        if image_data.open_dng_image():
+            logger.info(f"Opening DNG image took {et}")
+            self.load_metadata(image_data)  # TODO:
+        elif image_data.open_pil_image():
+            logger.info(f"Opening PIL image took {et}")
+            self.load_metadata(image_data)
+        else:
             self.load_failed.emit(image_data.file_name)  # noqa
             return
-        logger.info(f"Opening PIL image took {et}")
-        self.load_metadata(image_data)
 
     @QtCore.Slot(Image.Image, str)  # noqa
     def load_from_pil_image(self, pil_image: Image.Image, file_name: str):
@@ -79,10 +83,25 @@ class ImageLoader(QtCore.QObject):
         self.progress_changed.emit(10)  # noqa
         image_data.read_pil_metadata()
         logger.info(f"Loading metadata took {et}")
-        if image_data.pil_image.format == "JPEG" and image_data.file_is_readable():
-            self.texture_turbo_jpeg(image_data)
+        if not self._is_current(image_data):
+            return
+        if self.texture_turbo_jpeg(image_data):
+            pass
+        elif self.texture_pil(image_data):
+            logger.info("texture_pil")
+            pass
+        elif self.texture_dng(image_data):
+            logger.info("texture_dng")
+            pass
         else:
-            self.texture_pil(image_data)  # noqa
+            return  # Nothing loaded
+        if self.offscreen_context is None:
+            self.image_data_is_pending = True
+            logger.debug(
+                f"Deferring texture initialization for {image_data.file_name} until OpenGL context is ready"
+            )
+        else:
+            self.process_texture(image_data)  # noqa
 
     @QtCore.Slot(OffscreenContext)  # noqa
     def on_context_created(self, offscreen_context) -> None:
@@ -96,34 +115,15 @@ class ImageLoader(QtCore.QObject):
             logger.debug("about to create context")
             self.process_texture(self.current_image_data)
 
-    @QtCore.Slot(ImageData)  # noqa
-    def texture_turbo_jpeg(self, image_data: ImageData):
-        if not self._is_current(image_data):
-            return
-        assert image_data.file_name is not None
-        self.progress_changed.emit(15)  # noqa
-        et = ElapsedTime()
-        with open(image_data.file_name, "rb") as in_file:
-            jpeg_bytes = in_file.read()
-        bgr_array = jpeg.decode(jpeg_bytes)
-        image_data.texture = Texture.from_numpy(
-            array=bgr_array,
-            tex_format=GL.GL_BGR,
-            orientation=image_data.orientation,
-        )
-        logger.info(f"jpeg loading/decoding took {et}")
-        if self.offscreen_context is None:
-            self.image_data_is_pending = True
-            logger.debug(
-                f"Deferring texture initialization for {image_data.file_name} until OpenGL context is ready"
-            )
-        else:
-            self.process_texture(image_data)  # noqa
+    def texture_dng(self, image_data: ImageData) -> bool:
+        print(image_data.array.dtype)
+        image_data.texture = Texture.from_numpy(image_data.array)
+        return True
 
     @QtCore.Slot(ImageData)  # noqa
-    def texture_pil(self, image_data: ImageData):
-        if not self._is_current(image_data):
-            return
+    def texture_pil(self, image_data: ImageData) -> bool:
+        if image_data.file_name.lower().endswith("dng"):
+            return False
         et = ElapsedTime()
         img = image_data.pil_image
         assert img is not None
@@ -153,13 +153,27 @@ class ImageLoader(QtCore.QObject):
             orientation=image_data.orientation,
         )
         logger.info(f"PIL image processing took {et}")
-        if self.offscreen_context is None:
-            self.image_data_is_pending = True
-            logger.debug(
-                f"Deferring texture initialization for {image_data.file_name} until OpenGL context is ready"
-            )
-        else:
-            self.process_texture(image_data)  # noqa
+        return True
+
+    @QtCore.Slot(ImageData)  # noqa
+    def texture_turbo_jpeg(self, image_data: ImageData) -> bool:
+        if not image_data.pil_image.format == "JPEG":
+            return False
+        if not image_data.file_is_readable():
+            return False
+        assert image_data.file_name is not None
+        self.progress_changed.emit(15)  # noqa
+        et = ElapsedTime()
+        with open(image_data.file_name, "rb") as in_file:
+            jpeg_bytes = in_file.read()
+        bgr_array = jpeg.decode(jpeg_bytes)
+        image_data.texture = Texture.from_numpy(
+            array=bgr_array,
+            tex_format=GL.GL_BGR,
+            orientation=image_data.orientation,
+        )
+        logger.info(f"jpeg loading/decoding took {et}")
+        return True
 
     def _loaded_tile_count(self, image_data) -> int:
         """Count ready tiles; offscreen context must already be current."""

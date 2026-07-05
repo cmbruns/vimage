@@ -8,7 +8,9 @@ import numpy
 from OpenGL import GL
 from PIL import Image, ExifTags, UnidentifiedImageError
 from PySide6 import QtCore
+import tifffile
 import turbojpeg
+from tifffile import TiffFileError
 
 from vmg.frame import DimensionsOmp
 from vmg.texture import Texture, ExifOrientation
@@ -51,7 +53,6 @@ class ImageData(QtCore.QObject):
         return self._input_format
 
     def load_jpeg_image(self) -> bool:
-        # TODO: split into smaller parts
         try:
             jpeg = turbojpeg.TurboJPEG()  # TODO: maybe cache this
             with open(self.file_name, "rb") as in_file:
@@ -67,7 +68,22 @@ class ImageData(QtCore.QObject):
             self.pil_image = Image.open(self.file_name)
             return True
         except UnidentifiedImageError as exc:
-            logger.exception("Error loading image with PIL")
+            logger.warning("Error loading image with PIL")
+            return False
+
+    def open_dng_image(self) -> bool:
+        try:
+            with tifffile.TiffFile(self.file_name) as tif:
+                logger.info("Loading dng file")
+                page = tif.pages[0]
+                raw = page.asarray()
+                print(raw.dtype)
+                self.array = raw
+                print(self.array.dtype)
+                self.pil_image = Image.fromarray(raw)
+                print(self.pil_image.mode)
+                return True
+        except TiffFileError:
             return False
 
     def read_pil_metadata(self):

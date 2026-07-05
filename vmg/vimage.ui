@@ -88,11 +88,15 @@
      <addaction name="actionConfigure_Dual_Fisheye"/>
     </widget>
     <addaction name="actionReset_View"/>
-    <addaction name="actionZoom_Out"/>
+    <addaction name="separator"/>
     <addaction name="actionZoom_In"/>
+    <addaction name="actionZoom_Out"/>
     <addaction name="separator"/>
     <addaction name="actionPrevious"/>
     <addaction name="actionNext"/>
+    <addaction name="separator"/>
+    <addaction name="actionBrightnessPlus"/>
+    <addaction name="actionBrightnessMinus"/>
     <addaction name="separator"/>
     <addaction name="actionSharp"/>
     <addaction name="actionFull_Screen"/>
@@ -353,6 +357,9 @@
    <property name="text">
     <string>Zoom Out</string>
    </property>
+   <property name="shortcut">
+    <string>Ctrl+-</string>
+   </property>
   </action>
   <action name="actionZoom_In">
    <property name="enabled">
@@ -360,6 +367,9 @@
    </property>
    <property name="text">
     <string>Zoom In</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+=</string>
    </property>
   </action>
   <action name="actionReport_a_Problem">
@@ -415,6 +425,22 @@
   <action name="actionConfigure_Dual_Fisheye">
    <property name="text">
     <string>Configure Dual Fisheye...</string>
+   </property>
+  </action>
+  <action name="actionBrightnessPlus">
+   <property name="text">
+    <string>Brightness+</string>
+   </property>
+   <property name="shortcut">
+    <string>]</string>
+   </property>
+  </action>
+  <action name="actionBrightnessMinus">
+   <property name="text">
+    <string>Brightness-</string>
+   </property>
+   <property name="shortcut">
+    <string>[</string>
    </property>
   </action>
  </widget>
