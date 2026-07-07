@@ -17,6 +17,8 @@ from PySide6.QtGui import (
 )
 import tifffile
 
+from vmg.resources import resource_string
+
 file_name = "C:/Users/cmbruns/Pictures/360CameraSamples/XiaomiMisphere/IMG_20260705_133914.DNG"
 with tifffile.TiffFile(file_name) as tif:
     page = tif.pages[0]
@@ -56,7 +58,7 @@ GL.glPixelStorei(GL.GL_UNPACK_ALIGNMENT, 1)  # In case width is odd
 GL.glTexImage2D(
     GL.GL_TEXTURE_2D,
     0,  # base mipmap
-    GL.GL_R16UI,  # single channel
+    GL.GL_R16,  # single channel
     w,
     h,
     0,  # border
@@ -117,45 +119,12 @@ if status != GL.GL_FRAMEBUFFER_COMPLETE:
     raise RuntimeError(f"Framebuffer incomplete: 0x{status:X}")
 
 program = compileProgram(
-    compileShader(cleandoc("""
-        #version 410
-        
-        // host side draw call should be "glDrawArrays(GL_TRIANGLE_STRIP, 0, 4)"
-        const vec4 SCREEN_QUAD[4] = vec4[4](
-            vec4( 1, -1, 0.5, 1),  // lower right
-            vec4( 1,  1, 0.5, 1),  // upper right
-            vec4(-1, -1, 0.5, 1),  // lower left
-            vec4(-1,  1, 0.5, 1)   // upper left
-        );
-        
-        const vec2 TEX_COORD[4] = vec2[4](
-            vec2( 1,  1),  // lower right
-            vec2( 1,  0),  // upper right
-            vec2( 0,  1),  // lower left
-            vec2( 0,  0)   // upper left
-        );
-        
-        out vec2 tex_coord;
-        
-        void main() {
-            gl_Position = SCREEN_QUAD[gl_VertexID];
-            tex_coord = TEX_COORD[gl_VertexID];
-        }
-    """), GL.GL_VERTEX_SHADER),
-    compileShader(cleandoc("""
-        #version 410
-    
-        uniform sampler2D bayer;
-        in vec2 tex_coord;
-        out vec4 color;
-    
-        void main() {
-            // color = vec4(0, 1, 0, 1);  // pure green for testing
-            // crude copy of bayer for testing
-            color = texture(bayer, tex_coord);
-            color = vec4(5 * color.rrr, color.a);
-        }
-    """), GL.GL_FRAGMENT_SHADER),
+    compileShader(
+        resource_string("vmg.glsl", "demosaic.vert"),
+        GL.GL_VERTEX_SHADER),
+    compileShader(
+        resource_string("vmg.glsl", "demosaic.frag"),
+        GL.GL_FRAGMENT_SHADER),
 )
 vao = GL.glGenVertexArrays(1)
 GL.glBindVertexArray(vao)
@@ -167,8 +136,8 @@ GL.glClear(GL.GL_COLOR_BUFFER_BIT)
 GL.glBindTexture(GL.GL_TEXTURE_2D, bayer_texture_id)
 GL.glUseProgram(program)
 GL.glDrawArrays(GL.GL_TRIANGLE_STRIP, 0, 4)
-# TODO run the demosaic shader
 
+# Read image
 pixels = GL.glReadPixels(
     0, 0, demosaic_w, demosaic_h,
     GL.GL_RGBA,
