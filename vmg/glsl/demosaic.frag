@@ -41,10 +41,12 @@ void main()
     // Visit a 5x5 neighborhood
     vec3 rgb = vec3(0);
     vec3 weights = vec3(0);
-    const int dt = 2;  // 1->3x3; 2->5x5; 3->7x7
+    const int dt = 3;  // 1->3x3; 2->5x5; 3->7x7
     const float window = dt + 0.5;  // Keep neighborhood symmetric-ish, shortest distance not visited here
-    const float rb_sampling_rate = 2.0;  // neighbor red/blue are 2 cells away
-    const float g_sampling_rate = sqrt(2.0);  // neighbor greens are diagonal
+    // Maybe both sampling rates should be 2.0 since that's the band limit for this raster
+    // 2.5 to give it a bit more blur
+    const float rb_sampling_rate = 2.5;  // neighbor red/blue are 2 cells away
+    const float g_sampling_rate = 2.5;  // sqrt(2.0);  // neighbor greens are diagonal
     for (int x = iTexel.x - dt; x <= iTexel.x + dt; ++x)
     {
         float dx = x - texel.x;

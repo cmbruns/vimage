@@ -12,6 +12,7 @@ import tifffile
 import turbojpeg
 from tifffile import TiffFileError
 
+from vmg.dng import DngImage
 from vmg.frame import DimensionsOmp
 from vmg.texture import Texture, ExifOrientation
 
@@ -41,6 +42,8 @@ class ImageData(QtCore.QObject):
         self.has_displayed = False
         self.array = None
         self.is_linear = False
+        self.is_dng = False
+        self.dng_image = None
 
     def file_is_readable(self) -> bool:
         file_name = self.file_name
@@ -63,6 +66,7 @@ class ImageData(QtCore.QObject):
             self.texture = Texture.from_numpy(bgr_array, tex_format=GL.GL_BGR)
             self.array = bgr_array
             self.is_linear = False
+            self.is_dng = False
             return True
         except ...:
             return False
@@ -71,6 +75,7 @@ class ImageData(QtCore.QObject):
         try:
             self.pil_image = Image.open(self.file_name)
             self.is_linear = False  # Maybe more subtleties here...
+            self.is_dng = False
             return True
         except UnidentifiedImageError as exc:
             logger.warning("Error loading image with PIL")
@@ -78,14 +83,12 @@ class ImageData(QtCore.QObject):
 
     def open_dng_image(self) -> bool:
         try:
-            with tifffile.TiffFile(self.file_name) as tif:
-                logger.info("Loading dng file")
-                page = tif.pages[0]
-                raw = page.asarray()
-                self.array = raw
-                self.is_linear = True
-                self.pil_image = Image.fromarray(raw)
-                return True
+            self.dng_image = DngImage(self.file_name)
+            self.array = self.dng_image.bayer_array
+            self.is_linear = True
+            self.is_dng = True
+            self.pil_image = Image.fromarray(self.array)
+            return True
         except TiffFileError:
             return False
 
@@ -116,6 +119,10 @@ class ImageData(QtCore.QObject):
             xmp = {}
         self.xmp = xmp
         self.exif = exif
+        for k in xmp:
+            logger.debug(f"XMP {k} = '{xmp[k]}'")
+        for k in exif:
+            logger.debug(f"EXIF {k} = '{exif[k]}'")
         orientation_code: int = exif.get("Orientation", 1)
         self.orientation = ExifOrientation(orientation_code)
         logger.info(f"Image EXIF orientation = {self.orientation}")
@@ -126,6 +133,8 @@ class ImageData(QtCore.QObject):
         logger.info(f"Camera model = '{model}'")
         if self.size_omp.x != 2 * self.size_omp.y:
             self._input_format = InputFormat.STANDARD_PHOTO  # Non-2:1 aspect is always a regular photo
+        elif self.is_dng:
+            self._input_format = InputFormat.DUAL_FISHEYE
         else:
             # 2016 Gear 360 raw image has certain sizes
             if model == "sm-c200" and ((w, h) == (7776, 3888) or (w, h) == (5792, 2896)):

@@ -19,14 +19,19 @@ uniform sampler2D demosaic_tile;  // previously demosaicked RGB with mipmaps
 // const int input_format = DUAL_FISHEYE_INPUT_FORMAT;
 // const bool input_is_linear = true;
 
+// All image types
+uniform float brightness = 0.0;
 uniform int pixelFilter = FILTER_NEAREST;  // applies only to demosaic
+uniform mat3 tile_X_img = mat3(1);
+
+// 360 only
 uniform int display_projection = STEREOGRAPHIC_DISPLAY_PROJECTION;
 uniform mat3 ont_rot_obq = mat3(1);
 uniform mat3 raw_rot_ont = mat3(1);
-uniform mat3 tile_X_img = mat3(1);
+
+// Dual fisheye only
 uniform float df_fov_radians = radians(195.0);
 uniform float df_lens_rot_radians = 0.0;
-uniform float brightness = 0.0;
 
 in vec2 p_nic;
 out vec4 color;

@@ -54,6 +54,7 @@ void main()
     vec3 p_raw = raw_rot_ont * ont_rot_obq * p_obq;
 
     // Look up tile texture coordinate(s)
+    vec2 p_tcr;  // Full image texture coordinate
     vec2 p_tct;  // Tile texture coordinate
     switch(input_format) {
         case DUAL_FISHEYE_INPUT_FORMAT:
@@ -64,9 +65,11 @@ void main()
             vec2 front_tct = tct_for_tcr(pair.front_tc);
             vec2 rear_tct = tct_for_tcr(pair.rear_tc);
             if (pair.front_bias > 0.5) {
+                p_tcr = pair.front_tc;
                 p_tct = front_tct;
             }
             else {
+                p_tcr = pair.rear_tc;
                 p_tct = rear_tct;
             }
             vec4 front_color = clip_n_filter(tile, front_tct, pixelFilter, true);
@@ -81,6 +84,23 @@ void main()
             break;
     }
 
+    const bool is_dng = false;  // TODO: proper DNG shading
+    if (is_dng) {
+        // For Bayer mosaic we need to know the parity of this texel
+        // in the full image, not just the tile.
+        // What's the upper left of the full image in tile coordinates?
+        vec3 ul_full_tct = tile_X_img * vec3(0, 0, 1);
+        vec2 tile_offset_texels = -ul_full_tct.xy * textureSize(tile, 0);
+        vec2 this_texel_in_tile = p_tct * textureSize(tile, 0);
+        ivec2 img_texel = ivec2(floor(this_texel_in_tile + tile_offset_texels));
+        bool rowEven = (img_texel.y & 1) == 0;
+        bool colEven = (img_texel.x & 1) == 0;
+        // RGGB Bayer pattern
+        if      ( rowEven &&  colEven) color = color * vec4(1, 0, 0, 1);  // red
+        else if ( rowEven && !colEven) color = color * vec4(0, 1, 0, 1);  // green
+        else if (!rowEven &&  colEven) color = color * vec4(0, 1, 0, 1);  // green
+        else if (!rowEven && !colEven) color = color * vec4(0, 0, 1, 1);  // blue
+    }
 
     // Apply brightness
     vec4 linear;

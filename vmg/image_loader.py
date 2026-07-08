@@ -116,7 +116,6 @@ class ImageLoader(QtCore.QObject):
             self.process_texture(self.current_image_data)
 
     def texture_dng(self, image_data: ImageData) -> bool:
-        print(image_data.array.dtype)
         image_data.texture = Texture.from_numpy(image_data.array)
         return True
 

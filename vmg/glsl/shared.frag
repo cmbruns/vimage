@@ -104,7 +104,7 @@ TexCoordPair dual_fisheye_tex_coord(vec3 p_sph, float fov_radians, float lens_ro
     vec2 center_rear_tc = vec2(0.75, 0.5);  // rear camera occupies right half of image
 
     // Amount the two lenses overlap determines the blending region
-    float z_limit = 0.5 * sin(fov_radians - radians(180));  // angular overlap region in z direction
+    float z_limit = 0.4 * sin(fov_radians - radians(180));  // angular overlap region in z direction
     float front_bias = smoothstep(+z_limit, -z_limit, p_sph_front.z);
 
     // normalized fisheye space 2D x-right, y-up, range [-1, +1]
@@ -209,12 +209,21 @@ vec4 linear_from_srgb(in vec4 srgb)
         srgb.a);
 }
 
+const vec3 INVALID_OBQ = vec3(0);
+
 float srgb_from_linear(in float linear)
 {
     if (linear <= 0.0031308)
         return linear * 12.92;
     else
         return pow(linear, 1.0/2.4) * 1.055 - 0.055;
+}
+
+// computes tile texture coordinate for a full image texture coordinate
+vec2 tct_for_tcr(mat3 tile_X_img, vec2 tcr)
+{
+    tcr = tcr - floor(tcr); // Shift to range 0-1
+    return (tile_X_img * vec3(tcr, 1)).xy;
 }
 
 vec4 srgb_from_linear(in vec4 linear)
@@ -258,6 +267,33 @@ bool equirect_valid(vec2 xy) {
     if (abs(xy.y) > PI / 2)
         return false;
     return true;
+}
+
+// Convert normalized image screen coordinates (nic) to
+// app-view-modified world 3D coordinates (obq).
+// If the point is invalid, (0,0,0) is returned
+vec3 obq_for_nic(vec2 nic, int display_projection)
+{
+    const vec3 invalid_obq = vec3(0);
+    if (display_projection == STEREOGRAPHIC_DISPLAY_PROJECTION) {
+        return stereographic_xyz(nic);
+    }
+    switch(display_projection) {
+        case STEREOGRAPHIC_DISPLAY_PROJECTION:
+            return stereographic_xyz(nic);
+        case AZ_EQ_DISPLAY_PROJECTION:
+            if (! azeqd_valid(nic))
+                return INVALID_OBQ;
+            return azimuthal_equidistant_xyz(nic);
+        case GNOMONIC_DISPLAY_PROJECTION:
+            return gnomonic_xyz(nic);
+        case EQUIRECT_DISPLAY_PROJECTION:
+        default :
+            if (! equirect_valid(nic))
+                return INVALID_OBQ;
+            return equirect_xyz(nic);
+    }
+    return INVALID_OBQ;
 }
 
 // modify image color to show selection box

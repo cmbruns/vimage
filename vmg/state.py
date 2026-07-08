@@ -330,7 +330,7 @@ class ViewState(QObject):
         self._input_format = input_format
         self._update_aspect_scale()
 
-    def set_image_data(self, image_data: ImageData):
+    def set_image_data(self, image_data: "ImageData"):
         self.input_is_linear = image_data.is_linear
         self._size_omp = image_data.size
         self._raw_rot_omp = image_data.raw_rot_omp

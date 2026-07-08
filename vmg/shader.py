@@ -1,15 +1,17 @@
-from typing import Callable
-
-from math import radians
-
 import abc
+import logging
+from math import radians
+from typing import Callable, OrderedDict
 
 from OpenGL import GL
-from OpenGL.GL.shaders import compileShader
+from OpenGL.GL.shaders import compileProgram, compileShader
 from OpenGL.GL.EXT.texture_filter_anisotropic import GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, GL_TEXTURE_MAX_ANISOTROPY_EXT
 
+from vmg.render_state import RenderStateLike
 from vmg.resources import resource_string
-from vmg.state import ViewState
+from vmg.texture import Tile
+
+logger = logging.getLogger(__name__)
 
 
 class IImageShader(abc.ABC):
@@ -18,7 +20,7 @@ class IImageShader(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def paint_gl(self, state: ViewState, texture) -> None:
+    def paint_gl(self, state: RenderStateLike, texture) -> None:
         pass
 
 
@@ -28,11 +30,91 @@ class Uniform:
         self.location = None
         self.set_fn = set_fn
 
-    def initialize_gl(self, program):
+    def get_location(self, program):
         self.location = GL.glGetUniformLocation(program, self.name)
 
     def set(self, *args):
         self.set_fn(self.location, *args)
+
+
+class Sampler2DUniform(Uniform):
+    def __init__(self, name: str):
+        super().__init__(name, GL.glUniform1i)
+
+    def set(self, unit: int, texture_id: int):
+        GL.glActiveTexture(GL.GL_TEXTURE0 + unit)
+        GL.glBindTexture(GL.GL_TEXTURE_2D, texture_id)
+        GL.glUniform1i(self.location, unit)
+
+
+class UniformGroup:
+    def __init__(self):
+        self._index = OrderedDict()
+
+    def __getitem__(self, key):
+        return self._index[key]
+
+    def add(self, uniform):
+        self._index[uniform.name] = uniform
+
+    def get_location(self, program: int):
+        for u in self._index:
+            u.get_location(program)
+
+
+class ViewerUniforms(UniformGroup):
+    def __init__(self):
+        super().__init__()
+        self.add(Uniform("brightness", GL.glUniform1f))
+        self.add(Uniform("pixelFilter", GL.glUniform1i))
+        self.add(Uniform("tile_X_img", GL.glUniformMatrix3fv))
+
+    def set(self, state: RenderStateLike, tile: Tile):
+        self["brightness"].set(state.brightness)
+        self["pixelFilter"].set(state.pixelFilter.value)
+        self["tile_X_img"].set(1, True, tile.tile_X_img)
+
+
+class PanoUniforms(UniformGroup):
+    def __init__(self):
+        super().__init__()
+        self.add(Uniform("display_projection", GL.glUniform1i))
+        self.add(Uniform("ont_rot_obq", GL.glUniformMatrix3fv))
+        self.add(Uniform("raw_rot_ont", GL.glUniformMatrix3fv))
+
+    def set(self, state: RenderStateLike):
+        self["display_projection"].set(state.display_projection)
+        self["ont_rot_obq"].set(1, True, state.ont_rot_obq)
+        self["raw_rot_ont"].set(1, True, state.raw_rot_ont)
+
+
+class FisheyeUniforms(UniformGroup):
+    def __init__(self):
+        super().__init__()
+        self.add(Uniform("df_fov_radians", GL.glUniform1f))
+        self.add(Uniform("df_lens_rot_radians", GL.glUniform1f))
+
+
+class DemosaicShader(IImageShader):
+    def __init__(self):
+        self.program = None
+
+    def initialize_gl(self) -> None:
+        try:
+            self.program = compileProgram(
+                compileShader(
+                    resource_string("vmg.glsl", "demosaic.vert"),
+                    GL.GL_VERTEX_SHADER),
+                compileShader(
+                    resource_string("vmg.glsl", "demosaic.frag"),
+                    GL.GL_FRAGMENT_SHADER),
+            )
+        except BaseException as exc:
+            logger.error(exc)
+            raise
+
+    def paint_gl(self, state: RenderStateLike, texture) -> None:
+        GL.glUseProgram(self.program)
 
 
 class RectangularTileShader(IImageShader):
@@ -49,12 +131,16 @@ class RectangularTileShader(IImageShader):
         self.box_shader = SelectionBoxShader()
 
     def initialize_gl(self) -> None:
-        vertex_shader = compileShader(resource_string(
-            "vmg.glsl", "tile_rect.vert", ), GL.GL_VERTEX_SHADER)
-        fragment_shader = compileShader(
-            resource_string("vmg.glsl", "shared.frag") +
-            resource_string("vmg.glsl", "tile_rect.frag"),
-            GL.GL_FRAGMENT_SHADER)
+        try:
+            vertex_shader = compileShader(resource_string(
+                "vmg.glsl", "tile_rect.vert", ), GL.GL_VERTEX_SHADER)
+            fragment_shader = compileShader(
+                resource_string("vmg.glsl", "shared.frag") +
+                resource_string("vmg.glsl", "tile_rect.frag"),
+                GL.GL_FRAGMENT_SHADER)
+        except BaseException as exc:
+            logger.error(exc)
+            raise
         self.shader = GL.glCreateProgram()
         GL.glAttachShader(self.shader, vertex_shader)
         GL.glAttachShader(self.shader, fragment_shader)
@@ -64,11 +150,11 @@ class RectangularTileShader(IImageShader):
         self.background_color_location = GL.glGetUniformLocation(self.shader, "background_color")
         self.pixelFilter_location = GL.glGetUniformLocation(self.shader, "pixel_filter")
         self.omp_scale_qwn_location = GL.glGetUniformLocation(self.shader, "omp_scale_qwn")
-        self.brightness.initialize_gl(self.shader)
-        self.input_is_linear.initialize_gl(self.shader)
+        self.brightness.get_location(self.shader)
+        self.input_is_linear.get_location(self.shader)
         self.box_shader.initialize_gl()
 
-    def paint_gl(self, state: ViewState, texture) -> None:
+    def paint_gl(self, state: RenderStateLike, texture) -> None:
         self.box_shader.paint_gl(state, texture)
         GL.glUseProgram(self.shader)
         GL.glUniform1i(self.pixelFilter_location, state.pixel_filter.value)
@@ -105,7 +191,7 @@ class SelectionBoxShader(IImageShader):
         self.background_color_location = GL.glGetUniformLocation(self.shader, "background_color")
         self.omp_scale_qwn_location = GL.glGetUniformLocation(self.shader, "omp_scale_qwn")
 
-    def paint_gl(self, state: ViewState, texture) -> None:
+    def paint_gl(self, state: RenderStateLike, texture) -> None:
         GL.glUseProgram(self.shader)
         GL.glUniform4i(self.sel_rect_omp_location, *state.sel_rect.left_top_right_bottom)
         GL.glUniform4f(self.background_color_location, *state.background_color)
@@ -142,7 +228,7 @@ class SphericalShader(IImageShader):
                 resource_string("vmg.glsl", "sphere.frag"),
                 GL.GL_FRAGMENT_SHADER)
         except BaseException as exc:
-            print(exc)
+            logger.error(exc)
             raise
         self.shader = GL.glCreateProgram()
         GL.glAttachShader(self.shader, vertex_shader)
@@ -159,15 +245,15 @@ class SphericalShader(IImageShader):
         self.df_fov_radians_location = GL.glGetUniformLocation(self.shader, "df_fov_radians")
         self.df_lens_rot_radians_location = GL.glGetUniformLocation(self.shader, "df_lens_rot_radians")
         for u in self.brightness, self.input_is_linear:
-            u.initialize_gl(self.shader)
+            u.get_location(self.shader)
 
-    def paint_gl(self, state: ViewState, texture) -> None:
+    def paint_gl(self, state: RenderStateLike, texture) -> None:
         # both nearest and catmull-rom use nearest at the moment.
         GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_NEAREST)
         GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_LINEAR_MIPMAP_NEAREST)
         GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_S, GL.GL_REPEAT)
         GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_T, GL.GL_MIRRORED_REPEAT)
-        f_largest = GL.glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT)
+        f_largest = GL.glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT)  # noqa
         GL.glTexParameterf(GL.GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, f_largest)
 
         GL.glUseProgram(self.shader)

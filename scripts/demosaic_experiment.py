@@ -3,8 +3,6 @@ Proof of concept creation of an opengl texture containing a demosaiced
 version of a Bayer RGGB digital negative DNG image file.
 """
 
-from inspect import cleandoc
-
 import numpy
 from OpenGL import GL
 from OpenGL.GL.shaders import compileProgram, compileShader
@@ -143,6 +141,13 @@ pixels = GL.glReadPixels(
     GL.GL_RGBA,
     GL.GL_UNSIGNED_BYTE
 )
+
+# Interlude: generate mipmaps for the demosaic
+GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, 0)
+GL.glBindTexture(GL.GL_TEXTURE_2D, bayer_texture_id)
+GL.glGenerateMipmap(GL.GL_TEXTURE_2D)
+GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_LINEAR_MIPMAP_LINEAR)
+
 # Convert to a NumPy array
 img = numpy.frombuffer(pixels, dtype=numpy.uint8)
 img = img.reshape((demosaic_h, demosaic_w, 4))
@@ -155,6 +160,5 @@ image.save("demosaic_test_output.png")
 print("Wrote demosaic_test_output.png")
 
 # Clean up
-GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, 0)
 GL.glBindTexture(GL.GL_TEXTURE_2D, 0)
 context.doneCurrent()
