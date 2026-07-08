@@ -274,10 +274,6 @@ bool equirect_valid(vec2 xy) {
 // If the point is invalid, (0,0,0) is returned
 vec3 obq_for_nic(vec2 nic, int display_projection)
 {
-    const vec3 invalid_obq = vec3(0);
-    if (display_projection == STEREOGRAPHIC_DISPLAY_PROJECTION) {
-        return stereographic_xyz(nic);
-    }
     switch(display_projection) {
         case STEREOGRAPHIC_DISPLAY_PROJECTION:
             return stereographic_xyz(nic);

@@ -20,9 +20,9 @@ uniform sampler2D demosaic_tile;  // previously demosaicked RGB with mipmaps
 // const bool input_is_linear = true;
 
 // All image types
-uniform float brightness = 0.0;
+uniform float brightness;
 uniform int pixelFilter = FILTER_NEAREST;  // applies only to demosaic
-uniform mat3 tile_X_img = mat3(1);
+uniform mat3 tile_X_img;
 
 // 360 only
 uniform int display_projection = STEREOGRAPHIC_DISPLAY_PROJECTION;
@@ -40,7 +40,7 @@ void main()
 {
     // Convert normalized image screen coordinates (nic) to
     // viewer-space 3D direction (obq)
-    vec3 p_obq = oqb_for_nic(p_nic, display_projection);
+    vec3 p_obq = obq_for_nic(p_nic, display_projection);
 
     // Convert direction to sky-up physical camera world frame (ont),
     // then to physical camera frame 3D direction (raw)
@@ -54,8 +54,8 @@ void main()
             p_raw,
             df_fov_radians,  // fisheye field of view
             df_lens_rot_radians);  // lens rotation offset
-    vec2 front_tct = tct_for_tcr(pair.front_tc);
-    vec2 rear_tct = tct_for_tcr(pair.rear_tc);
+    vec2 front_tct = tct_for_tcr(tile_X_img, pair.front_tc);
+    vec2 rear_tct = tct_for_tcr(tile_X_img, pair.rear_tc);
     if (pair.front_bias > 0.5) {
         p_tcr = pair.front_tc;
         p_tct = front_tct;
@@ -67,14 +67,14 @@ void main()
 
     // TODO: allow manual front/rear bias adjustment
 
-    vec4 front_color = clip_n_filter(demosaic_tile, front_tct, pixelFilter, true);
-    vec4 rear_color = clip_n_filter(demosaic_tile, rear_tct, pixelFilter, true);
-    vec4 demosaic_color = mix(rear_color, front_color, pair.front_bias);
+    vec4 front_color_d = clip_n_filter(demosaic_tile, front_tct, pixelFilter, true);
+    vec4 rear_color_d = clip_n_filter(demosaic_tile, rear_tct, pixelFilter, true);
+    vec4 demosaic_color = mix(rear_color_d, front_color_d, pair.front_bias);
 
-    front_color = texture(bayer_tile, front_tct);
-    rear_color = texture(bayer_tile, rear_tct);
+    vec4 front_color_b = texture(bayer_tile, front_tct);
+    vec4 rear_color_b = texture(bayer_tile, rear_tct);
     // TODO: should bayer_color have a sharp transition along the seam?
-    vec4 bayer_color = mix(rear_color, front_color, pair.front_bias);
+    vec4 bayer_color = mix(rear_color_b, front_color_b, pair.front_bias);
 
     // For Bayer mosaic we need to know the parity of this texel
     //   in the full image, not just the tile.
@@ -86,17 +86,17 @@ void main()
     bool rowEven = (img_texel.y & 1) == 0;
     bool colEven = (img_texel.x & 1) == 0;
     // RGGB Bayer pattern
-    if      ( rowEven &&  colEven) bayer_color = bayer_color * vec4(1, 0, 0, 1);  // red
-    else if ( rowEven && !colEven) bayer_color = bayer_color * vec4(0, 1, 0, 1);  // green
-    else if (!rowEven &&  colEven) bayer_color = bayer_color * vec4(0, 1, 0, 1);  // green
-    else if (!rowEven && !colEven) bayer_color = bayer_color * vec4(0, 0, 1, 1);  // blue
+    if      ( rowEven &&  colEven) bayer_color = bayer_color * vec4(4, 0, 0, 1);  // red
+    else if ( rowEven && !colEven) bayer_color = bayer_color * vec4(0, 2, 0, 1);  // green
+    else if (!rowEven &&  colEven) bayer_color = bayer_color * vec4(0, 2, 0, 1);  // green
+    else if (!rowEven && !colEven) bayer_color = bayer_color * vec4(0, 0, 4, 1);  // blue
 
     // Blend bayer and demosaicked depending on mipmap level
     // At high zoom the user sees the pure raw DNG mosaic.
     // At lower zoom, the user sees the demosaicked RGB interpretation.
-    float lod = textureQueryLod(bayer_tile, p_tct).x;
-    float demosaic_bias = clamp(lod, 0.0, 1.0);  // Blended color between lod 0->1
-    color = mix(bayer_color, demosaic_color, demosaic_bias);
+    float lod = textureQueryLod(bayer_tile, p_tct).y;
+    float demosaic_bias = clamp(lod + 4, 0.0, 4.0);  // Blended color between lod 0->1
+    color = mix(bayer_color, demosaic_color, demosaic_bias * 0.25);
 
     // TODO: black level, white level, white balance, color_matrix,
     //  XYZ->linear sRGB, tone mapping,

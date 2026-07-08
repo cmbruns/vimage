@@ -38,7 +38,6 @@ mat3 translate(vec2 t) {
         t.x, t.y, 1);
 }
 
-uniform sampler2D image;
 uniform ivec2 window_size;
 uniform float window_zoom = 1.0;
 

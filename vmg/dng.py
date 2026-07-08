@@ -1,3 +1,4 @@
+import logging
 from math import radians
 
 import numpy
@@ -6,9 +7,12 @@ from OpenGL.GL.EXT.texture_filter_anisotropic import GL_MAX_TEXTURE_MAX_ANISOTRO
 from OpenGL.GL.shaders import compileProgram, compileShader
 import tifffile
 
+from vmg.dng_texture import DngTextureAdapter
 from vmg.render_state import RenderStateLike
 from vmg.resources import resource_string
-from vmg.shader import Sampler2DUniform, Uniform, ViewerUniforms, PanoUniforms, FisheyeUniforms
+from vmg.shader import Sampler2DUniform, ViewerUniforms, PanoUniforms, FisheyeUniforms
+
+logger = logging.getLogger(__name__)
 
 
 class DngImage(object):
@@ -37,6 +41,7 @@ class DngImage(object):
         self.demosaic_texture_id = None
         self.tile_X_img = numpy.eye(3, dtype=numpy.float32)  # TODO tiles
         self.load_sync = None
+        self.texture = DngTextureAdapter(self)
 
     def initialize_gl(self):
         """Run this in the loader thread"""
@@ -64,6 +69,11 @@ class DngImage(object):
         GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_S, GL.GL_CLAMP_TO_BORDER)
         GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_T, GL.GL_CLAMP_TO_BORDER)
         GL.glTexParameterfv(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_BORDER_COLOR, [0, 0, 0, 0])
+        # Fill all three channels R, G, B with the one intensity
+        GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_SWIZZLE_R, GL.GL_RED)
+        GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_SWIZZLE_G, GL.GL_RED)
+        GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_SWIZZLE_B, GL.GL_RED)
+        GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_SWIZZLE_A, GL.GL_ONE)
 
         # Construct a second downsampled demosaic texture for zoomed out visualization
         # Theoretical mipmap level 1 size
@@ -139,6 +149,7 @@ class DngImage(object):
         GL.glBindTexture(GL.GL_TEXTURE_2D, 0)
         self.load_sync = GL.glFenceSync(GL.GL_SYNC_GPU_COMMANDS_COMPLETE, 0)
         GL.glFlush()  # macOS probably
+        logger.info("DNG demosaic complete")
 
     def paint_gl(self, state: RenderStateLike) -> bool:
         """Run this in the UI thread"""
@@ -150,6 +161,7 @@ class DngImage(object):
                     resource_string("vmg.glsl", "sphere.vert"),
                     GL.GL_VERTEX_SHADER),
                 compileShader(
+                    resource_string("vmg.glsl", "shared.frag") +
                     resource_string("vmg.glsl", "sphere_dng.frag"),
                     GL.GL_FRAGMENT_SHADER),
             )

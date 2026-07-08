@@ -8,7 +8,6 @@ import numpy
 from OpenGL import GL
 from PIL import Image, ExifTags, UnidentifiedImageError
 from PySide6 import QtCore
-import tifffile
 import turbojpeg
 from tifffile import TiffFileError
 
@@ -88,6 +87,7 @@ class ImageData(QtCore.QObject):
             self.is_linear = True
             self.is_dng = True
             self.pil_image = Image.fromarray(self.array)
+            self.texture = self.dng_image.texture
             return True
         except TiffFileError:
             return False

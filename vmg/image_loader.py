@@ -116,7 +116,7 @@ class ImageLoader(QtCore.QObject):
             self.process_texture(self.current_image_data)
 
     def texture_dng(self, image_data: ImageData) -> bool:
-        image_data.texture = Texture.from_numpy(image_data.array)
+        image_data.texture = image_data.dng_image.texture
         return True
 
     @QtCore.Slot(ImageData)  # noqa

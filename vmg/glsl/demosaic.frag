@@ -78,8 +78,6 @@ void main()
         }
     }
 
-    float brightness = 5;
-    color = vec4(brightness * rgb / weights, 1);
-
+    color = vec4(rgb / weights, 1);
     color = srgb_from_linear(color);
 }

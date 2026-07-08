@@ -7,6 +7,7 @@ from OpenGL import GL
 from OpenGL.GL.shaders import compileProgram, compileShader
 from OpenGL.GL.EXT.texture_filter_anisotropic import GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, GL_TEXTURE_MAX_ANISOTROPY_EXT
 
+from vmg.dng_texture import DngTextureAdapter
 from vmg.render_state import RenderStateLike
 from vmg.resources import resource_string
 from vmg.texture import Tile
@@ -58,7 +59,7 @@ class UniformGroup:
         self._index[uniform.name] = uniform
 
     def get_location(self, program: int):
-        for u in self._index:
+        for u in self._index.values():
             u.get_location(program)
 
 
@@ -71,19 +72,23 @@ class ViewerUniforms(UniformGroup):
 
     def set(self, state: RenderStateLike, tile: Tile):
         self["brightness"].set(state.brightness)
-        self["pixelFilter"].set(state.pixelFilter.value)
+        self["pixelFilter"].set(state.pixel_filter.value)
         self["tile_X_img"].set(1, True, tile.tile_X_img)
 
 
 class PanoUniforms(UniformGroup):
     def __init__(self):
         super().__init__()
+        self.add(Uniform("window_size", GL.glUniform2i))
+        self.add(Uniform("window_zoom", GL.glUniform1f))
         self.add(Uniform("display_projection", GL.glUniform1i))
         self.add(Uniform("ont_rot_obq", GL.glUniformMatrix3fv))
         self.add(Uniform("raw_rot_ont", GL.glUniformMatrix3fv))
 
     def set(self, state: RenderStateLike):
-        self["display_projection"].set(state.display_projection)
+        self["window_size"].set(*[int(x) for x in state.window_size])
+        self["window_zoom"].set(state.zoom)
+        self["display_projection"].set(state.display_projection.value)
         self["ont_rot_obq"].set(1, True, state.ont_rot_obq)
         self["raw_rot_ont"].set(1, True, state.raw_rot_ont)
 
@@ -248,6 +253,9 @@ class SphericalShader(IImageShader):
             u.get_location(self.shader)
 
     def paint_gl(self, state: RenderStateLike, texture) -> None:
+        if isinstance(texture, DngTextureAdapter):
+            texture.paint_gl(state)
+            return
         # both nearest and catmull-rom use nearest at the moment.
         GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_NEAREST)
         GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_LINEAR_MIPMAP_NEAREST)

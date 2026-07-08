@@ -9,10 +9,10 @@ const vec4 SCREEN_QUAD[4] = vec4[4](
 );
 
 const vec2 TEX_COORD[4] = vec2[4](
-    vec2( 1,  1),  // lower right
-    vec2( 1,  0),  // upper right
-    vec2( 0,  1),  // lower left
-    vec2( 0,  0)   // upper left
+    vec2( 1,  0),  // lower right
+    vec2( 1,  1),  // upper right
+    vec2( 0,  0),  // lower left
+    vec2( 0,  1)   // upper left
 );
 
 out vec2 tex_coord;
