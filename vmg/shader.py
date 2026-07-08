@@ -161,6 +161,9 @@ class RectangularTileShader(IImageShader):
 
     def paint_gl(self, state: RenderStateLike, texture) -> None:
         self.box_shader.paint_gl(state, texture)
+        if isinstance(texture, DngTextureAdapter):
+            texture.paint_gl(state)
+            return
         GL.glUseProgram(self.shader)
         GL.glUniform1i(self.pixelFilter_location, state.pixel_filter.value)
         GL.glUniform4i(self.sel_rect_omp_location, *state.sel_rect.left_top_right_bottom)
