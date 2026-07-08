@@ -95,7 +95,7 @@ void main()
     // At high zoom the user sees the pure raw DNG mosaic.
     // At lower zoom, the user sees the demosaicked RGB interpretation.
     float lod = textureQueryLod(bayer_tile, p_tct).y;
-    float demosaic_bias = clamp(lod + 4, 0.0, 4.0);  // Blended color between lod 0->1
+    float demosaic_bias = clamp(lod + 6, 0.0, 4.0);  // Blended color between lod 0->1
     color = mix(bayer_color, demosaic_color, demosaic_bias * 0.25);
 
     // TODO: black level, white level, white balance, color_matrix,

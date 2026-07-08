@@ -79,5 +79,4 @@ void main()
     }
 
     color = vec4(rgb / weights, 1);
-    color = srgb_from_linear(color);
 }

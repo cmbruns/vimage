@@ -11,3 +11,4 @@
 /vimage.spec
 /vmg/git_hash.txt
 __pycache__
+/.pytest_cache
