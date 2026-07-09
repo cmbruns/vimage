@@ -9,7 +9,9 @@ from PySide6.QtGui import Qt
 
 from vmg.frame import DimensionsOmp, DimensionsQwn, LocationHpd, LocationObq, LocationNic, LocationOmp, LocationOnt, \
     LocationPrj, LocationQwn, LocationRelative
-from vmg.image_data import ImageData, InputFormat
+from vmg.input_format import InputFormat
+from vmg.interfaces import ImageLike
+from vmg.photometric_scale import PhotometricScale
 from vmg.pixel_filter import PixelFilter
 from vmg.display_projection import DisplayProjection
 from vmg.selection_box import SelectionBox, CursorHolder
@@ -330,11 +332,12 @@ class ViewState(QObject):
         self._input_format = input_format
         self._update_aspect_scale()
 
-    def set_image_data(self, image_data: "ImageData"):
-        self.input_is_linear = image_data.is_linear
-        self._size_omp = image_data.size
-        self._raw_rot_omp = image_data.raw_rot_omp
-        self.raw_rot_ont = image_data.raw_rot_ont
+    def set_image(self, image: ImageLike):
+        # TODO: store image and delegate
+        self.input_is_linear = image.photometric_scale == PhotometricScale.LINEAR
+        self._size_omp = image.size
+        self._raw_rot_omp = image.raw_rot_omp
+        self.raw_rot_ont = image.raw_rot_ont
         self._update_aspect_scale()
 
     def set_window_size(self, width, height):

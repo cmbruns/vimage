@@ -8,7 +8,8 @@ from OpenGL.GL.shaders import compileProgram, compileShader
 from OpenGL.GL.EXT.texture_filter_anisotropic import GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, GL_TEXTURE_MAX_ANISOTROPY_EXT
 
 from vmg.dng_texture import DngTextureAdapter
-from vmg.render_state import RenderStateLike
+from vmg.interfaces import RenderStateLike, ImageLike
+from vmg.photometric_scale import PhotometricScale
 from vmg.resources import resource_string
 from vmg.texture import Tile
 
@@ -159,10 +160,10 @@ class RectangularTileShader(IImageShader):
         self.input_is_linear.get_location(self.shader)
         self.box_shader.initialize_gl()
 
-    def paint_gl(self, state: RenderStateLike, texture) -> None:
-        self.box_shader.paint_gl(state, texture)
-        if isinstance(texture, DngTextureAdapter):
-            texture.paint_gl(state)
+    def paint_gl(self, state: RenderStateLike, image: ImageLike) -> None:
+        self.box_shader.paint_gl(state, image)
+        if isinstance(image, DngTextureAdapter):
+            image.paint_gl(state)
             return
         GL.glUseProgram(self.shader)
         GL.glUniform1i(self.pixelFilter_location, state.pixel_filter.value)
@@ -171,8 +172,9 @@ class RectangularTileShader(IImageShader):
         GL.glUniformMatrix3fv(self.ndc_x_omp_location, 1, True, state.ndc_xform_omp())
         GL.glUniform1f(self.omp_scale_qwn_location, state.omp_scale_qwn())
         self.brightness.set(state.brightness)
-        self.input_is_linear.set(state.input_is_linear)
-        texture.paint_gl()
+        self.input_is_linear.set(image.photometric_scale == PhotometricScale.LINEAR)
+        for tile in image.tiles():
+            tile.paint_gl()
 
 
 class SelectionBoxShader(IImageShader):
@@ -255,9 +257,9 @@ class SphericalShader(IImageShader):
         for u in self.brightness, self.input_is_linear:
             u.get_location(self.shader)
 
-    def paint_gl(self, state: RenderStateLike, texture) -> None:
-        if isinstance(texture, DngTextureAdapter):
-            texture.paint_gl(state)
+    def paint_gl(self, state: RenderStateLike, image: ImageLike) -> None:
+        if isinstance(image, DngTextureAdapter):
+            image.paint_gl(state)
             return
         # both nearest and catmull-rom use nearest at the moment.
         GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_NEAREST)
@@ -271,14 +273,14 @@ class SphericalShader(IImageShader):
         GL.glUniform1f(self.zoom_location, state.zoom)
         GL.glUniform1i(self.pixelFilter_location, state.pixel_filter.value)
         GL.glUniformMatrix3fv(self.ont_rot_obq_location, 1, True, state.ont_rot_obq)
-        GL.glUniformMatrix3fv(self.raw_rot_ont_location, 1, True, state.raw_rot_ont)
+        GL.glUniformMatrix3fv(self.raw_rot_ont_location, 1, True, image.raw_rot_ont)
         GL.glUniform2i(self.window_size_location, *[int(x) for x in state.window_size])
-        GL.glUniform1i(self.input_format_location, state.input_format.value)
+        GL.glUniform1i(self.input_format_location, image.input_format.value)
         GL.glUniform1i(self.display_projection_location, state.display_projection.value)
         GL.glUniform1f(self.df_fov_radians_location, self.df_fov_radians)
         GL.glUniform1f(self.df_lens_rot_radians_location, self.df_lens_rot_radians)
         self.brightness.set(state.brightness)
-        self.input_is_linear.set(state.input_is_linear)
-        for tile in texture:
+        self.input_is_linear.set(image.photometric_scale == PhotometricScale.LINEAR)
+        for tile in image.tiles():
             GL.glUniformMatrix3fv(self.tile_X_img_location, 1, True, tile.tile_X_img)
             tile.paint_gl()

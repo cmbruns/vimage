@@ -7,7 +7,8 @@ from OpenGL import GL
 from PySide6 import QtCore, QtGui, QtOpenGLWidgets, QtWidgets
 from PySide6.QtCore import QEvent, Qt, QPoint
 
-from vmg.image_data import ImageData, InputFormat
+from vmg.input_format import InputFormat
+from vmg.interfaces import ImageLike
 from vmg.offscreen_context import OffscreenContext
 from vmg.selection_box import (CursorHolder)
 from vmg.state import ViewState
@@ -26,7 +27,7 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         self.grabGesture(Qt.PinchGesture)
         # self.grabGesture(Qt.PanGesture)
         self.grabGesture(Qt.SwipeGesture)
-        self.image_data = None
+        self.image = None
         self.setMinimumSize(10, 10)
         self.vao = None
         self.sphere_shader = SphericalShader()
@@ -63,7 +64,7 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
 
         return super().event(event)
 
-    image_displayed = QtCore.Signal(ImageData)
+    image_displayed = QtCore.Signal(ImageLike)
 
     image_size_changed = QtCore.Signal(int, int)
 
@@ -104,7 +105,7 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
     def mouseMoveEvent(self, event):
         if event.pos() is None:
             return
-        if self.image_data is None:
+        if self.image is None:
             return
         if event.source() != Qt.MouseEventNotSynthesized:
             return
@@ -136,17 +137,11 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         self.view_state.background_color = self.palette().color(self.backgroundRole()).getRgbF()
         GL.glClearColor(*self.view_state.background_color)
         GL.glClear(GL.GL_COLOR_BUFFER_BIT)
-        if self.image_data is None:
+        if self.image is None:
             logger.debug("image_data is None")
             return
         GL.glBindVertexArray(self.vao)
-        if not self.image_data.has_displayed:
-            self.progress_changed.emit(95)  # noqa
-        self.program.paint_gl(self.view_state, self.image_data.texture)
-        if not self.image_data.has_displayed:
-            self.image_data.has_displayed = True
-            self.progress_changed.emit(98)  # noqa
-            self.image_displayed.emit(self.image_data)  # noqa
+        self.program.paint_gl(self.view_state, self.image)
         logger.debug("Finished paintGL()")
 
     progress_changed = QtCore.Signal(int)
@@ -178,13 +173,13 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         self.input_format_changed.emit(input_format)
         return True
 
-    def set_image_data(self, image_data: ImageData):
+    def set_image(self, image: ImageLike):
         logger.info("Received image data")
-        self.image_data = image_data
+        self.image = image
         self.view_state.reset()
-        self.view_state.set_image_data(self.image_data)
-        self.set_input_format(self.image_data.input_format)
-        w, h = self.image_data.size
+        self.view_state.set_image(self.image)
+        self.set_input_format(self.image.input_format)
+        w, h = self.image.size
         self.image_size_changed.emit(int(w), int(h))  # noqa
         self.update()
 
@@ -192,7 +187,7 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
     def show_context_menu(self, qpoint: QPoint):
         menu = QtWidgets.QMenu("Context menu", parent=self)
         menu.addSeparator()
-        if self.image_data is not None:
+        if self.image is not None:
             for action in self.view_state.context_menu_actions(qpoint):
                 menu.addAction(action)
         menu.addSeparator()

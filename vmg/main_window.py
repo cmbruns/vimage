@@ -25,7 +25,8 @@ from PySide6.QtWidgets import QFileDialog, QMessageBox
 from vmg.circular_combo_box import CircularComboBox
 from vmg.command import CropToSelection
 from vmg.image_loader import ImageLoader
-from vmg.image_data import ImageData, InputFormat
+from vmg.image_data import ImageData
+from vmg.input_format import InputFormat
 from vmg.lens_dialog import LensDialog
 from vmg.log import LogDialog
 from vmg.natural_sort import natural_sort_key
@@ -309,7 +310,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
             logger.info(f"ignoring stale texture loaded for {image_data.file_name}")
             return
         self.image = image_data.pil_image
-        self.imageWidgetGL.set_image_data(image_data)
+        self.imageWidgetGL.set_image(image_data)
         fn = image_data.file_name
         self.set_current_image_path(fn)
         self.actionSave_As.setEnabled(True)

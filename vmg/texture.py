@@ -174,7 +174,7 @@ class Tile(object):
             [0, 0, 1],
         ], dtype=numpy.float32)
 
-    def initialize_gl(self, image_bytes):
+    def initialize_gl(self):
         self.vbo = GL.glGenBuffers(1)
         logger.debug(f"VBO ID = {self.vbo}")
         GL.glBindBuffer(GL.GL_ARRAY_BUFFER, self.vbo)
@@ -204,7 +204,7 @@ class Tile(object):
             0,
             self.texture.tex_format,
             self.texture.data_type,
-            image_bytes,
+            self.texture.data,
         )
         GL.glGenerateMipmap(GL.GL_TEXTURE_2D)
         GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_NEAREST)
@@ -351,7 +351,7 @@ class Texture(object):
                     bottom_pad=bottom_pad,
                 )
                 self.tiles.append(tile)
-                tile.initialize_gl(self.data)
+                tile.initialize_gl()
                 left += tile_size - 4
                 left_pad = 2
             top += tile_size - 4

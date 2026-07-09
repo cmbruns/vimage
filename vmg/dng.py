@@ -8,7 +8,7 @@ from OpenGL.GL.shaders import compileProgram, compileShader
 import tifffile
 
 from vmg.dng_texture import DngTextureAdapter
-from vmg.render_state import RenderStateLike
+from vmg.interfaces import RenderStateLike
 from vmg.resources import resource_string
 from vmg.shader import Sampler2DUniform, ViewerUniforms, PanoUniforms, FisheyeUniforms
 

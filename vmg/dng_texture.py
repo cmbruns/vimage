@@ -1,7 +1,7 @@
 import numpy
 from OpenGL import GL
 
-from vmg.render_state import RenderStateLike
+from vmg.interfaces import RenderStateLike
 
 
 class DngTextureAdapter:
