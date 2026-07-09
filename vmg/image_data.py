@@ -4,36 +4,37 @@ from os import access, R_OK
 from os.path import isfile
 
 import numpy
+from numpy.typing import NDArray
 from OpenGL import GL
 from PIL import Image, ExifTags, UnidentifiedImageError
-from PySide6 import QtCore
 import turbojpeg
 from tifffile import TiffFileError
 
 from vmg.dng import DngImage
 from vmg.frame import DimensionsOmp
 from vmg.input_format import InputFormat
+from vmg.interfaces import ImageLike
 from vmg.photometric_scale import PhotometricScale
 from vmg.texture import Texture, ExifOrientation
 
 logger = logging.getLogger(__name__)
 
 
-class ImageData(QtCore.QObject):
+class ImageData(ImageLike):
     def __init__(self, file_name: str, parent=None):
-        super().__init__(parent=parent)
-        self.file_name = str(file_name)
+        self.parent = parent
+        self._file_name = str(file_name)
         self.pil_image = None
         self.texture = None
         self.exif = {}
         self.xmp = {}
-        self.size_raw = [0, 0]
-        self.size_omp = DimensionsOmp(0, 0)
+        self._size_raw = (0, 0)
+        self._size_omp = DimensionsOmp(0, 0)
         self.orientation = ExifOrientation.UNSPECIFIED
         self._raw_rot_ont = numpy.eye(3, dtype=numpy.float32)
-        self._raw_rot_omp = numpy.eye(2, dtype=numpy.float32)
-        self.input_format = InputFormat.STANDARD_PHOTO
-        self.photometric_scale = PhotometricScale.SRGB
+        self._raw_rot_omp: NDArray[numpy.floating] = numpy.eye(2, dtype=numpy.float32)
+        self._input_format = InputFormat.STANDARD_PHOTO
+        self._photometric_scale = PhotometricScale.SRGB
         self.array = None
         self.is_linear = False
         self.is_dng = False
@@ -46,6 +47,30 @@ class ImageData(QtCore.QObject):
         if not access(file_name, R_OK):
             return False
         return True
+
+    @property
+    def input_format(self) -> InputFormat:
+        return self._input_format
+
+    @input_format.setter
+    def input_format(self, input_format: InputFormat):
+        self._input_format = input_format
+
+    def initialize_gl(self) -> None:
+        for tile in self.texture:
+            tile.initialize_gl()
+
+    @property
+    def file_name(self) -> str:
+        return self._file_name
+
+    @property
+    def photometric_scale(self) -> PhotometricScale:
+        return self._photometric_scale
+
+    @property
+    def size_raw(self) -> tuple[int, int]:
+        return self._size_raw
 
     def load_jpeg_image(self) -> bool:
         try:
@@ -67,7 +92,7 @@ class ImageData(QtCore.QObject):
             self.is_linear = False  # Maybe more subtleties here...
             self.is_dng = False
             return True
-        except UnidentifiedImageError as exc:
+        except UnidentifiedImageError:
             logger.warning("Error loading image with PIL")
             return False
 
@@ -85,7 +110,7 @@ class ImageData(QtCore.QObject):
 
     def read_pil_metadata(self):
         raw_width, raw_height = self.pil_image.size  # Unrotated dimension
-        self.size_raw = (raw_width, raw_height)
+        self._size_raw = (raw_width, raw_height)
         exif0 = self.pil_image.getexif()
         exif = {
             ExifTags.TAGS[k]: v
@@ -118,7 +143,7 @@ class ImageData(QtCore.QObject):
         self.orientation = ExifOrientation(orientation_code)
         logger.info(f"Image EXIF orientation = {self.orientation}")
         self._raw_rot_omp = self.rotation_for_exif_orientation.get(orientation_code, numpy.eye(2, dtype=numpy.float32))
-        self.size_omp = DimensionsOmp(*[abs(x) for x in (self.raw_rot_omp.T @ self.size_raw)])
+        self._size_omp = DimensionsOmp(*[abs(x) for x in (self.raw_rot_omp.T @ self.size_raw)])
         w, h = self.size_omp.x, self.size_omp.y
         model = exif.get("Model", "").lower()
         logger.info(f"Camera model = '{model}'")
@@ -160,16 +185,16 @@ class ImageData(QtCore.QObject):
                 pass
 
     @property
-    def raw_rot_omp(self) -> numpy.array:
+    def raw_rot_omp(self) -> NDArray[numpy.float32]:
         return self._raw_rot_omp
 
     @property
-    def raw_rot_ont(self) -> numpy.array:
+    def raw_rot_ont(self) -> NDArray[numpy.floating]:
         return self._raw_rot_ont
 
     @property
-    def size(self) -> DimensionsOmp:
-        return self.size_omp
+    def size_omp(self) -> DimensionsOmp:
+        return self._size_omp
 
     def tiles(self):
         for tile in self.texture:
