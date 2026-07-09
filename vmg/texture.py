@@ -12,7 +12,7 @@ from vmg.interfaces import TileLike
 
 # from OpenGL.GL import GLint, GLenum  # Causes inspection errors
 GLint = int
-GLenum = int
+GLenum = int  # noqa
 
 logger = logging.getLogger(__name__)
 
@@ -185,7 +185,7 @@ class Tile(TileLike):
         logger.debug(f"VBO ID = {self.vbo}")
         GL.glBindBuffer(GL.GL_ARRAY_BUFFER, self.vbo)
         GL.glBufferData(GL.GL_ARRAY_BUFFER, len(self.vertexes) * sizeof(c_float), self.vertexes, GL.GL_STATIC_DRAW)
-        self.texture_id = GL.glGenTextures(1)
+        self.texture_id = GL.glGenTextures(1)  # noqa
         logger.debug(f"texture ID = {self.texture_id}")
         GL.glBindTexture(GL.GL_TEXTURE_2D, self.texture_id)
         GL.glPixelStorei(GL.GL_UNPACK_ALIGNMENT, 1)  # In case width is odd
@@ -194,7 +194,7 @@ class Tile(TileLike):
             GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_SWIZZLE_G, GL.GL_RED)
             GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_SWIZZLE_B, GL.GL_RED)
         # Anisotropic filtering
-        f_largest = GL.glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT)
+        f_largest = GL.glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT)  # noqa
         GL.glTexParameterf(GL.GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, f_largest)
         # TODO: use preferred internal format in image data...
         # row stride required for horizontal tiling
@@ -228,7 +228,7 @@ class Tile(TileLike):
     def is_ready(self) -> bool:
         if self.load_sync is None:
             return False
-        load_status = GL.glGetSynciv(self.load_sync, GL.GL_SYNC_STATUS, 1)[1]
+        load_status = GL.glGetSynciv(self.load_sync, GL.GL_SYNC_STATUS, 1)[1]  # noqa
         return load_status == GL.GL_SIGNALED
 
     def is_ready_for_display(self) -> bool:
@@ -249,7 +249,7 @@ class Tile(TileLike):
         GL.glBindTexture(GL.GL_TEXTURE_2D, self.texture_id)
         # VAO must be created here, in the render thread
         if self.vao is None:
-            self.vao = GL.glGenVertexArrays(1)
+            self.vao = GL.glGenVertexArrays(1)  # noqa
             GL.glBindVertexArray(self.vao)
             GL.glBindBuffer(GL.GL_ARRAY_BUFFER, self.vbo)
             f_size = sizeof(c_float)
@@ -330,7 +330,7 @@ class Texture(object):
 
     def initialize_gl(self):
         tile_size = self.tile_size
-        max_texture_size = GL.glGetIntegerv(GL.GL_MAX_TEXTURE_SIZE)
+        max_texture_size = GL.glGetIntegerv(GL.GL_MAX_TEXTURE_SIZE)  # noqa
         assert max_texture_size >= tile_size
         # Loop over tiles
         top = 0
@@ -368,7 +368,7 @@ class Texture(object):
             top_pad = 2
 
     def paint_gl(self):
-        for tile in self:
+        for tile in self.tiles:
             tile.paint_gl()
 
     @property
