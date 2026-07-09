@@ -7,11 +7,10 @@ from PySide6 import QtCore, QtGui
 from PySide6.QtCore import QPoint, QSize, QObject, QPointF
 from PySide6.QtGui import Qt
 
-from vmg.frame import DimensionsOmp, DimensionsQwn, LocationHpd, LocationObq, LocationNic, LocationOmp, LocationOnt, \
+from vmg.frame import DimensionsQwn, LocationHpd, LocationObq, LocationNic, LocationOmp, LocationOnt, \
     LocationPrj, LocationQwn, LocationRelative
 from vmg.input_format import InputFormat
 from vmg.interfaces import ImageLike
-from vmg.photometric_scale import PhotometricScale
 from vmg.pixel_filter import PixelFilter
 from vmg.display_projection import DisplayProjection
 from vmg.selection_box import SelectionBox, CursorHolder
@@ -23,17 +22,14 @@ class ViewState(QObject):
     A: One per gl_widget. So the image could change during the lifetime of this ViewState.
     """
 
-    def __init__(self, window_size: QSize, image_size=(1, 1)):
+    def __init__(self, window_size: QSize):
         super().__init__()
         self._size_qwn = DimensionsQwn(window_size.width(), window_size.height())
-        self._size_omp = DimensionsOmp(* image_size)
         self.display_projection = DisplayProjection.STEREOGRAPHIC
         self._zoom = 1.0  # windows per image
-        self._input_format = InputFormat.STANDARD_PHOTO
         self._center_rel = LocationRelative(0.5, 0.5)
+        self.image = None
         self._update_aspect_scale()
-        self._raw_rot_omp = numpy.eye(2, dtype=numpy.float32)
-        self.raw_rot_ont = numpy.eye(3, dtype=numpy.float32)
         self.pixel_filter = PixelFilter.CATMULL_ROM
         self.sel_rect = SelectionBox()
         self.sel_rect.cursor_changed.connect(self.on_rect_cursor_changed)
@@ -41,7 +37,7 @@ class ViewState(QObject):
         self._previous_mouse_position = None
         self._background_color = [0.5, 0.5, 0.5, 0]
         self.brightness = 0.0  # EV
-        self.input_is_linear = False
+        # self.input_is_linear = False
 
     @property
     def background_color(self):
@@ -53,7 +49,7 @@ class ViewState(QObject):
 
     @property
     def center_omp(self) -> LocationOmp:
-        return LocationOmp(*self._center_rel * self._size_omp, 1)
+        return LocationOmp(*self._center_rel * self.image.size_omp, 1)
 
     @property
     def center_rel(self) -> LocationRelative:
@@ -74,7 +70,7 @@ class ViewState(QObject):
         p_omp = self.omp_for_qpoint(qpoint)
         result.extend(self.sel_rect.context_menu_actions(
             p_omp,
-            self.input_format != InputFormat.STANDARD_PHOTO))
+            self.image.input_format != InputFormat.STANDARD_PHOTO))
         return result
 
     cursor_changed = QtCore.Signal(CursorHolder)
@@ -90,9 +86,11 @@ class ViewState(QObject):
             self.cursor_changed.emit(cursor_holder)  # noqa
 
     def drag_relative(self, prev: QPoint, curr: QPoint):
+        if self.image is None:
+            return
         prev_qwn = LocationQwn.from_qpoint(prev)
         curr_qwn = LocationQwn.from_qpoint(curr)
-        if self.input_format in (
+        if self.image.input_format in (
                 InputFormat.EQUIRECTANGULAR,  # ok
                 InputFormat.DUAL_FISHEYE,  # TODO: not quite
         ):
@@ -114,7 +112,7 @@ class ViewState(QObject):
             prev_omp = self.omp_for_qwn(prev_qwn)
             curr_omp = self.omp_for_qwn(curr_qwn)
             d_omp = curr_omp - prev_omp
-            d_rel = (d_omp.x / self._size_omp.x, d_omp.y / self._size_omp.y)
+            d_rel = (d_omp.x / self.image.size_omp.x, d_omp.y / self.image.size_omp.y)
             new_center = LocationRelative(self._center_rel.x + d_rel[0], self._center_rel.y + d_rel[1])
             self._center_rel[:] = new_center[:]
             self._clamp_center()
@@ -135,27 +133,22 @@ class ViewState(QObject):
     def hpd_for_qwn(self, p_ont: LocationQwn) -> LocationHpd:
         return self.hpd_for_ont(self.ont_for_qwn(p_ont))
 
-    @property
-    def input_format(self) -> InputFormat:
-        """
-        View state can override image 360-ness
-        """
-        return self._input_format
-
     def key_press_event(self, event: QtGui.QKeyEvent):
-        if self.input_format == InputFormat.STANDARD_PHOTO:
+        if self.image.input_format == InputFormat.STANDARD_PHOTO:
             self.sel_rect.key_press_event(event)
 
     def key_release_event(self, event: QtGui.QKeyEvent):
-        if self.input_format == InputFormat.STANDARD_PHOTO:
+        if self.image.input_format == InputFormat.STANDARD_PHOTO:
             self.sel_rect.key_release_event(event)
 
     def mouse_move_event(self, event) -> bool:
+        if self.image is None:
+            return False
         # Rectangular selection is only valid in non-360 mode
         update_display = False
         event_consumed = False
         p_omp = self.omp_for_qpoint(event.pos())
-        if self.input_format == InputFormat.STANDARD_PHOTO:
+        if self.image.input_format == InputFormat.STANDARD_PHOTO:
             event_consumed, update_display = self.sel_rect.mouse_move_event(event, p_omp, self.hover_min_omp)
         if event_consumed:
             pass
@@ -165,7 +158,7 @@ class ViewState(QObject):
             update_display = True
         else:
             p_qwn = LocationQwn.from_qpoint(event.pos())
-            if self.input_format in (
+            if self.image.input_format in (
                     InputFormat.EQUIRECTANGULAR,
                     InputFormat.DUAL_FISHEYE,  # TODO
             ):
@@ -268,7 +261,7 @@ class ViewState(QObject):
         return LocationOmp(*omp_xform_nic @ p_nic)
 
     def omp_scale_qwn(self) -> float:
-        return self._size_omp[1] / self._size_qwn[1] / self.zoom
+        return self.image.size_omp[1] / self._size_qwn[1] / self.zoom
 
     def omp_xform_ndc(self) -> NDArray[numpy.float32]:
         scale = self.asc_omp / 2.0 / self.asc_qwn / self.zoom
@@ -314,10 +307,6 @@ class ViewState(QObject):
         ], dtype=numpy.float32)
         return LocationPrj(*prj_xform_nic @ p_nic)
 
-    @property
-    def raw_rot_omp(self) -> numpy.array:
-        return self._raw_rot_omp
-
     request_message = QtCore.Signal(str, int)
 
     def reset(self) -> None:
@@ -326,18 +315,15 @@ class ViewState(QObject):
         self.view_heading_degrees = 0.0
         self.view_pitch_degrees = 0.0
         self.brightness = 0.0
-        self.input_is_linear = False
 
     def set_input_format(self, input_format: InputFormat) -> None:
-        self._input_format = input_format
+        if self.image is not None:
+            assert self.image.input_format == input_format
         self._update_aspect_scale()
 
     def set_image(self, image: ImageLike):
         # TODO: store image and delegate
-        self.input_is_linear = image.photometric_scale == PhotometricScale.LINEAR
-        self._size_omp = image.size
-        self._raw_rot_omp = image.raw_rot_omp
-        self.raw_rot_ont = image.raw_rot_ont
+        self.image = image
         self._update_aspect_scale()
 
     def set_window_size(self, width, height):
@@ -349,9 +335,11 @@ class ViewState(QObject):
         self.sel_rect.begin(None)
 
     def _update_aspect_scale(self):
-        w_omp, h_omp = self._size_omp
+        if self.image is None:
+            return
+        w_omp, h_omp = self.image.size_omp
         w_qwn, h_qwn = self._size_qwn
-        if self.input_format in (InputFormat.EQUIRECTANGULAR, InputFormat.DUAL_FISHEYE):
+        if self.image.input_format in (InputFormat.EQUIRECTANGULAR, InputFormat.DUAL_FISHEYE):
             if 1 > w_qwn/h_qwn:
                 # window aspect is thin
                 # So use width in scaling factor
@@ -391,7 +379,7 @@ class ViewState(QObject):
         return (self._center_rel.y - 0.5) * 180.0
 
     @view_pitch_degrees.setter
-    def view_pitch_degrees(self, value):
+    def view_pitch_degrees(self, value: float):
         value = numpy.clip(value, -90.0, 90.0)
         self._center_rel[1] = value / 180.0 + 0.5
 
@@ -412,7 +400,7 @@ class ViewState(QObject):
         self._zoom = new_zoom
         if zoom_center is not None:
             p_qwn = LocationQwn(zoom_center.x(), zoom_center.y(), 1)
-            if self.input_format in (
+            if self.image.input_format in (
                     InputFormat.EQUIRECTANGULAR,
                     InputFormat.DUAL_FISHEYE,  # TODO: close enough?
             ):
@@ -431,6 +419,6 @@ class ViewState(QObject):
                 after_omp = self.omp_for_qwn(p_qwn)  # After position
                 dx = after_omp.x - before_omp.x
                 dy = after_omp.y - before_omp.y
-                self._center_rel = self._center_rel - (dx/self._size_omp.x, dy/self._size_omp.y)
-        if self.input_format == InputFormat.STANDARD_PHOTO:
+                self._center_rel = self._center_rel - (dx/self.image.size_omp.x, dy/self.image.size_omp.y)
+        if self.image.input_format == InputFormat.STANDARD_PHOTO:
             self._clamp_center()

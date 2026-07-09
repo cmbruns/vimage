@@ -25,7 +25,7 @@ from PySide6.QtWidgets import QFileDialog, QMessageBox
 from vmg.circular_combo_box import CircularComboBox
 from vmg.command import CropToSelection
 from vmg.image_loader import ImageLoader
-from vmg.image_data import ImageData
+from vmg.interfaces import ImageLike
 from vmg.input_format import InputFormat
 from vmg.lens_dialog import LensDialog
 from vmg.log import LogDialog
@@ -52,7 +52,7 @@ register_heif_opener()
 
 class ScopedWaitCursor(object):
     def __init__(self):
-        QtWidgets.QApplication.setOverrideCursor(Qt.WaitCursor)
+        QtWidgets.QApplication.setOverrideCursor(Qt.WaitCursor)  # noqa
 
     def __enter__(self):
         return self
@@ -66,7 +66,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         super().__init__(*args, **kwargs)
         self.setupUi(self)
         self.setAcceptDrops(True)
-        self.setAttribute(Qt.WA_AcceptTouchEvents, True)
+        self.setAttribute(Qt.WA_AcceptTouchEvents, True)  # noqa
         self.image_list = []
         self.image_index = 0
         self.image = None
@@ -83,7 +83,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         sel_rect = self.imageWidgetGL.view_state.sel_rect
         sel_rect.selection_shown.connect(self.actionCrop_to_Selection.setEnabled)
         self.actionNext.setIcon(self.style().standardIcon(
-            QtWidgets.QStyle.SP_MediaSeekForward))
+            QtWidgets.QStyle.SP_MediaSeekForward))  # noqa
         self.toolBar.widgetForAction(self.actionPrevious).setAutoRepeat(True)
         self.toolBar.widgetForAction(self.actionNext).setAutoRepeat(True)
         self.actionOpen.setShortcut(QtGui.QKeySequence.Open)
@@ -303,20 +303,20 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         self.undo_stack.clear()
         self.image_load_requested.emit(fn)  # noqa
 
-    @QtCore.Slot(ImageData)  # noqa
-    def image_texture_created(self, image_data: ImageData):
-        logger.info(f"Received image texture {image_data.file_name}")
-        if image_data.file_name != self._current_file_name:
-            logger.info(f"ignoring stale texture loaded for {image_data.file_name}")
+    @QtCore.Slot(ImageLike)  # noqa
+    def image_texture_created(self, image: ImageLike):
+        logger.info(f"Received image texture {image.file_name}")
+        if image.file_name != self._current_file_name:
+            logger.info(f"ignoring stale texture loaded for {image.file_name}")
             return
-        self.image = image_data.pil_image
-        self.imageWidgetGL.set_image(image_data)
-        fn = image_data.file_name
+        self.image = image.pil_image
+        self.imageWidgetGL.set_image(image)
+        fn = image.file_name
         self.set_current_image_path(fn)
         self.actionSave_As.setEnabled(True)
         self.actionSave_Current_View_As.setEnabled(True)
         self.actionCopy.setEnabled(True)
-        self.actionSelect_Rectangle.setEnabled(self.imageWidgetGL.view_state.input_format == InputFormat.STANDARD_PHOTO)
+        self.actionSelect_Rectangle.setEnabled(image.input_format == InputFormat.STANDARD_PHOTO)
         self.actionSelect_None.trigger()
         # self.imageWidgetGL.update()
 
@@ -740,7 +740,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
     def on_actionView_Log_triggered(self):  # noqa
         self.log_window.show()
 
-    @QtCore.Slot(ImageData)  # noqa
+    @QtCore.Slot(ImageLike)  # noqa
     def image_displayed(self, image_data):
         if image_data.file_name == self._current_file_name:
             logger.debug("Image displayed")

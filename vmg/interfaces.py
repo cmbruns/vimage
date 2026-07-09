@@ -4,6 +4,7 @@ import numpy
 from numpy.typing import NDArray
 
 from vmg.display_projection import DisplayProjection
+from vmg.frame import DimensionsOmp
 from vmg.input_format import InputFormat
 from vmg.photometric_scale import PhotometricScale
 from vmg.pixel_filter import PixelFilter
@@ -11,9 +12,11 @@ from vmg.pixel_filter import PixelFilter
 
 class ImageLike(Protocol):
     input_format: InputFormat
+    file_name: str
     photometric_scale: PhotometricScale
     raw_rot_ont: NDArray[numpy.float32]  # shape (3, 3)  pano camera orientation
-    size: tuple[int, int]
+    size_omp: DimensionsOmp
+    size_raw: tuple[int, int]
 
     """A loaded image"""
     def initialize_gl(self) -> None:

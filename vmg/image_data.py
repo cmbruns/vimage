@@ -32,7 +32,7 @@ class ImageData(QtCore.QObject):
         self.orientation = ExifOrientation.UNSPECIFIED
         self._raw_rot_ont = numpy.eye(3, dtype=numpy.float32)
         self._raw_rot_omp = numpy.eye(2, dtype=numpy.float32)
-        self._input_format = InputFormat.STANDARD_PHOTO
+        self.input_format = InputFormat.STANDARD_PHOTO
         self.photometric_scale = PhotometricScale.SRGB
         self.array = None
         self.is_linear = False
@@ -46,10 +46,6 @@ class ImageData(QtCore.QObject):
         if not access(file_name, R_OK):
             return False
         return True
-
-    @property
-    def input_format(self) -> InputFormat:
-        return self._input_format
 
     def load_jpeg_image(self) -> bool:
         try:
@@ -127,17 +123,17 @@ class ImageData(QtCore.QObject):
         model = exif.get("Model", "").lower()
         logger.info(f"Camera model = '{model}'")
         if self.size_omp.x != 2 * self.size_omp.y:
-            self._input_format = InputFormat.STANDARD_PHOTO  # Non-2:1 aspect is always a regular photo
+            self.input_format = InputFormat.STANDARD_PHOTO  # Non-2:1 aspect is always a regular photo
         elif self.is_dng:
-            self._input_format = InputFormat.DUAL_FISHEYE
+            self.input_format = InputFormat.DUAL_FISHEYE
         else:
             # 2016 Gear 360 raw image has certain sizes
             if model == "sm-c200" and ((w, h) == (7776, 3888) or (w, h) == (5792, 2896)):
-                self._input_format = InputFormat.DUAL_FISHEYE
+                self.input_format = InputFormat.DUAL_FISHEYE
             elif model.startswith("ricoh theta"):
-                self._input_format = InputFormat.EQUIRECTANGULAR
+                self.input_format = InputFormat.EQUIRECTANGULAR
             else:
-                self._input_format = InputFormat.EQUIRECTANGULAR  # Too inclusive...
+                self.input_format = InputFormat.EQUIRECTANGULAR  # Too inclusive...
             try:
                 # TODO: InitialViewHeadingDegrees
                 desc = xmp["xmpmeta"]["RDF"]["Description"]
