@@ -2,11 +2,17 @@ from ctypes import c_float, c_void_p, cast, sizeof
 import enum
 import logging
 import numpy
+from numpy.typing import NDArray
 from typing import Tuple, Optional
 
 from OpenGL import GL
-from OpenGL.GL import GLint, GLenum
 from OpenGL.GL.EXT.texture_filter_anisotropic import GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, GL_TEXTURE_MAX_ANISOTROPY_EXT
+
+from vmg.interfaces import TileLike
+
+# from OpenGL.GL import GLint, GLenum  # Causes inspection errors
+GLint = int
+GLenum = int
 
 logger = logging.getLogger(__name__)
 
@@ -100,7 +106,7 @@ def omp_for_rmp(rmp: tuple[int, int], size_rmp: tuple[int, int], orientation: Ex
     return int(result[0]), int(result[1])
 
 
-class Tile(object):
+class Tile(TileLike):
     def __init__(
             self,
             texture: "Texture",
@@ -168,14 +174,14 @@ class Tile(object):
         self.top = top
         self.width = width
         self.height = height
-        self.tile_X_img = numpy.array([
+        self._tile_X_img = numpy.array([
             [texture.width/width, 0, left_pad/width - left/width],
             [0, texture.height/height, top_pad/height - top/height],
             [0, 0, 1],
         ], dtype=numpy.float32)
 
     def initialize_gl(self):
-        self.vbo = GL.glGenBuffers(1)
+        self.vbo = GL.glGenBuffers(1)  # noqa
         logger.debug(f"VBO ID = {self.vbo}")
         GL.glBindBuffer(GL.GL_ARRAY_BUFFER, self.vbo)
         GL.glBufferData(GL.GL_ARRAY_BUFFER, len(self.vertexes) * sizeof(c_float), self.vertexes, GL.GL_STATIC_DRAW)
@@ -268,6 +274,10 @@ class Tile(object):
         GL.glBindVertexArray(self.vao)
         GL.glDrawArrays(GL.GL_TRIANGLE_STRIP, 0, 4)  # Full screen quad
         logger.debug("Done rendering texture")
+
+    @property
+    def tile_X_img(self) -> NDArray[numpy.floating]:
+        return self._tile_X_img
 
 
 class Texture(object):
