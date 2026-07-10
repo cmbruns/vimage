@@ -70,8 +70,6 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
 
         return super().event(event)
 
-    image_displayed = QtCore.Signal(ImageLike)
-
     image_size_changed = QtCore.Signal(int, int)
 
     def initializeGL(self) -> None:

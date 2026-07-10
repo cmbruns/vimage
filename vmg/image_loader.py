@@ -5,10 +5,11 @@ import turbojpeg
 from OpenGL import GL
 from PIL import Image
 from PySide6 import QtCore
-from PySide6.QtCore import QCoreApplication, Qt
+from PySide6.QtCore import QCoreApplication
 
 from vmg.elapsed_time import ElapsedTime
 from vmg.image_data import ImageData
+from vmg.interfaces import ImageLike
 from vmg.offscreen_context import OffscreenContext
 from vmg.texture import Texture
 
@@ -141,7 +142,7 @@ class ImageLoader(QtCore.QObject):
             channel_count = 4
         else:
             self.load_failed.emit(image_data.file_name)  # noqa
-            return
+            return False
         data = img.tobytes()
         image_data.texture = Texture(
             channel_count=channel_count,
@@ -152,6 +153,8 @@ class ImageLoader(QtCore.QObject):
             orientation=image_data.orientation,
         )
         logger.info(f"PIL image processing took {et}")
+        print("connecting texture_displayed")
+        image_data.texture.texture_displayed.connect(self.on_texture_displayed)
         return True
 
     @QtCore.Slot(ImageData)  # noqa
@@ -172,6 +175,8 @@ class ImageLoader(QtCore.QObject):
             orientation=image_data.orientation,
         )
         logger.info(f"jpeg loading/decoding took {et}")
+        print("connecting texture_displayed")
+        image_data.texture.texture_displayed.connect(self.on_texture_displayed)
         return True
 
     def _loaded_tile_count(self, image_data) -> int:
@@ -181,6 +186,12 @@ class ImageLoader(QtCore.QObject):
             if tile.is_ready():
                 loaded_tile_count += 1
         return loaded_tile_count
+
+    @QtCore.Slot(Texture)  # noqa
+    def on_texture_displayed(self, texture: Texture):
+        print("on_texture_displayed")
+        if texture is self.current_image_data.texture:
+            self.image_displayed.emit(self.current_image_data)
 
     @QtCore.Slot(ImageData)  # noqa
     def process_texture(self, image_data: ImageData):
@@ -212,7 +223,8 @@ class ImageLoader(QtCore.QObject):
             # print("ImageLoader.texture_loaded()")  # TODO: logging
             # self.texture_changed.emit(image_data.texture)  # noqa
             logger.info(f"(Loading thread) tile upload took {et}")
-            self.progress_changed.emit(90)
+            self.progress_changed.emit(90)  # noqa
         self.texture_created.emit(image_data)  # noqa
 
     progress_changed = QtCore.Signal(int)
+    image_displayed = QtCore.Signal(ImageLike)

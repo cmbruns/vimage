@@ -1,9 +1,6 @@
 import ctypes
-
 import locale
-
 from datetime import datetime
-
 from inspect import cleandoc
 import inspect
 import io
@@ -48,6 +45,9 @@ if Image.MAX_IMAGE_PIXELS is not None and Image.MAX_IMAGE_PIXELS < _max_image_pi
     Image.MAX_IMAGE_PIXELS = _max_image_pixels
 # Make PIL load apple .heic images
 register_heif_opener()
+
+# Convenience alias
+QueuedConnection = Qt.ConnectionType.QueuedConnection
 
 
 class ScopedWaitCursor(object):
@@ -172,23 +172,25 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         self.image_loader = ImageLoader()
         self.image_loader.moveToThread(self.loading_thread)
         self.loading_thread.start()
-        self.image_load_requested.connect(self.image_loader.load_from_file_name, Qt.QueuedConnection)  # noqa
-        self.pil_load_requested.connect(self.image_loader.load_from_pil_image, Qt.QueuedConnection)  # noqa
+        self.image_load_requested.connect(self.image_loader.load_from_file_name, QueuedConnection)
+        self.pil_load_requested.connect(self.image_loader.load_from_pil_image, QueuedConnection)
         logger.debug(f"Connecting texture_created signal")
-        self.image_loader.texture_created.connect(self.image_texture_created, Qt.QueuedConnection)
-        self.image_loader.load_failed.connect(self.image_load_failed, Qt.QueuedConnection)
+        self.image_loader.texture_created.connect(self.image_texture_created, QueuedConnection)
+        self.image_loader.load_failed.connect(self.image_load_failed, QueuedConnection)
+        self.image_loader.image_displayed.connect(self.image_displayed, QueuedConnection)
         #
-        self.imageWidgetGL.load_failed.connect(self.image_load_failed, Qt.QueuedConnection)
-        self.imageWidgetGL.context_created.connect(self.image_loader.on_context_created, Qt.QueuedConnection)
-        self.imageWidgetGL.image_displayed.connect(self.image_displayed, Qt.QueuedConnection)
+        self.imageWidgetGL.load_failed.connect(self.image_load_failed, QueuedConnection)
+        self.imageWidgetGL.context_created.connect(self.image_loader.on_context_created, QueuedConnection)
+        # self.imageWidgetGL.image_displayed.connect(self.image_displayed, QueuedConnection)
+        self.image_loader.image_displayed.connect(self.image_displayed, QueuedConnection)
         # progress tracking
-        self.image_loader.progress_changed.connect(self.progress_status.set_value, Qt.QueuedConnection)
-        self.imageWidgetGL.progress_changed.connect(self.progress_status.set_value, Qt.QueuedConnection)
+        self.image_loader.progress_changed.connect(self.progress_status.set_value, QueuedConnection)
+        self.imageWidgetGL.progress_changed.connect(self.progress_status.set_value, QueuedConnection)
         self.progress_status.view_log_requested.connect(self.on_actionView_Log_triggered)
         self.progress_status.open_image_requested.connect(self.on_actionOpen_triggered)
         # Three stages of cancel signaling
         self.progress_status.cancel_load_requested.connect(self.cancel_image_load)  # noqa
-        self.cancel_load_requested.connect(self.image_loader.cancel_load, Qt.QueuedConnection)  # noqa
+        self.cancel_load_requested.connect(self.image_loader.cancel_load, QueuedConnection)  # noqa
         #
         # Logging
         self.log_window = LogDialog(self)
@@ -213,7 +215,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
 
     cancel_load_requested = QtCore.Signal(str)
 
-    def _dialog_and_save_image(self, image, default_name: str = None) -> str:
+    def _dialog_and_save_image(self, image, default_name: str = "") -> str:
         file_path, _file_filter = QFileDialog.getSaveFileName(
             self,
             "Save Image to File",
@@ -283,7 +285,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
 
     def load_image_from_memory(self, image: PIL.Image.Image, name: str) -> None:
         if QtWidgets.QApplication.overrideCursor() is None:
-            QtWidgets.QApplication.setOverrideCursor(Qt.WaitCursor)
+            QtWidgets.QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         fn = str(name)
         self._current_file_name = fn
         self.progress_status.reset()
@@ -297,7 +299,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         logger.info(f"Loading image from file {file_name} ...")
         self.statusbar.showMessage(f"Loading {stem}...", 5000)
         if QtWidgets.QApplication.overrideCursor() is None:
-            QtWidgets.QApplication.setOverrideCursor(Qt.WaitCursor)
+            QtWidgets.QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         fn = str(file_name)
         self._current_file_name = fn
         self.undo_stack.clear()
@@ -741,8 +743,8 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         self.log_window.show()
 
     @QtCore.Slot(ImageLike)  # noqa
-    def image_displayed(self, image_data):
-        if image_data.file_name == self._current_file_name:
+    def image_displayed(self, image: ImageLike):
+        if image.file_name == self._current_file_name:
             logger.debug("Image displayed")
             stem = pathlib.Path(self._current_file_name).stem
             self.progress_status.set_value(100)

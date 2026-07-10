@@ -2,6 +2,7 @@ from ctypes import c_float, c_void_p, cast, sizeof
 import enum
 import logging
 import numpy
+from PySide6 import QtCore
 from numpy.typing import NDArray
 from typing import Tuple, Optional
 
@@ -35,6 +36,15 @@ gl_type_for_numpy_dtype = {
     numpy.dtype("float32"): GL.GL_FLOAT,
     numpy.dtype("float64"): GL.GL_DOUBLE,
 }
+
+
+class LoadProgress(enum.Enum):
+    NONE = 1
+    METADATA_LOADED = 2
+    ARRAYS_CREATED = 3
+    TILES_CREATED = 4
+    TILES_UPLOADED = 5
+    DISPLAYED = 6
 
 
 class ExifOrientation(enum.Enum):
@@ -241,11 +251,11 @@ class Tile(TileLike):
         )
         return status in (GL.GL_ALREADY_SIGNALED, GL.GL_CONDITION_SATISFIED)
 
-    def paint_gl(self):
+    def paint_gl(self) -> bool:
         logger.debug("Rendering texture")
         if not self.is_ready_for_display():
             logger.debug("Texture is not ready")
-            return
+            return False
         GL.glBindTexture(GL.GL_TEXTURE_2D, self.texture_id)
         # VAO must be created here, in the render thread
         if self.vao is None:
@@ -274,13 +284,14 @@ class Tile(TileLike):
         GL.glBindVertexArray(self.vao)
         GL.glDrawArrays(GL.GL_TRIANGLE_STRIP, 0, 4)  # Full screen quad
         logger.debug("Done rendering texture")
+        return True
 
     @property
     def tile_X_img(self) -> NDArray[numpy.floating]:
         return self._tile_X_img
 
 
-class Texture(object):
+class Texture(QtCore.QObject):
     def __init__(
             self,
             channel_count: int,
@@ -291,6 +302,7 @@ class Texture(object):
             orientation=ExifOrientation.UNSPECIFIED,
             tile_size=8192
     ):
+        super().__init__()
         self.size = size
         self.data = data
         self.internal_format = internal_format_for_channel_count[channel_count]
@@ -301,6 +313,7 @@ class Texture(object):
         self.orientation = orientation
         self.tile_size = tile_size
         self.tiles = []
+        self.load_progress = LoadProgress.NONE
 
     def __getitem__(self, key):
         return self.tiles[key]
@@ -368,9 +381,18 @@ class Texture(object):
             top_pad = 2
 
     def paint_gl(self):
+        is_complete = True  # start optimistic
         for tile in self.tiles:
-            tile.paint_gl()
+            if not tile.paint_gl():
+                is_complete = False
+            if is_complete and self.load_progress != LoadProgress.DISPLAYED:
+                self.load_progress = LoadProgress.DISPLAYED
+                print("emitting texture_displayed")
+                self.texture_displayed.emit(self)  # noqa
+
+    texture_displayed = QtCore.Signal(object)  # TODO: should be in ImageLike
 
     @property
     def width(self):
         return self.size[0]
+

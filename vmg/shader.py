@@ -172,8 +172,9 @@ class RectangularTileShader(IImageShader):
         GL.glUniform1f(self.omp_scale_qwn_location, state.omp_scale_qwn())
         self.brightness.set(state.brightness)
         self.input_is_linear.set(image.photometric_scale == PhotometricScale.LINEAR)
-        for tile in image.tiles():
-            tile.paint_gl()
+        image.texture.paint_gl()
+        # for tile in image.tiles():
+        #     tile.paint_gl()
 
 
 class SelectionBoxShader(IImageShader):

@@ -24,7 +24,7 @@ void main()
         image_color = catrom(tile, p_tcr, false);
     /* */
     image_color = clip_n_filter(tile, p_tcr, pixel_filter, false);
-
+    
     // Apply brightness
     vec4 linear;
     if (input_is_linear) linear = image_color;
