@@ -11,6 +11,7 @@ from vmg.dng_texture import DngTextureAdapter
 from vmg.interfaces import RenderStateLike, ImageLike
 from vmg.photometric_scale import PhotometricScale
 from vmg.resources import resource_string
+from vmg.shader_exception import compile_shader
 from vmg.texture import Tile
 
 logger = logging.getLogger(__name__)
@@ -140,10 +141,8 @@ class RectangularTileShader(IImageShader):
         try:
             vertex_shader = compileShader(resource_string(
                 "vmg.glsl", "tile_rect.vert", ), GL.GL_VERTEX_SHADER)
-            fragment_shader = compileShader(
-                resource_string("vmg.glsl", "shared.frag") +
-                resource_string("vmg.glsl", "tile_rect.frag"),
-                GL.GL_FRAGMENT_SHADER)
+            fragment_shader = compile_shader("vmg.glsl", [
+                "shared.frag", "tile_rect.frag"], GL.GL_FRAGMENT_SHADER)
         except BaseException as exc:
             logger.error(exc)
             raise

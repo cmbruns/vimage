@@ -11,7 +11,6 @@ class OffscreenContext(QtCore.QObject):
 
     # Delaying construction until just-in-time avoids a crash with makeCurrent()...
     def init_gl(self):
-        """Create QOffscreenSurface and shared QOpenGLContext on the GUI thread."""
         if self.context is not None:
             return
         self.surface = QtGui.QOffscreenSurface()
@@ -26,11 +25,8 @@ class OffscreenContext(QtCore.QObject):
 
     def __enter__(self):
         if self.context is None:
-            raise RuntimeError(
-                "OffscreenContext.init_gl() must be called on the GUI thread before loader use"
-            )
-        if not self.context.makeCurrent(self.surface):
-            raise RuntimeError("Failed to make offscreen OpenGL context current")
+            self.init_gl()
+        self.context.makeCurrent(self.surface)
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
