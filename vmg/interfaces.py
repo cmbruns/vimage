@@ -1,10 +1,11 @@
 from abc import ABC, abstractmethod
-from typing import Iterable, Any
+from typing import Iterable, Any, Iterator
 
 import numpy
 from numpy.typing import NDArray
 
 from vmg.display_projection import DisplayProjection
+from vmg.exif_orientation import ExifOrientation
 from vmg.frame import DimensionsOmp
 from vmg.input_format import InputFormat
 from vmg.photometric_scale import PhotometricScale
@@ -21,6 +22,16 @@ class ImageLike(ABC):
 
     @property
     @abstractmethod
+    def orientation(self) -> ExifOrientation:
+        ...
+
+    @property
+    @abstractmethod
+    def file_name(self) -> str:
+        ...
+
+    @property
+    @abstractmethod
     def input_format(self) -> InputFormat:
         ...
 
@@ -28,11 +39,6 @@ class ImageLike(ABC):
     @input_format.setter
     @abstractmethod
     def input_format(self, value: InputFormat) -> None:
-        ...
-
-    @property
-    @abstractmethod
-    def file_name(self) -> str:
         ...
 
     @property
@@ -63,8 +69,12 @@ class ImageLike(ABC):
         """Create OpenGL resources in the loading thread"""
 
     @abstractmethod
-    def tiles(self) -> Iterable[TileLike]:
-        """Emit tiles covering this image."""
+    def paint_gl(self) -> None:
+        """Display image in the UI thread"""
+
+    @abstractmethod
+    def tiles(self) -> Iterator[TileLike]:
+        """Display image in the UI thread"""
 
 
 class ShaderProgramLike(ABC):

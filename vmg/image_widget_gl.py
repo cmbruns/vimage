@@ -166,7 +166,8 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         self.view_state.set_input_format(input_format)
         if self.image is None:
             return False
-        self.image.input_format = input_format
+        if self.image.input_format != input_format:
+            self.image.input_format = input_format
         if input_format == InputFormat.STANDARD_PHOTO:
             if self.program == self.rect_tile_shader:
                 return False

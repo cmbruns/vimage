@@ -1,5 +1,7 @@
+
 import logging
 import time
+from typing import Optional
 
 import turbojpeg
 from OpenGL import GL
@@ -11,6 +13,7 @@ from vmg.elapsed_time import ElapsedTime
 from vmg.image_data import ImageData
 from vmg.interfaces import ImageLike
 from vmg.offscreen_context import OffscreenContext
+from vmg.pil_image import PilImage
 from vmg.texture import Texture
 
 
@@ -21,7 +24,7 @@ logger = logging.getLogger(__name__)
 class ImageLoader(QtCore.QObject):
     def __init__(self):
         super().__init__()
-        self.current_image_data = None
+        self.current_image: Optional[ImageLike] = None
         self.offscreen_context = None
         self.image_data_is_pending = False
 
@@ -30,45 +33,38 @@ class ImageLoader(QtCore.QObject):
 
     @QtCore.Slot(str)  # noqa
     def cancel_load(self):
-        if self.current_image_data is None:
+        if self.current_image is None:
             return  # already canceled?
-        self.current_image_data = None
+        self.current_image = None
 
-    def _is_current(self, image_data: ImageData) -> bool:
+    def _is_current(self, image: ImageLike) -> bool:
         QCoreApplication.processEvents()  # drain queue, in case load was canceled
-        if self.current_image_data is not image_data:
+        if self.current_image is not image:
             image_data.setParent(None)  # noqa  allow deletion of image_data maybe
-            logger.info(f"ceasing stale load of {image_data.file_name}")
+            logger.info(f"ceasing stale load of {image.file_name}")
             return False  # Latest file is something else
         else:
             return True
 
     @QtCore.Slot(str)  # noqa
     def load_from_file_name(self, file_name: str):
-        image_data = ImageData(file_name, parent=self)
-        self.current_image_data = image_data
-        if not self._is_current(image_data):
-            return
-        if not image_data.file_is_readable():
-            self.load_failed.emit(image_data.file_name)  # noqa
-            return
-        self.progress_changed.emit(2)  # noqa
-        et = ElapsedTime()
-        if image_data.open_dng_image():
-            logger.info(f"Opening DNG image took {et}")
-            self.load_metadata(image_data)  # TODO:
-        elif image_data.open_pil_image():
-            logger.info(f"Opening PIL image took {et}")
-            self.load_metadata(image_data)
+        # TODO: Try various image loaders
+        image = PilImage(file_name)
+        self.current_image = image
+        assert image.file_name is not None
+        if self.offscreen_context is None:
+            self.image_data_is_pending = True
+            logger.debug(
+                f"Deferring texture initialization for {image.file_name} until OpenGL context is ready"
+            )
         else:
-            self.load_failed.emit(image_data.file_name)  # noqa
-            return
+            self.upload_image(image)  # noqa
 
     @QtCore.Slot(Image.Image, str)  # noqa
     def load_from_pil_image(self, pil_image: Image.Image, file_name: str):
         """Load a PIL image without a corresponding file"""
         image_data = ImageData(file_name, parent=self)
-        self.current_image_data = image_data
+        self.current_image = image_data
         self.progress_changed.emit(5)  # noqa
         image_data.pil_image = pil_image
         self.load_metadata(image_data)
@@ -114,7 +110,7 @@ class ImageLoader(QtCore.QObject):
             logger.debug("Uploading pending image data")
             self.image_data_is_pending = False
             logger.debug("about to create context")
-            self.process_texture(self.current_image_data)
+            self.upload_image(self.current_image)
 
     def texture_dng(self, image_data: ImageData) -> bool:
         image_data.texture = image_data.dng_image.texture
@@ -179,10 +175,10 @@ class ImageLoader(QtCore.QObject):
         image_data.texture.texture_displayed.connect(self.on_texture_displayed)
         return True
 
-    def _loaded_tile_count(self, image_data) -> int:
+    def _loaded_tile_count(self, image: ImageLike) -> int:
         """Count ready tiles; offscreen context must already be current."""
         loaded_tile_count = 0
-        for tile in image_data.texture:
+        for tile in image.tiles():
             if tile.is_ready():
                 loaded_tile_count += 1
         return loaded_tile_count
@@ -190,8 +186,8 @@ class ImageLoader(QtCore.QObject):
     @QtCore.Slot(Texture)  # noqa
     def on_texture_displayed(self, texture: Texture):
         print("on_texture_displayed")
-        if texture is self.current_image_data.texture:
-            self.image_displayed.emit(self.current_image_data)
+        if texture is self.current_image.texture:
+            self.image_displayed.emit(self.current_image)
 
     @QtCore.Slot(ImageData)  # noqa
     def process_texture(self, image_data: ImageData):
@@ -225,6 +221,27 @@ class ImageLoader(QtCore.QObject):
             logger.info(f"(Loading thread) tile upload took {et}")
             self.progress_changed.emit(90)  # noqa
         self.texture_created.emit(image_data)  # noqa
+
+    def upload_image(self, image: ImageLike):
+        if not self._is_current(image):
+            return
+        with self.offscreen_context:
+            image.initialize_gl()
+            if not self._is_current(image):
+                return
+            num_loaded_tiles = self._loaded_tile_count(image)
+            n_tiles = len(list(image.tiles()))
+            while num_loaded_tiles < n_tiles:
+                logger.debug("waiting for tile upload")
+                time.sleep(0.050)
+                if not self._is_current(image):
+                    logger.debug("image data is not current")
+                    return
+                num_loaded_tiles = self._loaded_tile_count(image)
+            self.progress_changed.emit(90)  # noqa
+            print(f"emitting texture_created() {image} {image.file_name}")
+            assert image.file_name is not None
+            self.texture_created.emit(image)  # noqa
 
     progress_changed = QtCore.Signal(int)
     image_displayed = QtCore.Signal(ImageLike)
