@@ -2,22 +2,31 @@ cmake_minimum_required(VERSION 3.5)
 project(vimage NONE)
 
 # Remember to manually update version here every build
-set(VIMAGE_VERSION_SUFFIX "a"
-    CACHE STRING
-    "vimage version suffix (empty string for official releases, 'a' for pre-releases)"
-)
-set(CPACK_PACKAGE_VERSION_MAJOR "1")
-set(CPACK_PACKAGE_VERSION_MINOR "0")
-set(CPACK_PACKAGE_VERSION_PATCH "0")
+# Path to the version file inside your source tree
+set(VIMAGE_VERSION_FILE "${CMAKE_SOURCE_DIR}/vmg/version.py")
 
-message(STATUS "vimage version = ${CPACK_PACKAGE_VERSION_MAJOR}.${CPACK_PACKAGE_VERSION_MINOR}.${CPACK_PACKAGE_VERSION_PATCH}${VIMAGE_VERSION_SUFFIX}")
+# Read the file
+file(READ "${VIMAGE_VERSION_FILE}" VIMAGE_VERSION_PY)
 
-configure_file(
-    "${CMAKE_SOURCE_DIR}/CMake/version.py.in"
-    "${CMAKE_SOURCE_DIR}/vmg/version.py"
-    @ONLY
-    NEWLINE_STYLE UNIX
-)
+# Extract the version string from __version__ = "x.y.z"
+string(REGEX MATCH "__version__ *= *\"([^\"]+)\"" _ "${VIMAGE_VERSION_PY}")
+set(VIMAGE_VERSION "${CMAKE_MATCH_1}")
+
+message(STATUS "vimage version: ${VIMAGE_VERSION}")
+
+# Split into major/minor/patch
+string(REGEX MATCH "([0-9]+)\\.([0-9]+)\\.([0-9]+)" _ "${VIMAGE_VERSION}")
+set(VIMAGE_VERSION_MAJOR "${CMAKE_MATCH_1}")
+set(VIMAGE_VERSION_MINOR "${CMAKE_MATCH_2}")
+set(VIMAGE_VERSION_PATCH "${CMAKE_MATCH_3}")
+
+message(STATUS "vimage version components: "
+    "${VIMAGE_VERSION_MAJOR}.${VIMAGE_VERSION_MINOR}.${VIMAGE_VERSION_PATCH}")
+
+# Feed into CPACK
+set(CPACK_PACKAGE_VERSION_MAJOR "${VIMAGE_VERSION_MAJOR}")
+set(CPACK_PACKAGE_VERSION_MINOR "${VIMAGE_VERSION_MINOR}")
+set(CPACK_PACKAGE_VERSION_PATCH "${VIMAGE_VERSION_PATCH}")
 
 mark_as_advanced(
     CMAKE_BACKWARDS_COMPATIBILITY

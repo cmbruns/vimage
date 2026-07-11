@@ -4,13 +4,18 @@ Intended as partial Replacement for ImageData, Texture
 
 from ctypes import c_float, c_void_p, cast, sizeof
 import enum
+import json
 import logging
 from math import cos, radians, sin
 from typing import Iterator, Optional
 
+import exiftool
 import numpy
 from OpenGL import GL
-from OpenGL.GL.EXT.texture_filter_anisotropic import GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, GL_TEXTURE_MAX_ANISOTROPY_EXT
+from OpenGL.GL.EXT.texture_filter_anisotropic import (
+    GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT,
+    GL_TEXTURE_MAX_ANISOTROPY_EXT,
+)
 from PySide6 import QtCore
 from numpy.typing import NDArray
 import PIL
@@ -55,7 +60,6 @@ internal_format_for_channel_count = {
     4: GL.GL_RGBA,
 }
 
-
 rotation_for_exif_orientation = {
     1: numpy.array([[1, 0], [0, 1]], dtype=numpy.float32),
     2: numpy.array([[-1, 0], [0, 1]], dtype=numpy.float32),
@@ -88,12 +92,16 @@ class BasicImageLike(ImageLike):
         self._orientation = ExifOrientation.ROTATE_0
 
     @property
-    def file_name(self) -> str:
+    def file_name(self) -> Optional[str]:
         return self._file_name
 
     @property
     def input_format(self) -> InputFormat:
         return self._input_format
+
+    @input_format.setter
+    def input_format(self, input_format: InputFormat) -> None:
+        self._input_format = input_format
 
     @property
     def orientation(self) -> ExifOrientation:
@@ -146,6 +154,7 @@ class PilImage(BasicImageLike):
         self.pil_image = pil_image  # TODO: MainWindow needs refactor
         self.sq.progress_changed.emit(2, self)  # noqa
         self.load_pil_metadata(pil_image)
+        # self.metadata = load_metadata(file_name)
         # Create numpy array of image
         self.sq.progress_changed.emit(15, self)  # noqa
         self.array = self.construct_pil_array(pil_image)
@@ -245,13 +254,24 @@ class PilImage(BasicImageLike):
         # Input format
         model = exif.get("Model", "").lower()
         w, h = self.size_omp.x, self.size_omp.y
+        # All panos we know about have a 2:1 aspect ratio
         if w != h * 2:
             self._input_format = InputFormat.STANDARD_PHOTO
         elif model == "sm-c200" and ((w, h) == (7776, 3888) or (w, h) == (5792, 2896)):
-            # 2016 Gear 360 raw image
+            # 2016 Gear 360 raw image is dual fisheye
             self._input_format = InputFormat.DUAL_FISHEYE
         elif model.startswith("ricoh theta"):
             self._input_format = InputFormat.EQUIRECTANGULAR
+            # TODO theta Z1 raw
+        elif model.startswith("qjxj01fj"):  # Xiaomi misphere
+            # Raw dual fisheye is a particular size
+            if (w, h) != (6912, 3456):
+                self._input_format = InputFormat.EQUIRECTANGULAR
+            else:
+                # TODO: could be equirect or fisheye. There is no metadata way to be sure.
+                # equirect is least surprise, more discoverable than the other way around
+                # if we had a RAW image (other image type) dual fisheye would be the answer
+                self._input_format = InputFormat.EQUIRECTANGULAR
         else:
             self._input_format = InputFormat.STANDARD_PHOTO
         # raw_rot_ont  panorama camera orientation
@@ -446,12 +466,17 @@ class Tile(TileLike):
             GL.glEnableVertexAttribArray(2)
         GL.glBindVertexArray(self.vao)
         GL.glDrawArrays(GL.GL_TRIANGLE_STRIP, 0, 4)  # Full screen quad
-        logger.debug("Done rendering texture")
         return True
 
     @property
     def tile_X_img(self) -> NDArray[numpy.floating]:
         return self._tile_X_img
+
+
+def load_metadata(path):
+    with exiftool.ExifTool() as et:
+        raw = et.execute("-j", path)
+        return json.loads(raw)[0]
 
 
 def omp_for_rmp(rmp: tuple[int, int], size_rmp: tuple[int, int], orientation: ExifOrientation) -> tuple[int, int]:

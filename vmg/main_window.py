@@ -529,7 +529,6 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
 
     @QtCore.Slot()  # noqa
     def on_actionConfigure_Dual_Fisheye_triggered(self):  # noqa
-        print("Configure...")
         if self.lens_dialog is None:
             self.lens_dialog = LensDialog(self)
             l_ui = self.lens_dialog.ui
@@ -553,7 +552,6 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
 
     @QtCore.Slot(bool)  # noqa
     def on_actionDual_FisheyeInput_toggled(self, is_checked: bool):  # noqa
-        print("dual fisheye")
         if is_checked:
             if self.imageWidgetGL.set_input_format(InputFormat.DUAL_FISHEYE):
                 self.imageWidgetGL.update()

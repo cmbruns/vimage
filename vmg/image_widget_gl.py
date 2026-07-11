@@ -162,24 +162,18 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
     def _linear_from_srgb(image: NDArray):
         return numpy.where(image >= 0.04045, ((image + 0.055) / 1.055)**2.4, image/12.92)
 
-    def set_input_format(self, input_format: InputFormat) -> bool:
-        self.view_state.set_input_format(input_format)
-        if self.image is None:
-            return False
-        if self.image.input_format != input_format:
-            self.image.input_format = input_format
+    def set_input_format(self, input_format: InputFormat):
         if input_format == InputFormat.STANDARD_PHOTO:
-            if self.program == self.rect_tile_shader:
-                return False
             self.program = self.rect_tile_shader
         else:
-            if self.program == self.sphere_shader:
-                return False
             self.program = self.sphere_shader
+        if self.image is None:
+            return
+        self.image.input_format = input_format
         self.signal_360.emit(input_format != InputFormat.STANDARD_PHOTO)  # noqa
         logger.info(f"input projection = {input_format}")
+        self.view_state.update_input_format()
         self.input_format_changed.emit(input_format)  # noqa
-        return True
 
     def set_image(self, image: ImageLike):
         logger.info("Received image data")

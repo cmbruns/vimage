@@ -1,0 +1,29 @@
+[project]
+name = "vimage"
+dynamic = ["version"]
+version = "0.1.0"
+description = "vimage viewer and processing tools"
+readme = "README.md"
+requires-python = ">=3.10"
+
+dependencies = [
+    "defusedxml",  # required for PIL to parse XMP metadata
+    "imagecodecs",  # required for tifffile to read JPEG copressed TIFF/DNG
+    "numpy",
+    "pyexiftool",  # For reading image metadata
+    "pyinstaller",  # for building releases of vimage
+    "pillow",  # for image loading and processing
+    "pillow-heif",  # for loading iPhone camera images
+    "pyopengl",  # for low level graphics programming
+    "pyopengl-accelerate",
+    "pyside6",  # Qt 6 UI and so much more
+    "pyturbojpeg",  # for faster loading of JPEG files
+    "tifffile",  # for loading tiff and dng files
+]
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.dynamic]
+version = {attr = "vmg.version.__version__"}
