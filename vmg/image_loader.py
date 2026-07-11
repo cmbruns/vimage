@@ -50,8 +50,9 @@ class ImageLoader(QtCore.QObject):
     def load_from_file_name(self, file_name: str):
         # TODO: Try various image loaders
         image = PilImage(file_name)
+        image.sq.image_displayed.connect(self.on_image_displayed)
+        image.sq.progress_changed.connect(self.on_progress_changed)
         self.current_image = image
-        assert image.file_name is not None
         if self.offscreen_context is None:
             self.image_data_is_pending = True
             logger.debug(
@@ -149,7 +150,6 @@ class ImageLoader(QtCore.QObject):
             orientation=image_data.orientation,
         )
         logger.info(f"PIL image processing took {et}")
-        print("connecting texture_displayed")
         image_data.texture.texture_displayed.connect(self.on_texture_displayed)
         return True
 
@@ -171,7 +171,6 @@ class ImageLoader(QtCore.QObject):
             orientation=image_data.orientation,
         )
         logger.info(f"jpeg loading/decoding took {et}")
-        print("connecting texture_displayed")
         image_data.texture.texture_displayed.connect(self.on_texture_displayed)
         return True
 
@@ -183,11 +182,15 @@ class ImageLoader(QtCore.QObject):
                 loaded_tile_count += 1
         return loaded_tile_count
 
-    @QtCore.Slot(Texture)  # noqa
-    def on_texture_displayed(self, texture: Texture):
-        print("on_texture_displayed")
-        if texture is self.current_image.texture:
+    @QtCore.Slot(ImageLike)  # noqa
+    def on_image_displayed(self, image: ImageLike):
+        if image is self.current_image:
             self.image_displayed.emit(self.current_image)
+
+    @QtCore.Slot(Texture)  # noqa
+    def on_progress_changed(self, progress: int, image: ImageLike):
+        if image is self.current_image:
+            self.progress_changed.emit(progress)
 
     @QtCore.Slot(ImageData)  # noqa
     def process_texture(self, image_data: ImageData):
@@ -215,9 +218,6 @@ class ImageLoader(QtCore.QObject):
                     logger.debug("image data is not current")
                     return
                 num_loaded_tiles = self._loaded_tile_count(image_data)
-            # GL.glFinish()  # Maybe unnecessary and possibly GPU stalling
-            # print("ImageLoader.texture_loaded()")  # TODO: logging
-            # self.texture_changed.emit(image_data.texture)  # noqa
             logger.info(f"(Loading thread) tile upload took {et}")
             self.progress_changed.emit(90)  # noqa
         self.texture_created.emit(image_data)  # noqa
@@ -239,7 +239,6 @@ class ImageLoader(QtCore.QObject):
                     return
                 num_loaded_tiles = self._loaded_tile_count(image)
             self.progress_changed.emit(90)  # noqa
-            print(f"emitting texture_created() {image} {image.file_name}")
             assert image.file_name is not None
             self.texture_created.emit(image)  # noqa
 

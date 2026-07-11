@@ -6,7 +6,7 @@ from ctypes import c_float, c_void_p, cast, sizeof
 import enum
 import logging
 from math import cos, radians, sin
-from typing import Iterator
+from typing import Iterator, Optional
 
 import numpy
 from OpenGL import GL
@@ -68,23 +68,23 @@ rotation_for_exif_orientation = {
 }
 
 
-class ImageSignallerQt(QtCore.QObject):
-    progress_changed = QtCore.Signal(int)
+class ImageSignaller(QtCore.QObject):
+    progress_changed = QtCore.Signal(int, ImageLike)
     image_displayed = QtCore.Signal(ImageLike)
 
 
 class BasicImageLike(ImageLike):
     def __init__(self):
-        self.sq = ImageSignallerQt()
-        self._tiles = []
-        self._file_name = None
+        self._file_name: Optional[str] = None
+        self._tiles: list[TileLike] = []
+        self.sq = ImageSignaller()
+        self.load_progress = LoadProgress.NONE
         # Reasonable defaults
         self._input_format = InputFormat.STANDARD_PHOTO
         self._photometric_scale = PhotometricScale.SRGB
         self._raw_rot_ont = numpy.eye(3, dtype=numpy.float32)
         self._size_raw = (0, 0)
         self._size_omp = DimensionsOmp(0, 0)
-        self.load_progress = LoadProgress.NONE
         self._orientation = ExifOrientation.ROTATE_0
 
     @property
@@ -144,10 +144,10 @@ class PilImage(BasicImageLike):
             raise InappropriateImageLoader() from e
         self._file_name = file_name
         self.pil_image = pil_image  # TODO: MainWindow needs refactor
-        self.sq.progress_changed.emit(2)  # noqa
+        self.sq.progress_changed.emit(2, self)  # noqa
         self.load_pil_metadata(pil_image)
         # Create numpy array of image
-        self.sq.progress_changed.emit(15)  # noqa
+        self.sq.progress_changed.emit(15, self)  # noqa
         self.array = self.construct_pil_array(pil_image)
 
     @staticmethod
