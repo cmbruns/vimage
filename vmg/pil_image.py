@@ -132,10 +132,11 @@ class BasicImageLike(ImageLike):
     def initialize_gl(self) -> None:
         raise NotImplementedError
 
-    def paint_gl(self, tile_X_img_location: GLint = -1) -> None:
+    def paint_gl(self, tile_X_img_location: GLint = -1, uv_bounds_location: GLint = -1) -> None:
         is_complete = True  # start optimistic
         for tile in self.tiles():
             GL.glUniformMatrix3fv(tile_X_img_location, 1, True, tile.tile_X_img)
+            GL.glUniform4f(uv_bounds_location, *tile.uv_bounds)
             if not tile.paint_gl():
                 is_complete = False
             if is_complete and self.load_progress != LoadProgress.DISPLAYED:
@@ -225,8 +226,6 @@ class PilImage(BasicImageLike):
                     right_pad = 0
                 else:
                     right_pad = min(PAD, w - left - tile_size)
-                print(f"tile left={left} padded_right={left+width+right_pad} top={top} padded_bottom={top+height+bottom_pad}")
-                print(f"tile left_pad={left_pad} right_pad={right_pad} top_pad={top_pad} bottom_pad={bottom_pad}")
                 tile = Tile(
                     image=self,
                     left=left,
@@ -356,17 +355,19 @@ class Tile(TileLike):
         self.data_type = data_type
         self.vao = None
         self.vbo = None
+        self.padded_width = width + left_pad + right_pad
+        self.padded_height = height + top_pad + bottom_pad
         # Convert to oriented image pixel coordinates (omp)
-        left_rmp = left + left_pad
-        right_rmp = left + width - right_pad
-        top_rmp = top + top_pad
-        bottom_rmp = top + height - bottom_pad
+        left_rmp = left
+        right_rmp = left_rmp + width
+        top_rmp = top
+        bottom_rmp = top_rmp + height
         left_omp, top_omp = omp_for_rmp((left_rmp, top_rmp), image.size_raw, image.orientation)
         right_omp, bottom_omp = omp_for_rmp((right_rmp, bottom_rmp), image.size_raw, image.orientation)
-        left_tc = left_pad / width
-        right_tc = 1 - right_pad / width
-        top_tc = top_pad / height
-        bottom_tc = 1 - bottom_pad / height
+        left_tc = left_pad / self.padded_width
+        right_tc = 1 - right_pad / self.padded_width
+        top_tc = top_pad / self.padded_height
+        bottom_tc = 1 - bottom_pad / self.padded_height
         if image.orientation in [
             ExifOrientation.FLIP_HORIZONTAL_ROTATE_90_CCW,
             ExifOrientation.ROTATE_90_CW,
@@ -400,8 +401,6 @@ class Tile(TileLike):
         self.left = left
         self.top = top
         self.width = width
-        self.padded_width = width + left_pad + right_pad
-        self.padded_height = height + top_pad + bottom_pad
         self.left_pad = left_pad
         self.right_pad = right_pad
         self.top_pad = top_pad
@@ -412,6 +411,11 @@ class Tile(TileLike):
             [0, ih / self.padded_height, -(top - top_pad)/self.padded_height],
             [0, 0, 1],
         ], dtype=numpy.float32)
+        self.uv_bounds = (  # // (u_min, v_min, u_max, v_max)
+            left_pad / self.padded_width,
+            top_pad / self.padded_height,
+            (left_pad + width) / self.padded_width,
+            (top_pad + height) / self.padded_width)
 
     def initialize_gl(self):
         self.vbo = GL.glGenBuffers(1)  # noqa
@@ -582,6 +586,10 @@ def omp_for_rmp(rmp: tuple[int, int], size_rmp: tuple[int, int], orientation: Ex
         ], dtype=numpy.int32)
 
     result = omp_x_rmp @ (*rmp, 1)
+
+    if result[0] > max(w, h):
+        print(rmp, result, size_rmp)
+
     assert result[2] == 1
     assert result[0] >= 0
     assert result[1] >= 0

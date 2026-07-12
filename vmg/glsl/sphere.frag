@@ -8,6 +8,7 @@ uniform int pixelFilter = FILTER_NEAREST;
 uniform mat3 ont_rot_obq = mat3(1);
 uniform mat3 raw_rot_ont = mat3(1);
 uniform mat3 tile_X_img = mat3(1);
+uniform vec4 uv_bounds = vec4(0, 0, 1, 1);  // (u_min, v_min, u_max, v_max)
 uniform float df_fov_radians = radians(195.0);
 uniform float df_lens_rot_radians = 0.0;
 uniform float brightness = 0.0;
@@ -85,34 +86,19 @@ void main()
     }
 
     // TODO: valid get tile texture bounds from a uniform
-    if (p_tct.x < 0 || p_tct.x > 1 || p_tct.y < 0 || p_tct.y > 1) {
-        color = vec4(0);
-        return;
-    }
-
-    const bool is_dng = false;  // TODO: proper DNG shading
-    if (is_dng) {
-        // For Bayer mosaic we need to know the parity of this texel
-        // in the full image, not just the tile.
-        // What's the upper left of the full image in tile coordinates?
-        vec3 ul_full_tct = tile_X_img * vec3(0, 0, 1);
-        vec2 tile_offset_texels = -ul_full_tct.xy * textureSize(tile, 0);
-        vec2 this_texel_in_tile = p_tct * textureSize(tile, 0);
-        ivec2 img_texel = ivec2(floor(this_texel_in_tile + tile_offset_texels));
-        bool rowEven = (img_texel.y & 1) == 0;
-        bool colEven = (img_texel.x & 1) == 0;
-        // RGGB Bayer pattern
-        if      ( rowEven &&  colEven) color = color * vec4(1, 0, 0, 1);  // red
-        else if ( rowEven && !colEven) color = color * vec4(0, 1, 0, 1);  // green
-        else if (!rowEven &&  colEven) color = color * vec4(0, 1, 0, 1);  // green
-        else if (!rowEven && !colEven) color = color * vec4(0, 0, 1, 1);  // blue
+    if (p_tct.x < uv_bounds[0]
+        || p_tct.y < uv_bounds[1]
+        || p_tct.x > uv_bounds[2]
+        || p_tct.y > uv_bounds[3])
+    {
+        discard;
     }
 
     // Apply brightness
     vec4 linear;
     if (input_is_linear) linear = color;
     else linear = linear_from_srgb(color);
-    vec4 brightened = pow(2.0, brightness) * linear;  // apply to linear...
+    vec4 brightened = vec4(pow(2.0, brightness) * linear.rgb, linear.a);  // apply to linear...
 
     color = srgb_from_linear(brightened);
 

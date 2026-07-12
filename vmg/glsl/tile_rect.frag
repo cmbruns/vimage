@@ -29,7 +29,7 @@ void main()
     vec4 linear;
     if (input_is_linear) linear = image_color;
     else linear = linear_from_srgb(image_color);
-    vec4 brightened = pow(2.0, brightness) * linear;  // apply to linear...
+    vec4 brightened = vec4(pow(2.0, brightness) * linear.rgb, linear.a);  // apply to linear...
 
     image_color = srgb_from_linear(brightened);
 

@@ -219,6 +219,7 @@ class SphericalShader(IImageShader):
         self.input_format_location = None
         self.display_projection_location = None
         self.tile_X_img_location = None
+        self.uv_bounds_location = None
         self.brightness = Uniform("brightness", GL.glUniform1f)
         self.input_is_linear = Uniform("input_is_linear", GL.glUniform1i)
         # TODO dual fisheye parameters should be stored per-camera or whatever
@@ -250,6 +251,7 @@ class SphericalShader(IImageShader):
         self.input_format_location = GL.glGetUniformLocation(self.shader, "input_format")
         self.display_projection_location = GL.glGetUniformLocation(self.shader, "display_projection")
         self.tile_X_img_location = GL.glGetUniformLocation(self.shader, "tile_X_img")
+        self.uv_bounds_location = GL.glGetUniformLocation(self.shader, "uv_bounds")
         self.df_fov_radians_location = GL.glGetUniformLocation(self.shader, "df_fov_radians")
         self.df_lens_rot_radians_location = GL.glGetUniformLocation(self.shader, "df_lens_rot_radians")
         for u in self.brightness, self.input_is_linear:
@@ -279,4 +281,4 @@ class SphericalShader(IImageShader):
         GL.glUniform1f(self.df_lens_rot_radians_location, self.df_lens_rot_radians)
         self.brightness.set(state.brightness)
         self.input_is_linear.set(image.photometric_scale == PhotometricScale.LINEAR)
-        image.paint_gl(self.tile_X_img_location)
+        image.paint_gl(self.tile_X_img_location, self.uv_bounds_location)
