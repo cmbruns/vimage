@@ -22,7 +22,7 @@ class ImageLike(ABC):
 
     @property
     @abstractmethod
-    def orientation(self) -> ExifOrientation:
+    def array(self) -> NDArray:
         ...
 
     @property
@@ -39,6 +39,11 @@ class ImageLike(ABC):
     @input_format.setter
     @abstractmethod
     def input_format(self, value: InputFormat) -> None:
+        ...
+
+    @property
+    @abstractmethod
+    def orientation(self) -> ExifOrientation:
         ...
 
     @property

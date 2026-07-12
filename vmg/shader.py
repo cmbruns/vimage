@@ -279,4 +279,4 @@ class SphericalShader(IImageShader):
         GL.glUniform1f(self.df_lens_rot_radians_location, self.df_lens_rot_radians)
         self.brightness.set(state.brightness)
         self.input_is_linear.set(image.photometric_scale == PhotometricScale.LINEAR)
-        image.paint_gl()
+        image.paint_gl(self.tile_X_img_location)

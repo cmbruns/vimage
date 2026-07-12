@@ -84,6 +84,12 @@ void main()
             break;
     }
 
+    // TODO: valid get tile texture bounds from a uniform
+    if (p_tct.x < 0 || p_tct.x > 1 || p_tct.y < 0 || p_tct.y > 1) {
+        color = vec4(0);
+        return;
+    }
+
     const bool is_dng = false;  // TODO: proper DNG shading
     if (is_dng) {
         // For Bayer mosaic we need to know the parity of this texel

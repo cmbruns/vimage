@@ -13,7 +13,7 @@ from vmg.elapsed_time import ElapsedTime
 from vmg.image_data import ImageData
 from vmg.interfaces import ImageLike
 from vmg.offscreen_context import OffscreenContext
-from vmg.pil_image import PilImage, InappropriateImageLoader
+from vmg.pil_image import PilImage, InappropriateImageLoader, DngImage
 from vmg.texture import Texture
 
 
@@ -50,7 +50,7 @@ class ImageLoader(QtCore.QObject):
     def load_from_file_name(self, file_name: str):
         # TODO: Try various image loaders
         image = None
-        for image_class in [PilImage]:
+        for image_class in [PilImage, DngImage]:
             try:
                 image = image_class(file_name)
                 break

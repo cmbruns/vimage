@@ -11,15 +11,16 @@ from typing import Iterator, Optional
 
 import exiftool
 import numpy
+from numpy.typing import NDArray
 from OpenGL import GL
 from OpenGL.GL.EXT.texture_filter_anisotropic import (
     GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT,
     GL_TEXTURE_MAX_ANISOTROPY_EXT,
 )
-from PySide6 import QtCore
-from numpy.typing import NDArray
 import PIL
 from PIL import ExifTags, Image
+from PySide6 import QtCore
+import tifffile
 
 from vmg.exif_orientation import ExifOrientation
 from vmg.frame import DimensionsOmp
@@ -79,7 +80,8 @@ class ImageSignaller(QtCore.QObject):
 
 class BasicImageLike(ImageLike):
     def __init__(self):
-        self._file_name: Optional[str] = None
+        self._array = numpy.eye(1)
+        self._file_name: str = ""
         self._tiles: list[TileLike] = []
         self.sq = ImageSignaller()
         self.load_progress = LoadProgress.NONE
@@ -90,6 +92,10 @@ class BasicImageLike(ImageLike):
         self._size_raw = (0, 0)
         self._size_omp = DimensionsOmp(0, 0)
         self._orientation = ExifOrientation.ROTATE_0
+
+    @property
+    def array(self) -> NDArray:
+        return self._array
 
     @property
     def file_name(self) -> Optional[str]:
@@ -126,14 +132,16 @@ class BasicImageLike(ImageLike):
     def initialize_gl(self) -> None:
         raise NotImplementedError
 
-    def paint_gl(self) -> None:
+    def paint_gl(self, tile_X_img_location: GLint = -1) -> None:
         is_complete = True  # start optimistic
         for tile in self.tiles():
+            GL.glUniformMatrix3fv(tile_X_img_location, 1, True, tile.tile_X_img)
             if not tile.paint_gl():
                 is_complete = False
             if is_complete and self.load_progress != LoadProgress.DISPLAYED:
                 self.load_progress = LoadProgress.DISPLAYED
                 self.sq.image_displayed.emit(self)  # noqa
+            # break  # just one tile for testing
 
     def tiles(self) -> Iterator[TileLike]:  # noqa
         yield from self._tiles
@@ -151,33 +159,26 @@ class PilImage(BasicImageLike):
         except PIL.UnidentifiedImageError as e:
             raise InappropriateImageLoader() from e
         self._file_name = file_name
-        self.pil_image = pil_image  # TODO: MainWindow needs refactor
         self.sq.progress_changed.emit(2, self)  # noqa
         self.load_pil_metadata(pil_image)
         # self.metadata = load_metadata(file_name)
         # Create numpy array of image
         self.sq.progress_changed.emit(15, self)  # noqa
-        self.array = self.construct_pil_array(pil_image)
-
-    @staticmethod
-    def construct_pil_array(img: Image.Image) -> NDArray:
-        if img.mode in ["P",]:  # Palette image
-            img = img.convert("RGBA")  # TODO: palette shader
-        return numpy.asarray(img)
+        # TODO: create a palette shader to avoid munging pixels here
+        if pil_image.mode in ["P",]:  # Palette image
+            pil_image = pil_image.convert("RGBA")
+        self._array = numpy.array(pil_image)
+        self.pil_image = pil_image  # TODO: MainWindow needs refactor
 
     def initialize_gl(self) -> None:
         """
         Construct tiles to be rendered
         Call from loading thread with OpenGL context current
         """
-        tile_size = 8192
+        tile_size = 1024
         max_texture_size = GL.glGetIntegerv(GL.GL_MAX_TEXTURE_SIZE)  # noqa
         assert max_texture_size >= tile_size
         # Loop over tiles
-        top = 0
-        # pad tiles by 2 pixels so cubic interpolation is seamless
-        top_pad = 0
-        bottom_pad = 2
         w, h = self.size_raw  # TODO: raw or logical?
         channel_count = 1
         if len(self.array.shape) > 2:
@@ -185,17 +186,47 @@ class PilImage(BasicImageLike):
         internal_format = internal_format_for_channel_count[channel_count]
         tex_format = internal_format  # TODO: BGR, GL_RGB16 etc.
         data_type = gl_type_for_numpy_dtype[self.array.dtype]
-        while top <= h:
-            if top + tile_size - 4 >= h:  # TODO: is 4 correct here?
+        debug = False
+        if debug:
+            # Set rightmost 4 columns green for testing.
+            arr = self.array
+            arr[:, -4:, 0] = 0  # R
+            arr[:, -4:, 1] = 255  # G
+            arr[:, -4:, 2] = 0  # B
+            # Left 4 columns red
+            arr = self.array
+            arr[:, :4, 0] = 255  # R
+            arr[:, :4, 1] = 0  # G
+            arr[:, :4, 2] = 0  # B
+            # Top 4 rows blue
+            arr[:4, :, 0] = 0  # R
+            arr[:4, :, 1] = 0  # G
+            arr[:4, :, 2] = 255  # B
+        # pad tiles by 2 pixels so cubic interpolation is seamless
+        PAD = 2
+        tile_stride = tile_size - 2 * PAD
+        top = 0
+        top_pad = 0
+        while top < h:
+            # determine height
+            height = min(tile_size, h - top)
+            # determine bottom_pad
+            if top + tile_size >= h:
                 bottom_pad = 0
+            else:
+                bottom_pad = min(PAD, h - top - tile_size)
             left = 0
             left_pad = 0
-            right_pad = 2
-            while left <= w:
-                if left + tile_size - 4 >= w:
-                    right_pad = 0
+            while left < w:
+                # determine width
                 width = min(tile_size, w - left)
-                height = min(tile_size, h - top)
+                # determine right pad
+                if left + tile_size >= w:
+                    right_pad = 0
+                else:
+                    right_pad = min(PAD, w - left - tile_size)
+                print(f"tile left={left} padded_right={left+width+right_pad} top={top} padded_bottom={top+height+bottom_pad}")
+                print(f"tile left_pad={left_pad} right_pad={right_pad} top_pad={top_pad} bottom_pad={bottom_pad}")
                 tile = Tile(
                     image=self,
                     left=left,
@@ -212,10 +243,11 @@ class PilImage(BasicImageLike):
                 )
                 self._tiles.append(tile)
                 tile.initialize_gl()
-                left += tile_size - 4
-                left_pad = 2
-            top += tile_size - 4
-            top_pad = 2
+                # advance
+                left += tile_stride
+                left_pad = PAD
+            top += tile_stride
+            top_pad = PAD
 
     def load_pil_metadata(self, pil_image):
         # Size
@@ -368,11 +400,16 @@ class Tile(TileLike):
         self.left = left
         self.top = top
         self.width = width
+        self.padded_width = width + left_pad + right_pad
+        self.padded_height = height + top_pad + bottom_pad
+        self.left_pad = left_pad
+        self.right_pad = right_pad
+        self.top_pad = top_pad
         self.height = height
         iw, ih = image.size_raw
         self._tile_X_img = numpy.array([
-            [iw / width, 0, left_pad / width - left / width],
-            [0, ih / height, top_pad / height - top / height],
+            [iw / self.padded_width, 0, -(left - left_pad)/self.padded_width],
+            [0, ih / self.padded_height, -(top - top_pad)/self.padded_height],
             [0, 0, 1],
         ], dtype=numpy.float32)
 
@@ -394,14 +431,14 @@ class Tile(TileLike):
         # row stride required for horizontal tiling
         iw, ih = self.image.size_raw
         GL.glPixelStorei(GL.GL_UNPACK_ROW_LENGTH, iw)
-        GL.glPixelStorei(GL.GL_UNPACK_SKIP_PIXELS, self.left)
-        GL.glPixelStorei(GL.GL_UNPACK_SKIP_ROWS, self.top)
+        GL.glPixelStorei(GL.GL_UNPACK_SKIP_PIXELS, self.left - self.left_pad)
+        GL.glPixelStorei(GL.GL_UNPACK_SKIP_ROWS, self.top - self.top_pad)
         GL.glTexImage2D(
             GL.GL_TEXTURE_2D,
             0,
             self.internal_format,
-            self.width,
-            self.height,
+            self.padded_width,
+            self.padded_height,
             0,
             self.tex_format,
             self.data_type,
@@ -471,6 +508,24 @@ class Tile(TileLike):
     @property
     def tile_X_img(self) -> NDArray[numpy.floating]:
         return self._tile_X_img
+
+
+class DngImage(BasicImageLike):
+    def __init__(self, file_name: str):
+        super().__init__()
+        with tifffile.TiffFile(file_name) as dng:
+            page = dng.pages[0]
+            self._file_name = file_name
+            self.sq.progress_changed.emit(2, self)  # noqa
+            self.load_dng_metadata(dng)
+            self._array = page.asarray()
+        self.bayer_array = self._array
+        if self.bayer_array.dtype != numpy.uint16:
+            raise Exception(f"Unexpected dtype {self.bayer_array.dtype}")
+        assert len(self.bayer_array.shape) == 2
+
+    def load_dng_metadata(self, dng: tifffile.TiffFile):
+        pass
 
 
 def load_metadata(path):
