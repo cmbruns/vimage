@@ -316,17 +316,25 @@ class ViewState(QObject):
     def reset(self) -> None:
         self._zoom = 1.0  # windows per image
         self._center_rel = LocationRelative(0.5, 0.5)
-        self.view_heading_degrees = 0.0
-        self.view_pitch_degrees = 0.0
+        if self.image is not None:
+            self.view_heading_degrees = self.image.initial_heading_degrees
+            self.view_pitch_degrees = self.image.initial_pitch_degrees
+            # Ignoring roll for now; we don't have nor want a view roll control
+        else:
+            self.view_heading_degrees = 0.0
+            self.view_pitch_degrees = 0.0
         self.brightness = 0.0
 
     def update_input_format(self) -> None:
         self._update_aspect_scale()
 
     def set_image(self, image: ImageLike):
+        if self.image is image:
+            return
         # TODO: store image and delegate
         self.image = image
         self._update_aspect_scale()
+        self.reset()
 
     def set_window_size(self, width, height):
         self._size_qwn = DimensionsQwn(width, height)
