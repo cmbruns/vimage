@@ -455,7 +455,7 @@ class Tile(TileLike):
             left_pad / self.padded_width,
             top_pad / self.padded_height,
             (left_pad + width) / self.padded_width,
-            (top_pad + height) / self.padded_width)
+            (top_pad + height) / self.padded_height)
 
     def initialize_gl(self):
         self.vbo = GL.glGenBuffers(1)  # noqa

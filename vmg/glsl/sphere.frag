@@ -91,7 +91,8 @@ void main()
         || p_tct.x > uv_bounds[2]
         || p_tct.y > uv_bounds[3])
     {
-        discard;
+        color = vec4(0);
+        return;
     }
 
     // Apply brightness
