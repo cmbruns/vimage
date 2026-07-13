@@ -179,7 +179,7 @@ class PilImage(BasicImageLike):
         Construct tiles to be rendered
         Call from loading thread with OpenGL context current
         """
-        tile_size = 2048
+        tile_size = 4096
         max_texture_size = GL.glGetIntegerv(GL.GL_MAX_TEXTURE_SIZE)  # noqa
         assert max_texture_size >= tile_size
         # Loop over tiles
@@ -468,9 +468,6 @@ class Tile(TileLike):
         if self.internal_format == GL.GL_RED:
             GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_SWIZZLE_G, GL.GL_RED)
             GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_SWIZZLE_B, GL.GL_RED)
-        # Anisotropic filtering
-        f_largest = GL.glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT)  # noqa
-        GL.glTexParameterf(GL.GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, f_largest)
         # TODO: use preferred internal format in image data...
         # row stride required for horizontal tiling
         iw, ih = self.image.size_raw
@@ -489,6 +486,10 @@ class Tile(TileLike):
             self.image.array,
         )
         GL.glGenerateMipmap(GL.GL_TEXTURE_2D)
+        # Anisotropic filtering
+        f_largest = GL.glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT)  # noqa
+        GL.glTexParameterf(GL.GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, f_largest)
+        print(f"anisotropy {f_largest}")
         GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_NEAREST)
         GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_LINEAR_MIPMAP_LINEAR)
         # TODO: test and debug 360 boundary conditions with tiled image
