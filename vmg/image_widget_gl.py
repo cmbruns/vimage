@@ -1,4 +1,6 @@
-from typing import cast
+import traceback
+
+from typing import cast, Optional
 
 from PySide6.QtWidgets import QGestureEvent, QSwipeGesture, QPinchGesture
 from math import radians
@@ -14,9 +16,10 @@ from PySide6.QtCore import QEvent, Qt, QPoint
 from vmg.input_format import InputFormat
 from vmg.interfaces import ImageLike
 from vmg.offscreen_context import OffscreenContext
+from vmg.photometric_scale import PhotometricScale
 from vmg.selection_box import (CursorHolder)
 from vmg.state import ViewState
-from vmg.shader import IImageShader, SphericalShader, RectangularTileShader
+from vmg.shader import IImageShader, SphericalShader, RectangularTileShader, SphericalDngShader, RectangularDngShader
 
 logger = logging.getLogger(__name__)
 Float = float  # suppress PyCharm's "helpful" "| int" suggestions everyfuckingwhere
@@ -32,11 +35,13 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         self.grabGesture(Qt.GestureType.PinchGesture)
         # self.grabGesture(Qt.PanGesture)
         self.grabGesture(Qt.GestureType.SwipeGesture)
-        self.image = None
+        self.image: Optional[ImageLike] = None
         self.setMinimumSize(10, 10)
         self.vao = None
         self.sphere_shader = SphericalShader()
         self.rect_tile_shader = RectangularTileShader()
+        self.sphere_dng_shader = SphericalDngShader()
+        self.rect_dng_shader = RectangularDngShader()
         self.program: IImageShader = self.rect_tile_shader
         self.view_state = ViewState(window_size=self.size())
         self.view_state.cursor_changed.connect(self.change_cursor)
@@ -96,7 +101,9 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         self.vao = GL.glGenVertexArrays(1)  # noqa
         GL.glBindVertexArray(self.vao)
         self.rect_tile_shader.initialize_gl()
+        self.rect_dng_shader.initialize_gl()
         self.sphere_shader.initialize_gl()
+        self.sphere_dng_shader.initialize_gl()
 
     input_format_changed = QtCore.Signal(InputFormat)
 
@@ -139,16 +146,19 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         self.context_created.emit(offscreen_context)  # noqa
 
     def paintGL(self) -> None:
-        logger.debug("Starting paintGL()")
-        self.view_state.background_color = self.palette().color(self.backgroundRole()).getRgbF()
-        GL.glClearColor(*self.view_state.background_color)
-        GL.glClear(GL.GL_COLOR_BUFFER_BIT)
-        if self.image is None:
-            logger.debug("image_data is None")
-            return
-        GL.glBindVertexArray(self.vao)
-        self.program.paint_gl(self.view_state, self.image)
-        logger.debug("Finished paintGL()")
+        try:
+            logger.debug("Starting paintGL()")
+            self.view_state.background_color = self.palette().color(self.backgroundRole()).getRgbF()
+            GL.glClearColor(*self.view_state.background_color)
+            GL.glClear(GL.GL_COLOR_BUFFER_BIT)
+            if self.image is None:
+                logger.debug("image_data is None")
+                return
+            GL.glBindVertexArray(self.vao)
+            self.program.paint_gl(self.view_state, self.image)
+            logger.debug("Finished paintGL()")
+        except BaseException as exc:
+            traceback.print_exception(exc)
 
     progress_changed = QtCore.Signal(int)
 
@@ -164,9 +174,15 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
 
     def set_input_format(self, input_format: InputFormat):
         if input_format == InputFormat.STANDARD_PHOTO:
-            self.program = self.rect_tile_shader
+            if self.image and self.image.photometric_scale == PhotometricScale.LINEAR:
+                self.program = self.rect_dng_shader
+            else:
+                self.program = self.rect_tile_shader
         else:
-            self.program = self.sphere_shader
+            if self.image and self.image.photometric_scale == PhotometricScale.LINEAR:
+                self.program = self.sphere_dng_shader
+            else:
+                self.program = self.sphere_shader
         if self.image is None:
             return
         self.image.input_format = input_format

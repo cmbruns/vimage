@@ -39,6 +39,7 @@ class ViewState(QObject):
         self.brightness = 0.0  # EV
         self.asc_qwn = 1
         self.asc_omp = 1
+        self.show_tile_boundaries = False
         # self.input_is_linear = False
 
     @property
@@ -112,6 +113,8 @@ class ViewState(QObject):
             prev_omp = self.omp_for_qwn(prev_qwn)
             curr_omp = self.omp_for_qwn(curr_qwn)
             d_omp = curr_omp - prev_omp
+            if self._size_omp().y == 0:
+                return
             d_rel = (d_omp.x / self._size_omp().x, d_omp.y / self._size_omp().y)
             new_center = LocationRelative(self._center_rel.x + d_rel[0], self._center_rel.y + d_rel[1])
             self._center_rel[:] = new_center[:]
@@ -351,6 +354,10 @@ class ViewState(QObject):
 
     def _update_aspect_scale(self):
         w_omp, h_omp = self._size_omp()
+        if w_omp == 0:
+            return
+        if h_omp == 0:
+            return
         w_qwn, h_qwn = self._size_qwn
         if self._input_format() in (InputFormat.EQUIRECTANGULAR, InputFormat.DUAL_FISHEYE):
             if 1 > w_qwn/h_qwn:

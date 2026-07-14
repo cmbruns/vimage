@@ -736,6 +736,14 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         if is_checked:
             self.set_display_projection(DisplayProjection.STEREOGRAPHIC, self.actionStereographic)
 
+    @QtCore.Slot(bool)  # noqa
+    def on_actionTile_Boundaries_toggled(self, is_checked: bool):  # noqa
+        vs = self.imageWidgetGL.view_state
+        if is_checked == vs.show_tile_boundaries:
+            return
+        vs.show_tile_boundaries = is_checked
+        self.imageWidgetGL.update()
+
     @QtCore.Slot()  # noqa
     def on_actionView_Log_triggered(self):  # noqa
         self.log_window.show()

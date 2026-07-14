@@ -78,7 +78,7 @@ void main()
             color = mix(rear_color, front_color, pair.front_bias);
             break;
         case EQUIRECT_INPUT_FORMAT:
-        default :
+        default:
             vec2 p_img_tex = equirect_tex_coord(p_raw);
             p_tct = tct_for_tcr(p_img_tex);
             color = clip_n_filter(tile, p_tct, pixelFilter, true);

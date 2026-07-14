@@ -2,10 +2,11 @@
 Intended as partial Replacement for ImageData, Texture
 """
 
-from ctypes import c_float, c_void_p, cast, sizeof
+from ctypes import c_float, c_uint8, c_void_p, cast, sizeof
 import enum
 import json
 import logging
+from OpenGL.GL.shaders import compileProgram, compileShader
 from math import cos, radians, sin, degrees
 from typing import Iterator, Optional
 
@@ -27,10 +28,15 @@ from vmg.frame import DimensionsOmp
 from vmg.input_format import InputFormat
 from vmg.interfaces import ImageLike, TileLike
 from vmg.photometric_scale import PhotometricScale
+from vmg.resources import resource_string
+from vmg.shader import Sampler2DUniform, ViewerUniforms, PanoUniforms, FisheyeUniforms
 
 logger = logging.getLogger(__name__)
 GLenum = int
 GLint = int
+
+
+TILE_SIZE = 512
 
 
 class LoadProgress(enum.Enum):
@@ -86,6 +92,9 @@ class BasicImageLike(ImageLike):
         self.sq = ImageSignaller()
         self.load_progress = LoadProgress.NONE
         # Reasonable defaults
+        self.initial_heading_degrees = 0.0
+        self.initial_pitch_degrees = 0.0
+        self.initial_roll_degrees = 0.0
         self._input_format = InputFormat.STANDARD_PHOTO
         self._photometric_scale = PhotometricScale.SRGB
         self._raw_rot_ont = numpy.eye(3, dtype=numpy.float32)
@@ -132,11 +141,11 @@ class BasicImageLike(ImageLike):
     def initialize_gl(self) -> None:
         raise NotImplementedError
 
-    def paint_gl(self, tile_X_img_location: GLint = -1, uv_bounds_location: GLint = -1) -> None:
+    def paint_gl(self, program) -> None:
         is_complete = True  # start optimistic
         for tile in self.tiles():
-            GL.glUniformMatrix3fv(tile_X_img_location, 1, True, tile.tile_X_img)
-            GL.glUniform4f(uv_bounds_location, *tile.uv_bounds)
+            GL.glUniformMatrix3fv(program.tile_X_img_location, 1, True, tile.tile_X_img)
+            GL.glUniform4f(program.uv_bounds_location, *tile.uv_bounds)
             if not tile.paint_gl():
                 is_complete = False
             if is_complete and self.load_progress != LoadProgress.DISPLAYED:
@@ -161,9 +170,6 @@ class PilImage(BasicImageLike):
             raise InappropriateImageLoader() from e
         self._file_name = file_name
         self.sq.progress_changed.emit(2, self)  # noqa
-        self.initial_heading_degrees = 0.0
-        self.initial_pitch_degrees = 0.0
-        self.initial_roll_degrees = 0.0
         self.load_pil_metadata(pil_image)
         # self.metadata = load_metadata(file_name)
         # Create numpy array of image
@@ -179,9 +185,8 @@ class PilImage(BasicImageLike):
         Construct tiles to be rendered
         Call from loading thread with OpenGL context current
         """
-        tile_size = 4096
         max_texture_size = GL.glGetIntegerv(GL.GL_MAX_TEXTURE_SIZE)  # noqa
-        assert max_texture_size >= tile_size
+        assert max_texture_size >= TILE_SIZE
         # Loop over tiles
         w, h = self.size_raw  # TODO: raw or logical?
         channel_count = 1
@@ -208,27 +213,26 @@ class PilImage(BasicImageLike):
             arr[:4, :, 2] = 255  # B
         # pad tiles by 2 pixels so cubic interpolation is seamless
         PAD = 2
-        tile_stride = tile_size - 2 * PAD
         top = 0
         top_pad = 0
         while top < h:
             # determine height
-            height = min(tile_size, h - top)
+            height = min(TILE_SIZE, h - top)
             # determine bottom_pad
-            if top + tile_size >= h:
+            if top + TILE_SIZE >= h:
                 bottom_pad = 0
             else:
-                bottom_pad = min(PAD, h - top - tile_size)
+                bottom_pad = min(PAD, h - top - TILE_SIZE)
             left = 0
             left_pad = 0
             while left < w:
                 # determine width
-                width = min(tile_size, w - left)
+                width = min(TILE_SIZE, w - left)
                 # determine right pad
-                if left + tile_size >= w:
+                if left + TILE_SIZE >= w:
                     right_pad = 0
                 else:
-                    right_pad = min(PAD, w - left - tile_size)
+                    right_pad = min(PAD, w - left - TILE_SIZE)
                 tile = Tile(
                     image=self,
                     left=left,
@@ -246,9 +250,9 @@ class PilImage(BasicImageLike):
                 self._tiles.append(tile)
                 tile.initialize_gl()
                 # advance
-                left += tile_stride
+                left += TILE_SIZE
                 left_pad = PAD
-            top += tile_stride
+            top += TILE_SIZE
             top_pad = PAD
 
     def load_pil_metadata(self, pil_image):
@@ -436,6 +440,9 @@ class Tile(TileLike):
                 ],
                 dtype=numpy.float32,
             ).flatten()
+            print("tile")
+            print(left_omp, top_omp, right_omp, bottom_omp)
+            print(left, top, width, height)
         self.texture_id = None
         self.load_sync = None
         self.left = left
@@ -456,6 +463,7 @@ class Tile(TileLike):
             top_pad / self.padded_height,
             (left_pad + width) / self.padded_width,
             (top_pad + height) / self.padded_height)
+        self.boundary_ebo = None
 
     def initialize_gl(self):
         self.vbo = GL.glGenBuffers(1)  # noqa
@@ -489,7 +497,6 @@ class Tile(TileLike):
         # Anisotropic filtering
         f_largest = GL.glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT)  # noqa
         GL.glTexParameterf(GL.GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, f_largest)
-        print(f"anisotropy {f_largest}")
         GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_NEAREST)
         GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_LINEAR_MIPMAP_LINEAR)
         # TODO: test and debug 360 boundary conditions with tiled image
@@ -499,6 +506,16 @@ class Tile(TileLike):
         GL.glPixelStorei(GL.GL_UNPACK_ROW_LENGTH, 0)
         GL.glPixelStorei(GL.GL_UNPACK_SKIP_PIXELS, 0)
         GL.glPixelStorei(GL.GL_UNPACK_SKIP_ROWS, 0)
+
+        # Tile boundaries
+        self.boundary_ebo = GL.glGenBuffers(1)  # noqa
+        GL.glBindBuffer(GL.GL_ELEMENT_ARRAY_BUFFER, self.boundary_ebo)
+        indices = numpy.array([
+            0, 1, 3, 2,
+        ], dtype=numpy.uint32)
+        GL.glBufferData(GL.GL_ELEMENT_ARRAY_BUFFER, indices.nbytes, indices, GL.GL_STATIC_DRAW)
+
+
         self.load_sync = GL.glFenceSync(GL.GL_SYNC_GPU_COMMANDS_COMPLETE, 0)
         GL.glFlush()
 
@@ -547,8 +564,17 @@ class Tile(TileLike):
             )
             GL.glEnableVertexAttribArray(2)
         GL.glBindVertexArray(self.vao)
-        GL.glDrawArrays(GL.GL_TRIANGLE_STRIP, 0, 4)  # Full screen quad
+        outlines_only = False
+        if outlines_only:
+            self.paint_tile_boundary()
+        else:
+            GL.glDrawArrays(GL.GL_TRIANGLE_STRIP, 0, 4)  # Full screen quad
         return True
+
+    def paint_boundary(self):
+        GL.glBindVertexArray(self.vao)
+        GL.glBindBuffer(GL.GL_ELEMENT_ARRAY_BUFFER, self.boundary_ebo)
+        GL.glDrawElements(GL.GL_LINE_LOOP, 4, GL.GL_UNSIGNED_INT, None)
 
     @property
     def tile_X_img(self) -> NDArray[numpy.floating]:
@@ -565,12 +591,281 @@ class DngImage(BasicImageLike):
             self.load_dng_metadata(dng)
             self._array = page.asarray()
         self.bayer_array = self._array
+        h, w = self.bayer_array.shape
+        self._size_raw = (w, h)
         if self.bayer_array.dtype != numpy.uint16:
             raise Exception(f"Unexpected dtype {self.bayer_array.dtype}")
         assert len(self.bayer_array.shape) == 2
+        #
+        self.pil_image = Image.fromarray(self.bayer_array)
+
+    def initialize_gl(self) -> None:
+        """
+        Construct tiles to be rendered
+        Call from loading thread with OpenGL context current
+        """
+        max_texture_size = GL.glGetIntegerv(GL.GL_MAX_TEXTURE_SIZE)  # noqa
+        assert max_texture_size >= TILE_SIZE
+        # Loop over tiles
+        h, w = self.bayer_array.shape
+        print(w, h)
+        # Bayer image is structurally monochrome
+        internal_format = GL.GL_RED
+        assert self.bayer_array.dtype == numpy.uint16
+        tex_format = GL.GL_R16
+        data_type = GL.GL_UNSIGNED_SHORT
+        # pad tiles by 2 pixels so cubic interpolation is seamless
+        PAD = 2
+        top = 0
+        top_pad = 0
+        while top < h:
+            # determine height
+            height = min(TILE_SIZE, h - top)
+            # determine bottom_pad
+            if top + TILE_SIZE >= h:
+                bottom_pad = 0
+            else:
+                bottom_pad = min(PAD, h - top - TILE_SIZE)
+            left = 0
+            left_pad = 0
+            while left < w:
+                # determine width
+                width = min(TILE_SIZE, w - left)
+                # determine right pad
+                if left + TILE_SIZE >= w:
+                    right_pad = 0
+                else:
+                    right_pad = min(PAD, w - left - TILE_SIZE)
+                tile = DngTile(
+                    image=self,
+                    left=left,
+                    top=top,
+                    width=width,
+                    height=height,
+                    left_pad=left_pad,
+                    top_pad=top_pad,
+                    right_pad=right_pad,
+                    bottom_pad=bottom_pad,
+                    internal_format=internal_format,
+                    tex_format=tex_format,
+                    data_type=data_type,
+                )
+                self._tiles.append(tile)
+                tile.initialize_gl()
+                # advance
+                left += TILE_SIZE
+                left_pad = PAD
+            top += TILE_SIZE
+            top_pad = PAD
 
     def load_dng_metadata(self, dng: tifffile.TiffFile):
         pass
+
+    def paint_gl(self, program, tile_X_img_location: GLint = -1, uv_bounds_location: GLint = -1) -> None:
+        is_complete = True  # start optimistic
+        for tile in self.tiles():
+            GL.glUniformMatrix3fv(program.tile_X_img_location, 1, True, tile.tile_X_img)
+            GL.glUniform4f(program.uv_bounds_location, *tile.uv_bounds)
+            program.uDemosaicTile.set(1, tile.demosaic_texture_id)
+            program.uBayerTile.set(0, tile.bayer_texture_id)
+            if not tile.paint_gl():
+                is_complete = False
+            if is_complete and self.load_progress != LoadProgress.DISPLAYED:
+                self.load_progress = LoadProgress.DISPLAYED
+                self.sq.image_displayed.emit(self)  # noqa
+            break  # just one tile for testing
+
+
+class DngTile(Tile):
+    # Loader thread resources:
+    demosaic_framebuffer = None
+    demosaic_program = None
+    demosaic_vao = None
+
+    def __init__(
+            self,
+            image: DngImage,
+            # portion of the image covered by this tile
+            left: int,
+            top: int,
+            width: int,
+            height: int,
+            left_pad: int,
+            top_pad: int,
+            right_pad: int,
+            bottom_pad: int,
+            internal_format: GLenum,
+            tex_format: GLenum,
+            data_type: GLenum,
+    ):
+        super().__init__(image=image,
+                         left=left,
+                         top=top,
+                         width=width,
+                         height=height,
+                         left_pad=left_pad,
+                         top_pad=top_pad,
+                         right_pad=right_pad,
+                         bottom_pad=bottom_pad,
+                         internal_format=internal_format,
+                         tex_format=tex_format,
+                         data_type=data_type)
+        self.bayer_texture_id = None
+        self.bayer_array = image.bayer_array
+        self.demosaic_texture_id = None
+        self.render_vao = None
+
+    def initialize_gl(self):
+        self.vbo = GL.glGenBuffers(1)  # noqa
+        GL.glBindBuffer(GL.GL_ARRAY_BUFFER, self.vbo)
+        GL.glBufferData(GL.GL_ARRAY_BUFFER, len(self.vertexes) * sizeof(c_float), self.vertexes, GL.GL_STATIC_DRAW)
+
+        self.bayer_texture_id = GL.glGenTextures(1)
+        GL.glBindTexture(GL.GL_TEXTURE_2D, self.bayer_texture_id)
+        GL.glPixelStorei(GL.GL_UNPACK_ALIGNMENT, 1)  # In case width is odd
+        bayer_w, bayer_h = self.image.size_raw
+        GL.glPixelStorei(GL.GL_UNPACK_ROW_LENGTH, bayer_w)
+        GL.glPixelStorei(GL.GL_UNPACK_SKIP_PIXELS, self.left - self.left_pad)
+        GL.glPixelStorei(GL.GL_UNPACK_SKIP_ROWS, self.top - self.top_pad)
+
+        GL.glTexImage2D(
+            GL.GL_TEXTURE_2D,
+            0,  # base mipmap
+            GL.GL_R16,  # single channel
+            self.padded_width,
+            self.padded_height,
+            0,  # border
+            GL.GL_RED,
+            GL.GL_UNSIGNED_SHORT,  # 16 bit
+            self.bayer_array,
+        )
+        print(self.padded_width, self.padded_height)
+
+        # We always want literally exact texel values, and no mipmapping
+        GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_NEAREST)
+        GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_NEAREST)
+        # Make all fetches outside the texture return transparent black
+        GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_S, GL.GL_CLAMP_TO_BORDER)
+        GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_T, GL.GL_CLAMP_TO_BORDER)
+        GL.glTexParameterfv(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_BORDER_COLOR, [0, 0, 0, 0])
+        # Fill all three channels R, G, B with the one intensity
+        GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_SWIZZLE_R, GL.GL_RED)
+        GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_SWIZZLE_G, GL.GL_RED)
+        GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_SWIZZLE_B, GL.GL_RED)
+        GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_SWIZZLE_A, GL.GL_ONE)
+
+        # Construct a second downsampled demosaic texture for zoomed out visualization
+        # Theoretical mipmap level 1 size
+        demosaic_w = max(1, self.padded_width // 2)
+        demosaic_h = max(1, self.padded_height // 2)
+        # Create framebuffer
+        if self.demosaic_framebuffer is None:
+            self.demosaic_framebuffer = GL.glGenFramebuffers(1)
+            self.demosaic_vao = GL.glGenVertexArrays(1)
+            self.demosaic_program = compileProgram(
+                compileShader(
+                    resource_string("vmg.glsl", "demosaic.vert"),
+                    GL.GL_VERTEX_SHADER),
+                compileShader(
+                    resource_string("vmg.glsl", "demosaic.frag"),
+                    GL.GL_FRAGMENT_SHADER),
+            )
+        GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, self.demosaic_framebuffer)
+
+        # Create demosaic color texture
+        self.demosaic_texture_id = GL.glGenTextures(1)
+        GL.glBindTexture(GL.GL_TEXTURE_2D, self.demosaic_texture_id)
+        GL.glPixelStorei(GL.GL_UNPACK_ALIGNMENT, 1)  # In case width is odd
+        # Allocate storage for level 0 of demosaic tile (RGB float)
+        GL.glTexImage2D(
+            GL.GL_TEXTURE_2D,
+            0,  # mip level
+            GL.GL_RGBA16,  # internal format
+            demosaic_w,
+            demosaic_h,
+            0,  # border
+            GL.GL_RGBA,  # upload format
+            GL.GL_UNSIGNED_SHORT,  # upload type
+            None  # no initial data
+        )
+        # Attach texture to framebuffer
+        GL.glFramebufferTexture2D(
+            GL.GL_FRAMEBUFFER,
+            GL.GL_COLOR_ATTACHMENT0,
+            GL.GL_TEXTURE_2D,
+            self.demosaic_texture_id,
+            0  # mip level
+        )
+        # Set draw buffers
+        GL.glDrawBuffers(1, [GL.GL_COLOR_ATTACHMENT0])
+        # Check completeness
+        status = GL.glCheckFramebufferStatus(GL.GL_FRAMEBUFFER)
+        if status != GL.GL_FRAMEBUFFER_COMPLETE:
+            raise RuntimeError(f"Framebuffer incomplete: 0x{status:X}")
+
+        # Populate the demosaic texture
+        GL.glBindVertexArray(self.demosaic_vao)
+        GL.glViewport(0, 0, demosaic_w, demosaic_h)
+        # Render
+        GL.glClearColor(0.0, 0.0, 0.0, 0.0)
+        GL.glClear(GL.GL_COLOR_BUFFER_BIT)
+        GL.glBindTexture(GL.GL_TEXTURE_2D, self.bayer_texture_id)
+        GL.glUseProgram(self.demosaic_program)
+        GL.glDrawArrays(GL.GL_TRIANGLE_STRIP, 0, 4)
+
+        # Generate demosaic mipmaps
+        GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, 0)
+        GL.glBindTexture(GL.GL_TEXTURE_2D, self.demosaic_texture_id)
+        GL.glGenerateMipmap(GL.GL_TEXTURE_2D)
+        # We do catrom filtering in-shadero, so use GL_NEAREST for now
+        GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_NEAREST)
+        GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_LINEAR_MIPMAP_LINEAR)
+        # Anisotropic filtering
+        f_largest = GL.glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT)
+        GL.glTexParameterf(GL.GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, f_largest)
+
+        # Clean up
+        GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, 0)
+        GL.glBindTexture(GL.GL_TEXTURE_2D, 0)
+        self.load_sync = GL.glFenceSync(GL.GL_SYNC_GPU_COMMANDS_COMPLETE, 0)
+        GL.glFlush()  # macOS probably
+        logger.info("DNG demosaic complete")
+
+    def paint_gl(self) -> bool:
+        """Run in ui thread"""
+        print("rendering dng tile")
+        print(self.vertexes)
+        print(self.tile_X_img)
+        print(self.width, self.height)
+        if not self.is_ready_for_display():
+            return False
+        if self.render_vao is None:
+            self.render_vao = GL.glGenVertexArrays(1)
+            GL.glBindBuffer(GL.GL_ARRAY_BUFFER, self.vbo)
+            f_size = sizeof(c_float)
+            GL.glVertexAttribPointer(  # normalized image coordinates
+                1,  # attribute index
+                2,  # size (#components)
+                GL.GL_FLOAT,  # type
+                False,  # normalized
+                f_size * 4,  # stride (bytes)
+                cast(0 * f_size, c_void_p),  # pointer offset
+            )
+            GL.glEnableVertexAttribArray(1)
+            GL.glVertexAttribPointer(  # texture coordinates
+                2,  # attribute index
+                2,  # size (#components)
+                GL.GL_FLOAT,  # type
+                False,  # normalized
+                f_size * 4,  # stride (bytes)
+                cast(2 * f_size, c_void_p),  # pointer offset
+            )
+            GL.glEnableVertexAttribArray(2)
+        assert self.render_vao is not None
+        GL.glBindVertexArray(self.render_vao)
+        # TODO bind textures
+        GL.glDrawArrays(GL.GL_TRIANGLE_STRIP, 0, 4)  # Tile
+        return True
 
 
 def load_metadata(path):
@@ -627,9 +922,6 @@ def omp_for_rmp(rmp: tuple[int, int], size_rmp: tuple[int, int], orientation: Ex
         ], dtype=numpy.int32)
 
     result = omp_x_rmp @ (*rmp, 1)
-
-    if result[0] > max(w, h):
-        print(rmp, result, size_rmp)
 
     assert result[2] == 1
     assert result[0] >= 0

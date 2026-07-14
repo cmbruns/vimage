@@ -98,8 +98,10 @@
     <addaction name="actionBrightnessPlus"/>
     <addaction name="actionBrightnessMinus"/>
     <addaction name="separator"/>
-    <addaction name="actionSharp"/>
     <addaction name="actionFull_Screen"/>
+    <addaction name="actionSharp"/>
+    <addaction name="actionTile_Boundaries"/>
+    <addaction name="separator"/>
     <addaction name="menu360_Projection"/>
     <addaction name="menuInput_Projection"/>
     <addaction name="separator"/>
@@ -441,6 +443,17 @@
    </property>
    <property name="shortcut">
     <string>[</string>
+   </property>
+  </action>
+  <action name="actionTile_Boundaries">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Tile Boundaries</string>
+   </property>
+   <property name="shortcut">
+    <string>B</string>
    </property>
   </action>
  </widget>
