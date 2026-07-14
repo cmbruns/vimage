@@ -178,7 +178,7 @@ class RectangularTileShader(IImageShader):
         GL.glUniform1f(self.omp_scale_qwn_location, state.omp_scale_qwn())
         self.brightness.set(state.brightness)
         self.input_is_linear.set(image.photometric_scale == PhotometricScale.LINEAR)
-        image.paint_gl(self)
+        image.paint_gl(self, state)
         if state.show_tile_boundaries:
             self.tile_boundary_shader.paint_gl(state, image)
 
@@ -349,7 +349,7 @@ class SphericalShader(IImageShader):
         GL.glUniform1f(self.df_lens_rot_radians_location, self.df_lens_rot_radians)
         self.brightness.set(state.brightness)
         self.input_is_linear.set(image.photometric_scale == PhotometricScale.LINEAR)
-        image.paint_gl(self)
+        image.paint_gl(self, state)
 
 
 class SphericalDngShader(IImageShader):

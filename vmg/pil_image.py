@@ -141,12 +141,12 @@ class BasicImageLike(ImageLike):
     def initialize_gl(self) -> None:
         raise NotImplementedError
 
-    def paint_gl(self, program) -> None:
+    def paint_gl(self, program, view_state) -> None:
         is_complete = True  # start optimistic
         for tile in self.tiles():
             GL.glUniformMatrix3fv(program.tile_X_img_location, 1, True, tile.tile_X_img)
             GL.glUniform4f(program.uv_bounds_location, *tile.uv_bounds)
-            if not tile.paint_gl():
+            if not tile.paint_gl(view_state):
                 is_complete = False
             if is_complete and self.load_progress != LoadProgress.DISPLAYED:
                 self.load_progress = LoadProgress.DISPLAYED
@@ -532,10 +532,16 @@ class Tile(TileLike):
         )
         return status in (GL.GL_ALREADY_SIGNALED, GL.GL_CONDITION_SATISFIED)
 
-    def paint_gl(self) -> bool:
+    def paint_gl(self, view_state) -> bool:
         if not self.is_ready_for_display():
             return False
         GL.glBindTexture(GL.GL_TEXTURE_2D, self.texture_id)
+        # Anisotropic filtering
+        if view_state.anisotropic_filtering:
+            aniso = GL.glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT)
+        else:
+            aniso = 1
+        GL.glTexParameterf(GL.GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, aniso)
         # VAO must be created here, in the render thread
         if self.vao is None:
             self.vao = GL.glGenVertexArrays(1)  # noqa

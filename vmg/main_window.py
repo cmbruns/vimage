@@ -103,7 +103,6 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         # Allow action shortcuts even when toolbar and menu bar are hidden
         self.addAction(self.actionNext)
         self.addAction(self.actionPrevious)
-        self.addAction(self.actionNormal_View)
         self.addAction(self.actionFull_Screen)
         self.addAction(self.actionSharp)
         # Make projections mutually exclusive
@@ -499,6 +498,14 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         """)
         QMessageBox.information(self, "About", msg)
 
+    @QtCore.Slot(bool)  # noqa
+    def on_actionAnisotropic_Filtering_toggled(self, is_checked: bool):  # noqa
+        vs = self.imageWidgetGL.view_state
+        if is_checked == vs.anisotropic_filtering:
+            return
+        vs.anisotropic_filtering = is_checked
+        self.imageWidgetGL.update()
+
     @QtCore.Slot()  # noqa
     def on_actionBrightnessMinus_triggered(self):
         self.imageWidgetGL.view_state.brightness -= 0.25
@@ -619,10 +626,6 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         if self.image_index >= len(self.image_list):
             self.image_index -= len(self.image_list)
         self.activate_indexed_image()
-
-    @QtCore.Slot()  # noqa
-    def on_actionNormal_View_triggered(self):  # noqa
-        self.actionFull_Screen.setChecked(False)
 
     @QtCore.Slot()  # noqa
     def on_actionOpen_triggered(self):  # noqa

@@ -286,25 +286,6 @@
     <string>F</string>
    </property>
   </action>
-  <action name="actionNormal_View">
-   <property name="enabled">
-    <bool>true</bool>
-   </property>
-   <property name="text">
-    <string>Normal View</string>
-   </property>
-   <property name="shortcut">
-    <string>Esc</string>
-   </property>
-   <property name="visible">
-    <bool>true</bool>
-   </property>
-  </action>
-  <action name="actionRun_Test">
-   <property name="text">
-    <string>Run Test</string>
-   </property>
-  </action>
   <action name="actionAbout">
    <property name="text">
     <string>About</string>
@@ -478,16 +459,6 @@
     <string>Equirectangular</string>
    </property>
   </action>
-  <action name="action">
-   <property name="text">
-    <string>Dual Fisheye</string>
-   </property>
-  </action>
-  <action name="actionConfigure">
-   <property name="text">
-    <string>Configure...</string>
-   </property>
-  </action>
   <action name="actionDual_FisheyeInput">
    <property name="checkable">
     <bool>true</bool>
@@ -598,22 +569,6 @@
     <string>Linear</string>
    </property>
   </action>
-  <action name="actionOff_1_0">
-   <property name="checkable">
-    <bool>true</bool>
-   </property>
-   <property name="text">
-    <string>Off/1.0</string>
-   </property>
-  </action>
-  <action name="actionMax">
-   <property name="checkable">
-    <bool>true</bool>
-   </property>
-   <property name="text">
-    <string>Max</string>
-   </property>
-  </action>
   <action name="actionClamp_To_Edge">
    <property name="checkable">
     <bool>true</bool>
@@ -666,6 +621,9 @@
    </property>
    <property name="text">
     <string>Anisotropic Filtering</string>
+   </property>
+   <property name="shortcut">
+    <string>A</string>
    </property>
   </action>
   <action name="actionCatmull_Rom">

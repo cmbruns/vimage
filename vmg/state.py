@@ -40,6 +40,7 @@ class ViewState(QObject):
         self.asc_qwn = 1
         self.asc_omp = 1
         self.show_tile_boundaries = False
+        self.anisotropic_filtering = True
         # self.input_is_linear = False
 
     @property
