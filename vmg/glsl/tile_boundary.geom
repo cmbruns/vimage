@@ -3,7 +3,7 @@
 layout(lines) in;
 layout(triangle_strip, max_vertices = 4) out;
 
-const float uLineWidth = 1.5;
+const float uLineWidth = 2.2;
 uniform vec2 uViewportSize;   // screen size in pixels
 
 flat in int vID[];

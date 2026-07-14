@@ -137,8 +137,10 @@ vec4 nearest_wrap(sampler2D image, vec2 tc) {
     return equirect_color(image, tc);
 }
 
-vec4 texel_boundaries(vec4 baseColor, vec2 texelCoord)
-{
+vec4 show_boundaries(vec4 baseColor, vec2 texelCoord,
+        float edgeThickness,
+        vec3 color1, vec3 color2
+) {
     // Derivatives: texture-space delta per screen pixel
     vec2 dx = dFdx(texelCoord);
     vec2 dy = dFdy(texelCoord);
@@ -147,6 +149,7 @@ vec4 texel_boundaries(vec4 baseColor, vec2 texelCoord)
     float texelsPerPixel = min(length(dx), length(dy));
     // Screen pixels per texture pixel
     float pixelsPerTexel = 1.0 / texelsPerPixel;
+
     // Fade-in factor: 0 at 10px/texel, 1 at 20px/texel
     float fade = smoothstep(12.0, 100.0, pixelsPerTexel);
     // If fully faded out, skip work
@@ -158,18 +161,24 @@ vec4 texel_boundaries(vec4 baseColor, vec2 texelCoord)
     float distX = min(fx, 1.0 - fx) * pixelsPerTexel;
     float distY = min(fy, 1.0 - fy) * pixelsPerTexel;
     // Boundary thickness in texture space
-    const float edgeThickness = 0.7;
+    // const float edgeThickness = 0.7;
 
     bool isEdge = (distX < edgeThickness) || (distY < edgeThickness);
     if (!isEdge) return baseColor;
 
     // Black/white double line pattern
     float stripe = step(0.5, fract((texelCoord.x + texelCoord.y) * 4.0));
-    vec4 edgeColor = vec4(mix(vec3(0, 0, 0.4), vec3(1, 1, 0.6), stripe), 1);
+    vec4 edgeColor = vec4(mix(color1, color2, stripe), 1);
 
-    // Final opacity: fade * 0.5
-    return mix(baseColor, edgeColor, fade * 0.2);
-    // return vec4(1, 0, 1, 1);  // magenta for testing
+    // Final opacity: fade * 0.25
+    return mix(baseColor, edgeColor, fade * 0.25);
+}
+
+vec4 texel_boundaries(vec4 baseColor, vec2 texelCoord) {
+    return show_boundaries(baseColor, texelCoord,
+            0.7,  // edge thickness
+            vec3(0, 0, 0.4), vec3(1, 1, 0.6)  // color1, color2
+    );
 }
 
 vec4 clip_n_filter(sampler2D image, vec2 tc, int pixelFilter, bool wrap)

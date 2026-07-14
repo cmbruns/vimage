@@ -320,6 +320,8 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         self.actionCopy.setEnabled(True)
         self.actionSelect_Rectangle.setEnabled(image.input_format == InputFormat.STANDARD_PHOTO)
         self.actionSelect_None.trigger()
+        self.actionZoom_In.setEnabled(True)
+        self.actionZoom_Out.setEnabled(True)
         # self.imageWidgetGL.update()
 
     @QtCore.Slot(str)  # noqa
@@ -747,6 +749,18 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
     @QtCore.Slot()  # noqa
     def on_actionView_Log_triggered(self):  # noqa
         self.log_window.show()
+
+    @QtCore.Slot()  # noqa
+    def on_actionZoom_In_triggered(self):
+        wgl = self.imageWidgetGL
+        wgl.view_state.zoom_relative(1.10, None)
+        wgl.update()
+
+    @QtCore.Slot()  # noqa
+    def on_actionZoom_Out_triggered(self):
+        wgl = self.imageWidgetGL
+        wgl.view_state.zoom_relative(1.0/1.10, None)
+        wgl.update()
 
     @QtCore.Slot(ImageLike)  # noqa
     def image_displayed(self, image: ImageLike):

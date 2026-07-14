@@ -440,9 +440,6 @@ class Tile(TileLike):
                 ],
                 dtype=numpy.float32,
             ).flatten()
-            print("tile")
-            print(left_omp, top_omp, right_omp, bottom_omp)
-            print(left, top, width, height)
         self.texture_id = None
         self.load_sync = None
         self.left = left
@@ -608,7 +605,6 @@ class DngImage(BasicImageLike):
         assert max_texture_size >= TILE_SIZE
         # Loop over tiles
         h, w = self.bayer_array.shape
-        print(w, h)
         # Bayer image is structurally monochrome
         internal_format = GL.GL_RED
         assert self.bayer_array.dtype == numpy.uint16
@@ -739,7 +735,6 @@ class DngTile(Tile):
             GL.GL_UNSIGNED_SHORT,  # 16 bit
             self.bayer_array,
         )
-        print(self.padded_width, self.padded_height)
 
         # We always want literally exact texel values, and no mipmapping
         GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_NEAREST)
@@ -834,9 +829,6 @@ class DngTile(Tile):
     def paint_gl(self) -> bool:
         """Run in ui thread"""
         print("rendering dng tile")
-        print(self.vertexes)
-        print(self.tile_X_img)
-        print(self.width, self.height)
         if not self.is_ready_for_display():
             return False
         if self.render_vao is None:

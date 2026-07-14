@@ -70,7 +70,7 @@
       <bool>false</bool>
      </property>
      <property name="title">
-      <string>360 Projection</string>
+      <string>Display Projection</string>
      </property>
      <addaction name="actionPerspective"/>
      <addaction name="actionStereographic"/>
@@ -87,25 +87,94 @@
      <addaction name="separator"/>
      <addaction name="actionConfigure_Dual_Fisheye"/>
     </widget>
+    <widget class="QMenu" name="menuDebug">
+     <property name="title">
+      <string>Debug</string>
+     </property>
+     <widget class="QMenu" name="menuTexture_Min_Filter">
+      <property name="title">
+       <string>Texture Min Filter</string>
+      </property>
+      <addaction name="actionNearest"/>
+      <addaction name="actionLinear"/>
+      <addaction name="actionNearest_Mipmap_Nearest"/>
+      <addaction name="actionLinear_Mipmap_Nearest"/>
+      <addaction name="actionNearest_Mipmap_Linear"/>
+      <addaction name="actionLinear_Mipmap_Linear"/>
+     </widget>
+     <widget class="QMenu" name="menuTexture_Mag_Filter">
+      <property name="title">
+       <string>Texture Mag Filter</string>
+      </property>
+      <addaction name="actionNearest_2"/>
+      <addaction name="actionLinear_2"/>
+      <addaction name="actionCatmull_Rom"/>
+     </widget>
+     <widget class="QMenu" name="menuTexture_Wrap_Horizontal">
+      <property name="title">
+       <string>Texture Wrap Horizontal</string>
+      </property>
+      <addaction name="actionClamp_To_Edge"/>
+      <addaction name="actionClamp_To_Border"/>
+      <addaction name="actionMirrored_Repeat"/>
+      <addaction name="actionRepeat"/>
+      <addaction name="actionMirror_Clamp_To_Edge"/>
+     </widget>
+     <widget class="QMenu" name="menuTexture_Wrap_Vertical">
+      <property name="title">
+       <string>Texture Wrap Vertical</string>
+      </property>
+      <addaction name="actionClamp_To_Edge_2"/>
+      <addaction name="actionClamp_To_Border_2"/>
+      <addaction name="actionMirrored_Repeat_2"/>
+      <addaction name="actionRepeat_2"/>
+      <addaction name="actionMirror_Clamp_To_Edge_2"/>
+     </widget>
+     <widget class="QMenu" name="menuTexture_LOD_Bias">
+      <property name="title">
+       <string>Texture LOD Bias</string>
+      </property>
+      <addaction name="actionDecrease_LOD_Bias"/>
+      <addaction name="actionIncrease_LOD_Bias"/>
+     </widget>
+     <addaction name="actionTile_Boundaries"/>
+     <addaction name="actionAnisotropic_Filtering"/>
+     <addaction name="menuTexture_Min_Filter"/>
+     <addaction name="menuTexture_Mag_Filter"/>
+     <addaction name="menuTexture_Wrap_Horizontal"/>
+     <addaction name="menuTexture_Wrap_Vertical"/>
+     <addaction name="menuTexture_LOD_Bias"/>
+    </widget>
+    <widget class="QMenu" name="menuZoom">
+     <property name="title">
+      <string>Zoom</string>
+     </property>
+     <addaction name="actionZoom_In"/>
+     <addaction name="actionZoom_Out"/>
+    </widget>
+    <widget class="QMenu" name="menuBrightness">
+     <property name="title">
+      <string>Brightness</string>
+     </property>
+     <addaction name="actionBrightnessMinus"/>
+     <addaction name="actionBrightnessPlus"/>
+    </widget>
     <addaction name="actionReset_View"/>
     <addaction name="separator"/>
-    <addaction name="actionZoom_In"/>
-    <addaction name="actionZoom_Out"/>
+    <addaction name="menuZoom"/>
+    <addaction name="menuBrightness"/>
     <addaction name="separator"/>
     <addaction name="actionPrevious"/>
     <addaction name="actionNext"/>
     <addaction name="separator"/>
-    <addaction name="actionBrightnessPlus"/>
-    <addaction name="actionBrightnessMinus"/>
-    <addaction name="separator"/>
     <addaction name="actionFull_Screen"/>
     <addaction name="actionSharp"/>
-    <addaction name="actionTile_Boundaries"/>
     <addaction name="separator"/>
     <addaction name="menu360_Projection"/>
     <addaction name="menuInput_Projection"/>
     <addaction name="separator"/>
     <addaction name="actionView_Log"/>
+    <addaction name="menuDebug"/>
    </widget>
    <widget class="QMenu" name="menuHelp">
     <property name="title">
@@ -313,6 +382,9 @@
    </property>
   </action>
   <action name="actionReset_View">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
    <property name="text">
     <string>Reset View</string>
    </property>
@@ -354,7 +426,7 @@
   </action>
   <action name="actionZoom_Out">
    <property name="enabled">
-    <bool>false</bool>
+    <bool>true</bool>
    </property>
    <property name="text">
     <string>Zoom Out</string>
@@ -450,10 +522,196 @@
     <bool>true</bool>
    </property>
    <property name="text">
-    <string>Tile Boundaries</string>
+    <string>Show Tile Boundaries</string>
    </property>
    <property name="shortcut">
     <string>B</string>
+   </property>
+  </action>
+  <action name="actionNearest">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Nearest</string>
+   </property>
+  </action>
+  <action name="actionLinear">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Linear</string>
+   </property>
+  </action>
+  <action name="actionNearest_Mipmap_Nearest">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Nearest, Mipmap Nearest</string>
+   </property>
+  </action>
+  <action name="actionLinear_Mipmap_Nearest">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Linear, Mipmap Nearest</string>
+   </property>
+  </action>
+  <action name="actionNearest_Mipmap_Linear">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Nearest, Mipmap Linear</string>
+   </property>
+  </action>
+  <action name="actionLinear_Mipmap_Linear">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Linear, Mipmap Linear</string>
+   </property>
+  </action>
+  <action name="actionNearest_2">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>false</bool>
+   </property>
+   <property name="text">
+    <string>Nearest</string>
+   </property>
+  </action>
+  <action name="actionLinear_2">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Linear</string>
+   </property>
+  </action>
+  <action name="actionOff_1_0">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Off/1.0</string>
+   </property>
+  </action>
+  <action name="actionMax">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Max</string>
+   </property>
+  </action>
+  <action name="actionClamp_To_Edge">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Clamp To Edge</string>
+   </property>
+  </action>
+  <action name="actionClamp_To_Border">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Clamp To Border</string>
+   </property>
+  </action>
+  <action name="actionMirrored_Repeat">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Mirrored Repeat</string>
+   </property>
+  </action>
+  <action name="actionRepeat">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Repeat</string>
+   </property>
+  </action>
+  <action name="actionMirror_Clamp_To_Edge">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Mirror Clamp To Edge</string>
+   </property>
+  </action>
+  <action name="actionAnisotropic_Filtering">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Anisotropic Filtering</string>
+   </property>
+  </action>
+  <action name="actionCatmull_Rom">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Catmull Rom</string>
+   </property>
+  </action>
+  <action name="actionClamp_To_Edge_2">
+   <property name="text">
+    <string>Clamp To Edge</string>
+   </property>
+  </action>
+  <action name="actionClamp_To_Border_2">
+   <property name="text">
+    <string>Clamp To Border</string>
+   </property>
+  </action>
+  <action name="actionMirrored_Repeat_2">
+   <property name="text">
+    <string>Mirrored Repeat</string>
+   </property>
+  </action>
+  <action name="actionRepeat_2">
+   <property name="text">
+    <string>Repeat</string>
+   </property>
+  </action>
+  <action name="actionMirror_Clamp_To_Edge_2">
+   <property name="text">
+    <string>Mirror Clamp To Edge</string>
+   </property>
+  </action>
+  <action name="actionDecrease_LOD_Bias">
+   <property name="text">
+    <string>Decrease LOD Bias</string>
+   </property>
+  </action>
+  <action name="actionIncrease_LOD_Bias">
+   <property name="text">
+    <string>Increase LOD Bias</string>
    </property>
   </action>
  </widget>
