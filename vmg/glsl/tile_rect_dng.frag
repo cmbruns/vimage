@@ -19,8 +19,6 @@ out vec4 color;
 
 void main()
 {
-    color = vec4(0, 1, 0, 1);
-    return;
 
     vec4 demosaic_color = clip_n_filter(demosaic_tile, p_ttc, pixel_filter, false);
     vec4 bayer_color = texture(bayer_tile, p_ttc);

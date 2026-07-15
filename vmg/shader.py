@@ -196,8 +196,9 @@ class RectangularDngShader(IImageShader):
         self.box_shader = SelectionBoxShader()
         self.uBayerTile = Sampler2DUniform("bayer_tile")
         self.uDemosaicTile = Sampler2DUniform("demosaic_tile")
-        self.tile_X_img_location = None
-        self.uv_bounds_location = None
+        self.tile_X_img_location = -1
+        self.uv_bounds_location = -1
+        self.tile_boundary_shader = TileBoundaryShader()
 
     def initialize_gl(self) -> None:
         try:
@@ -209,27 +210,28 @@ class RectangularDngShader(IImageShader):
                     "shared.frag",
                     "tile_rect_dng.frag",
                 ], GL.GL_FRAGMENT_SHADER)
+            self.shader = GL.glCreateProgram()
+            GL.glAttachShader(self.shader, vertex_shader)
+            GL.glAttachShader(self.shader, fragment_shader)
+            GL.glLinkProgram(self.shader)
+            self.ndc_x_omp_location = GL.glGetUniformLocation(self.shader, "ndc_X_omp")
+            self.sel_rect_omp_location = GL.glGetUniformLocation(self.shader, "sel_rect_omp")
+            self.background_color_location = GL.glGetUniformLocation(self.shader, "background_color")
+            self.pixelFilter_location = GL.glGetUniformLocation(self.shader, "pixel_filter")
+            self.omp_scale_qwn_location = GL.glGetUniformLocation(self.shader, "omp_scale_qwn")
+            self.brightness.get_location(self.shader)
+            self.tile_X_img_location = GL.glGetUniformLocation(self.shader, "tile_X_img")
+            self.uv_bounds_location = GL.glGetUniformLocation(self.shader, "uv_bounds")
+            for uniform in (
+                    self.uBayerTile,
+                    self.uDemosaicTile,
+            ):
+                uniform.get_location(self.shader)
+            self.box_shader.initialize_gl()
+            self.tile_boundary_shader.initialize_gl()
         except BaseException as exc:
-            logger.error(exc)
+            traceback.print_exception(exc)
             raise
-        self.shader = GL.glCreateProgram()
-        GL.glAttachShader(self.shader, vertex_shader)
-        GL.glAttachShader(self.shader, fragment_shader)
-        GL.glLinkProgram(self.shader)
-        self.ndc_x_omp_location = GL.glGetUniformLocation(self.shader, "ndc_X_omp")
-        self.sel_rect_omp_location = GL.glGetUniformLocation(self.shader, "sel_rect_omp")
-        self.background_color_location = GL.glGetUniformLocation(self.shader, "background_color")
-        self.pixelFilter_location = GL.glGetUniformLocation(self.shader, "pixel_filter")
-        self.omp_scale_qwn_location = GL.glGetUniformLocation(self.shader, "omp_scale_qwn")
-        self.brightness.get_location(self.shader)
-        self.tile_X_img_location = GL.glGetUniformLocation(self.shader, "tile_X_img")
-        self.uv_bounds_location = GL.glGetUniformLocation(self.shader, "uv_bounds")
-        for uniform in (
-                self.uBayerTile,
-                self.uDemosaicTile,
-        ):
-            uniform.get_location(self.shader)
-        self.box_shader.initialize_gl()
 
     def paint_gl(self, state: RenderStateLike, image: ImageLike) -> None:
         self.box_shader.paint_gl(state, image)
@@ -241,6 +243,8 @@ class RectangularDngShader(IImageShader):
         GL.glUniform1f(self.omp_scale_qwn_location, state.omp_scale_qwn())
         self.brightness.set(state.brightness)
         image.paint_gl(self)
+        if state.show_tile_boundaries:
+            self.tile_boundary_shader.paint_gl(state, image)
 
 
 class SelectionBoxShader(IImageShader):

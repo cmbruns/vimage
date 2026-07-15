@@ -511,8 +511,6 @@ class Tile(TileLike):
             0, 1, 3, 2,
         ], dtype=numpy.uint32)
         GL.glBufferData(GL.GL_ELEMENT_ARRAY_BUFFER, indices.nbytes, indices, GL.GL_STATIC_DRAW)
-
-
         self.load_sync = GL.glFenceSync(GL.GL_SYNC_GPU_COMMANDS_COMPLETE, 0)
         GL.glFlush()
 
@@ -536,12 +534,17 @@ class Tile(TileLike):
         if not self.is_ready_for_display():
             return False
         GL.glBindTexture(GL.GL_TEXTURE_2D, self.texture_id)
+        # Debuggable texture parameters
         # Anisotropic filtering
         if view_state.anisotropic_filtering:
             aniso = GL.glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT)
         else:
             aniso = 1
         GL.glTexParameterf(GL.GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, aniso)
+        #
+        GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_S, view_state.texture_wrap)
+        GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_T, view_state.texture_wrap)
+        #
         # VAO must be created here, in the render thread
         if self.vao is None:
             self.vao = GL.glGenVertexArrays(1)  # noqa
@@ -596,11 +599,14 @@ class DngImage(BasicImageLike):
         self.bayer_array = self._array
         h, w = self.bayer_array.shape
         self._size_raw = (w, h)
+        self._size_omp = DimensionsOmp(w, h)  # For now...
         if self.bayer_array.dtype != numpy.uint16:
             raise Exception(f"Unexpected dtype {self.bayer_array.dtype}")
         assert len(self.bayer_array.shape) == 2
         #
         self.pil_image = Image.fromarray(self.bayer_array)
+        # TODO metadata
+        self._photometric_scale = PhotometricScale.LINEAR
 
     def initialize_gl(self) -> None:
         """
@@ -675,7 +681,7 @@ class DngImage(BasicImageLike):
             if is_complete and self.load_progress != LoadProgress.DISPLAYED:
                 self.load_progress = LoadProgress.DISPLAYED
                 self.sq.image_displayed.emit(self)  # noqa
-            break  # just one tile for testing
+            # break  # just one tile for testing
 
 
 class DngTile(Tile):
@@ -721,7 +727,6 @@ class DngTile(Tile):
         self.vbo = GL.glGenBuffers(1)  # noqa
         GL.glBindBuffer(GL.GL_ARRAY_BUFFER, self.vbo)
         GL.glBufferData(GL.GL_ARRAY_BUFFER, len(self.vertexes) * sizeof(c_float), self.vertexes, GL.GL_STATIC_DRAW)
-
         self.bayer_texture_id = GL.glGenTextures(1)
         GL.glBindTexture(GL.GL_TEXTURE_2D, self.bayer_texture_id)
         GL.glPixelStorei(GL.GL_UNPACK_ALIGNMENT, 1)  # In case width is odd
@@ -825,20 +830,29 @@ class DngTile(Tile):
         f_largest = GL.glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT)
         GL.glTexParameterf(GL.GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, f_largest)
 
+        # TODO: so much duplicated code
+        self.boundary_ebo = GL.glGenBuffers(1)  # noqa
+        GL.glBindBuffer(GL.GL_ELEMENT_ARRAY_BUFFER, self.boundary_ebo)
+        indices = numpy.array([
+            0, 1, 3, 2,
+        ], dtype=numpy.uint32)
+        GL.glBufferData(GL.GL_ELEMENT_ARRAY_BUFFER, indices.nbytes, indices, GL.GL_STATIC_DRAW)
+
         # Clean up
         GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, 0)
         GL.glBindTexture(GL.GL_TEXTURE_2D, 0)
         self.load_sync = GL.glFenceSync(GL.GL_SYNC_GPU_COMMANDS_COMPLETE, 0)
         GL.glFlush()  # macOS probably
-        logger.info("DNG demosaic complete")
+        logger.debug("DNG demosaic complete")
 
     def paint_gl(self) -> bool:
         """Run in ui thread"""
-        print("rendering dng tile")
         if not self.is_ready_for_display():
             return False
         if self.render_vao is None:
             self.render_vao = GL.glGenVertexArrays(1)
+            self.vao = self.render_vao
+            GL.glBindVertexArray(self.render_vao)
             GL.glBindBuffer(GL.GL_ARRAY_BUFFER, self.vbo)
             f_size = sizeof(c_float)
             GL.glVertexAttribPointer(  # normalized image coordinates
@@ -864,6 +878,11 @@ class DngTile(Tile):
         # TODO bind textures
         GL.glDrawArrays(GL.GL_TRIANGLE_STRIP, 0, 4)  # Tile
         return True
+
+    def paint_boundary(self):
+        GL.glBindVertexArray(self.render_vao)
+        GL.glBindBuffer(GL.GL_ELEMENT_ARRAY_BUFFER, self.boundary_ebo)
+        GL.glDrawElements(GL.GL_LINE_LOOP, 4, GL.GL_UNSIGNED_INT, None)
 
 
 def load_metadata(path):

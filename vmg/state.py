@@ -1,3 +1,4 @@
+from OpenGL import GL
 from math import asin, atan2, cos, degrees, pi, radians, sin
 from typing import Optional
 
@@ -41,6 +42,7 @@ class ViewState(QObject):
         self.asc_omp = 1
         self.show_tile_boundaries = False
         self.anisotropic_filtering = True
+        self.texture_wrap = GL.GL_CLAMP_TO_EDGE
         # self.input_is_linear = False
 
     @property
@@ -440,6 +442,7 @@ class ViewState(QObject):
                 after_omp = self.omp_for_qwn(p_qwn)  # After position
                 dx = after_omp.x - before_omp.x
                 dy = after_omp.y - before_omp.y
-                self._center_rel = self._center_rel - (dx/self._size_omp().x, dy/self._size_omp().y)
+                if self._size_omp().x:
+                    self._center_rel = self._center_rel - (dx/self._size_omp().x, dy/self._size_omp().y)
         if self._input_format() == InputFormat.STANDARD_PHOTO:
             self._clamp_center()

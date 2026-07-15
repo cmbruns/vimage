@@ -1,5 +1,6 @@
 import ctypes
 import locale
+from OpenGL import GL
 from datetime import datetime
 from inspect import cleandoc
 import inspect
@@ -128,6 +129,15 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
             self.actionDual_FisheyeInput,
         ):
             self.input_format_group.addAction(proj)
+        self.wrap_group = QtGui.QActionGroup(self)
+        for wrap in (
+            self.actionClamp_To_Edge,
+            self.actionClamp_To_Border,
+            self.actionMirrored_Repeat,
+            self.actionRepeat,
+            self.actionMirror_Clamp_To_Edge,
+        ):
+            self.wrap_group.addAction(wrap)
         # Add image list progress label to toolbar
         self.list_label = QtWidgets.QLabel("0/0")
         self.list_label.setMinimumWidth(40)
@@ -518,6 +528,28 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         self.imageWidgetGL.update()
         self.statusbar.showMessage(f"EV = {self.imageWidgetGL.view_state.brightness}")
 
+    @QtCore.Slot(bool)  # noqa
+    def on_actionClamp_To_Border_toggled(self, is_checked: bool):  # noqa
+        if not is_checked:
+            return
+        vs = self.imageWidgetGL.view_state
+        val = GL.GL_CLAMP_TO_BORDER
+        if vs.texture_wrap == val:
+            return
+        vs.texture_wrap = val
+        self.imageWidgetGL.update()
+
+    @QtCore.Slot(bool)  # noqa
+    def on_actionClamp_To_Edge_toggled(self, is_checked: bool):  # noqa
+        if not is_checked:
+            return
+        vs = self.imageWidgetGL.view_state
+        val = GL.GL_CLAMP_TO_EDGE
+        if vs.texture_wrap == val:
+            return
+        vs.texture_wrap = val
+        self.imageWidgetGL.update()
+
     @QtCore.Slot()  # noqa
     def on_actionCopy_triggered(self):  # noqa
         # TODO - create a separate container for images...
@@ -597,6 +629,28 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
             self.toolBar.show()
             self.statusbar.show()
             self.showNormal()
+
+    @QtCore.Slot(bool)  # noqa
+    def on_actionMirror_Clamp_To_Edge_toggled(self, is_checked: bool):  # noqa
+        if not is_checked:
+            return
+        vs = self.imageWidgetGL.view_state
+        val = GL.GL_MIRROR_CLAMP_TO_EDGE
+        if vs.texture_wrap == val:
+            return
+        vs.texture_wrap = val
+        self.imageWidgetGL.update()
+
+    @QtCore.Slot(bool)  # noqa
+    def on_actionMirrored_Repeat_toggled(self, is_checked: bool):  # noqa
+        if not is_checked:
+            return
+        vs = self.imageWidgetGL.view_state
+        val = GL.GL_MIRRORED_REPEAT
+        if vs.texture_wrap == val:
+            return
+        vs.texture_wrap = val
+        self.imageWidgetGL.update()
 
     @QtCore.Slot()  # noqa
     def on_actionNext_triggered(self):  # noqa
@@ -700,6 +754,17 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         if self.image_index < 0:
             self.image_index += len(self.image_list)
         self.activate_indexed_image()
+
+    @QtCore.Slot(bool)  # noqa
+    def on_actionRepeat_toggled(self, is_checked: bool):  # noqa
+        if not is_checked:
+            return
+        vs = self.imageWidgetGL.view_state
+        val = GL.GL_REPEAT
+        if vs.texture_wrap == val:
+            return
+        vs.texture_wrap = val
+        self.imageWidgetGL.update()
 
     @QtCore.Slot()  # noqa
     def on_actionReset_View_triggered(self):  # noqa

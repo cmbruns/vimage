@@ -112,23 +112,13 @@
      </widget>
      <widget class="QMenu" name="menuTexture_Wrap_Horizontal">
       <property name="title">
-       <string>Texture Wrap Horizontal</string>
+       <string>Texture Wrap</string>
       </property>
       <addaction name="actionClamp_To_Edge"/>
       <addaction name="actionClamp_To_Border"/>
       <addaction name="actionMirrored_Repeat"/>
       <addaction name="actionRepeat"/>
       <addaction name="actionMirror_Clamp_To_Edge"/>
-     </widget>
-     <widget class="QMenu" name="menuTexture_Wrap_Vertical">
-      <property name="title">
-       <string>Texture Wrap Vertical</string>
-      </property>
-      <addaction name="actionClamp_To_Edge_2"/>
-      <addaction name="actionClamp_To_Border_2"/>
-      <addaction name="actionMirrored_Repeat_2"/>
-      <addaction name="actionRepeat_2"/>
-      <addaction name="actionMirror_Clamp_To_Edge_2"/>
      </widget>
      <widget class="QMenu" name="menuTexture_LOD_Bias">
       <property name="title">
@@ -142,7 +132,6 @@
      <addaction name="menuTexture_Min_Filter"/>
      <addaction name="menuTexture_Mag_Filter"/>
      <addaction name="menuTexture_Wrap_Horizontal"/>
-     <addaction name="menuTexture_Wrap_Vertical"/>
      <addaction name="menuTexture_LOD_Bias"/>
     </widget>
     <widget class="QMenu" name="menuZoom">
