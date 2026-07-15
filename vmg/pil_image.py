@@ -590,11 +590,13 @@ class Tile(TileLike):
 class DngImage(BasicImageLike):
     def __init__(self, file_name: str):
         super().__init__()
+        self._photometric_scale = PhotometricScale.LINEAR
+        self._orientation = ExifOrientation.ROTATE_0
         with tifffile.TiffFile(file_name) as dng:
             page = dng.pages[0]
             self._file_name = file_name
             self.sq.progress_changed.emit(2, self)  # noqa
-            self.load_dng_metadata(dng)
+            self.load_dng_metadata(page)
             self._array = page.asarray()
         self.bayer_array = self._array
         h, w = self.bayer_array.shape
@@ -605,8 +607,6 @@ class DngImage(BasicImageLike):
         assert len(self.bayer_array.shape) == 2
         #
         self.pil_image = Image.fromarray(self.bayer_array)
-        # TODO metadata
-        self._photometric_scale = PhotometricScale.LINEAR
 
     def initialize_gl(self) -> None:
         """
@@ -666,8 +666,38 @@ class DngImage(BasicImageLike):
             top += TILE_SIZE
             top_pad = PAD
 
-    def load_dng_metadata(self, dng: tifffile.TiffFile):
-        pass
+    def load_dng_metadata(self, page):
+        exif_ifd = page.tags.get("ExifTag")
+        print(exif_ifd)
+        if exif_ifd:
+            exif_tags = exif_ifd.value
+            print(exif_tags)
+            if 274 in exif_tags:
+                orientation_index = exif_tags[274].value
+                print(f"orientation {orientation_index}")
+        black = None
+        black_dim = None
+        white = None
+        for tag in page.tags.values():
+            if tag.code == 50714:  # BlackLevel
+                black = tag.value
+            elif tag.code == 50713:  # BlackLevelRepeatDim
+                black_dim = tag.value
+            elif tag.code == 50717:  # WhiteLevel
+                white = tag.value
+        for key in page.tags:
+            print(key)
+        print("BlackLevel:", black)
+        print("BlackLevelRepeatDim:", black_dim)
+        print("WhiteLevel:", white)
+        as_shot_neutral = page.tags['AsShotNeutral'].value
+        print("AsShotNeutral:", as_shot_neutral)
+        color_matrix1 = page.tags['ColorMatrix1'].value
+        print('ColorMatrix1', color_matrix1)
+        # forward_matrix = page.tags['ForwardMatrix1'].value
+        # print('ForwardMatrix1', forward_matrix)
+        baseline_exposure = page.tags['BaselineExposure'].value
+        print('BaselineExposure', baseline_exposure)
 
     def paint_gl(self, program, tile_X_img_location: GLint = -1, uv_bounds_location: GLint = -1) -> None:
         is_complete = True  # start optimistic

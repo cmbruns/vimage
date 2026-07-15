@@ -45,11 +45,27 @@ void main()
     float demosaic_bias = clamp(lod + 6, 0.0, 4.0);  // Blended color between lod 0->1
     color = mix(bayer_color, demosaic_color, demosaic_bias * 0.25);
 
-    // Apply brightness
-    vec4 linear = color;
-    vec4 brightened = vec4(pow(2.0, brightness) * linear.rgb, linear.a);  // apply to linear...
+    // TODO: uniforms for black level etc
+    // These are hard coded from this one image
+    const float max_value = 65535.0;
+    const vec3 black_level = vec3(528.0 / max_value);
+    const vec3 white_level = vec3(4095.0 / max_value);
+    const vec3 as_shot_neutral = vec3(450619520.0/1073741824.0, 1073741824.0/1073741824.0, 669515392.0/1073741824.0);
+    const mat3 color_matrix1 = mat3(
+            1317655680.0/1073741824.0, -585703104.0/1073741824.0, -280555424.0/1073741824.0,
+            -488214944.0/1073741824.0, 1629703168.0/1073741824.0, -45795556.0/1073741824.0,
+            -43956872.0/1073741824.0, 175679488.0/1073741824.0, 634952512.0/1073741824.0);
 
-    color = srgb_from_linear(brightened);
+    color.rgb = (color.rgb - black_level) / (white_level - black_level);
+    color.rgb /= as_shot_neutral;  // apply white balance
+    color.rgb *= color_matrix1;  // convert to XYZ  TODO: correct order?
+    // TODO: the rest of the pipeline is hard.
+    // color.rgb = forward_matrix * color.rgb;
+
+    // Apply brightness
+    color.rgb *= pow(2.0, brightness);
+
+    color = srgb_from_linear(color);
 
     // OK to do texel boundary and selection box composition in sRGB space...
     color = texel_boundaries(color, p_ttc * textureSize(demosaic_tile, 0));
