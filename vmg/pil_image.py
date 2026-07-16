@@ -25,9 +25,8 @@ import tifffile
 
 from vmg.exif_orientation import ExifOrientation
 from vmg.frame import DimensionsOmp
-from vmg.input_format import InputFormat
+from vmg.metadata import InputFormat, PhotometricScale, ImageMetadata
 from vmg.interfaces import ImageLike, TileLike
-from vmg.photometric_scale import PhotometricScale
 from vmg.resources import resource_string
 from vmg.shader import Sampler2DUniform, ViewerUniforms, PanoUniforms, FisheyeUniforms
 
@@ -87,20 +86,10 @@ class ImageSignaller(QtCore.QObject):
 class BasicImageLike(ImageLike):
     def __init__(self):
         self._array = numpy.eye(1)
-        self._file_name: str = ""
+        self.md = ImageMetadata()
         self._tiles: list[TileLike] = []
         self.sq = ImageSignaller()
         self.load_progress = LoadProgress.NONE
-        # Reasonable defaults
-        self.initial_heading_degrees = 0.0
-        self.initial_pitch_degrees = 0.0
-        self.initial_roll_degrees = 0.0
-        self._input_format = InputFormat.STANDARD_PHOTO
-        self._photometric_scale = PhotometricScale.SRGB
-        self._raw_rot_ont = numpy.eye(3, dtype=numpy.float32)
-        self._size_raw = (0, 0)
-        self._size_omp = DimensionsOmp(0, 0)
-        self._orientation = ExifOrientation.ROTATE_0
 
     @property
     def array(self) -> NDArray:
@@ -108,35 +97,35 @@ class BasicImageLike(ImageLike):
 
     @property
     def file_name(self) -> Optional[str]:
-        return self._file_name
+        return self.md.file_name
 
     @property
     def input_format(self) -> InputFormat:
-        return self._input_format
+        return self.md.input_format
 
     @input_format.setter
     def input_format(self, input_format: InputFormat) -> None:
-        self._input_format = input_format
+        self.md.input_format = input_format
 
     @property
     def orientation(self) -> ExifOrientation:
-        return self._orientation
+        return self.md.orientation
 
     @property
     def photometric_scale(self) -> PhotometricScale:
-        return self._photometric_scale
+        return self.md.photometric_scale
 
     @property
     def raw_rot_ont(self) -> NDArray[numpy.floating]:
-        return self._raw_rot_ont
+        return self.md.pcm_R_geo
 
     @property
     def size_omp(self) -> DimensionsOmp:
-        return self._size_omp
+        return self.md.size_opx
 
     @property
     def size_raw(self) -> tuple[int, int]:
-        return self._size_raw
+        return self.md.size_rpx
 
     def initialize_gl(self) -> None:
         raise NotImplementedError
@@ -168,7 +157,7 @@ class PilImage(BasicImageLike):
             pil_image = Image.open(file_name)
         except PIL.UnidentifiedImageError as e:
             raise InappropriateImageLoader() from e
-        self._file_name = file_name
+        self.md.file_name = file_name
         self.sq.progress_changed.emit(2, self)  # noqa
         self.load_pil_metadata(pil_image)
         # self.metadata = load_metadata(file_name)
@@ -257,8 +246,8 @@ class PilImage(BasicImageLike):
 
     def load_pil_metadata(self, pil_image):
         # Size
-        self._size_raw = pil_image.size
-        self._size_omp = pil_image.size  # for now
+        self.md.size_rpx = pil_image.size
+        self.md.size_opx = pil_image.size  # for now
         # Extract exif and xmp metadata
         exif0 = pil_image.getexif()
         exif = {
@@ -284,34 +273,34 @@ class PilImage(BasicImageLike):
             xmp = {}
         # EXIF orientation
         orientation_code: int = exif.get("Orientation", 1)
-        self._orientation = ExifOrientation(orientation_code)
+        self.md.orientation = ExifOrientation(orientation_code)
         raw_rot_omp = rotation_for_exif_orientation.get(
             orientation_code, numpy.eye(2, dtype=numpy.float32))
-        self._size_omp = DimensionsOmp(*[abs(x) for x in (
+        self.md.size_opx = DimensionsOmp(*[abs(x) for x in (
                 raw_rot_omp.T @ self.size_raw)])
         # Input format
         model = exif.get("Model", "").lower()
         w, h = self.size_omp.x, self.size_omp.y
         # All panos we know about have a 2:1 aspect ratio
         if w != h * 2:
-            self._input_format = InputFormat.STANDARD_PHOTO
+            self.md.input_format = InputFormat.STANDARD_PHOTO
         elif model == "sm-c200" and ((w, h) == (7776, 3888) or (w, h) == (5792, 2896)):
             # 2016 Gear 360 raw image is dual fisheye
-            self._input_format = InputFormat.DUAL_FISHEYE
+            self.md.input_format = InputFormat.DUAL_FISHEYE
         elif model.startswith("ricoh theta"):
-            self._input_format = InputFormat.EQUIRECTANGULAR
+            self.md.input_format = InputFormat.EQUIRECTANGULAR
             # TODO theta Z1 raw
         elif model.startswith("qjxj01fj"):  # Xiaomi misphere
             # Raw dual fisheye is a particular size
             if (w, h) != (6912, 3456):
-                self._input_format = InputFormat.EQUIRECTANGULAR
+                self.md.input_format = InputFormat.EQUIRECTANGULAR
             else:
                 # TODO: could be equirect or fisheye. There is no metadata way to be sure.
                 # equirect is least surprise, more discoverable than the other way around
                 # if we had a RAW image (other image type) dual fisheye would be the answer
-                self._input_format = InputFormat.EQUIRECTANGULAR
+                self.md.input_format = InputFormat.EQUIRECTANGULAR
         else:
-            self._input_format = InputFormat.EQUIRECTANGULAR  # TODO: setting?
+            self.md.input_format = InputFormat.EQUIRECTANGULAR  # TODO: setting?
         # raw_rot_ont  panorama camera orientation
         try:
             desc = xmp["xmpmeta"]["RDF"]["Description"]
@@ -338,13 +327,13 @@ class PilImage(BasicImageLike):
                     pose_roll = radians(float(d["PoseRollDegrees"]))
                     is_pano = True
                 if "InitialViewHeadingDegrees" in d:
-                    self.initial_heading_degrees = float(d["InitialViewHeadingDegrees"])
+                    self.md.initial_heading_degrees = float(d["InitialViewHeadingDegrees"])
                     is_pano = True
                 if "InitialViewPitchDegrees" in d:
-                    self.initial_pitch_degrees = float(d["InitialViewPitchDegrees"])
+                    self.md.initial_pitch_degrees = float(d["InitialViewPitchDegrees"])
                     is_pano = True
                 if "InitialViewRollDegrees" in d:
-                    self.initial_roll_degrees = float(d["InitialViewRollDegrees"])
+                    self.md.initial_roll_degrees = float(d["InitialViewRollDegrees"])
                     is_pano = True
             Use360PanoReferenceConvention = False
             if Use360PanoReferenceConvention:
@@ -371,7 +360,7 @@ class PilImage(BasicImageLike):
             ]
             # Initial View
             # TODO incorporate IVW into pipeline separate from GEO
-            self._raw_rot_ont = pcm_rot_geo
+            self.md.pcm_R_geo = pcm_rot_geo
         except (KeyError, TypeError):
             pass
 
@@ -590,18 +579,23 @@ class Tile(TileLike):
 class DngImage(BasicImageLike):
     def __init__(self, file_name: str):
         super().__init__()
-        self._photometric_scale = PhotometricScale.LINEAR
-        self._orientation = ExifOrientation.ROTATE_0
+        self.md.photometric_scale = PhotometricScale.LINEAR
+        self.md.orientation = ExifOrientation.ROTATE_0
         with tifffile.TiffFile(file_name) as dng:
             page = dng.pages[0]
-            self._file_name = file_name
+            # Populate metadata
+            self.md.file_name = file_name
             self.sq.progress_changed.emit(2, self)  # noqa
             self.load_dng_metadata(page)
+            # TODO: replace metadata system with this:
+            self.md.file_name = file_name
+            self.md.load_tifffile_page(page)
+            # Slurp the raw bytes
             self._array = page.asarray()
         self.bayer_array = self._array
         h, w = self.bayer_array.shape
-        self._size_raw = (w, h)
-        self._size_omp = DimensionsOmp(w, h)  # For now...
+        self.md.size_rpx = (w, h)
+        self.md.size_opx = DimensionsOmp(w, h)  # For now...
         if self.bayer_array.dtype != numpy.uint16:
             raise Exception(f"Unexpected dtype {self.bayer_array.dtype}")
         assert len(self.bayer_array.shape) == 2
@@ -686,7 +680,8 @@ class DngImage(BasicImageLike):
             elif tag.code == 50717:  # WhiteLevel
                 white = tag.value
         for key in page.tags:
-            print(key)
+            # print(key)
+            pass
         print("BlackLevel:", black)
         print("BlackLevelRepeatDim:", black_dim)
         print("WhiteLevel:", white)
@@ -696,8 +691,10 @@ class DngImage(BasicImageLike):
         print('ColorMatrix1', color_matrix1)
         # forward_matrix = page.tags['ForwardMatrix1'].value
         # print('ForwardMatrix1', forward_matrix)
-        baseline_exposure = page.tags['BaselineExposure'].value
-        print('BaselineExposure', baseline_exposure)
+        # baseline_exposure = page.tags['BaselineExposure'].value  # not in misphere
+        # print('BaselineExposure', baseline_exposure)
+        # maker_note = page.tags["MakerNote"].value
+        # print(maker_note.decode(errors="replace"))
 
     def paint_gl(self, program, tile_X_img_location: GLint = -1, uv_bounds_location: GLint = -1) -> None:
         is_complete = True  # start optimistic

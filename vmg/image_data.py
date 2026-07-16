@@ -12,10 +12,9 @@ from tifffile import TiffFileError
 
 from vmg.dng import DngImage
 from vmg.frame import DimensionsOmp
-from vmg.input_format import InputFormat
 from vmg.interfaces import ImageLike
-from vmg.photometric_scale import PhotometricScale
-from vmg.texture import Texture, ExifOrientation
+from vmg.texture import Texture
+from vmg.metadata import ExifOrientation, InputFormat, PhotometricScale
 
 logger = logging.getLogger(__name__)
 

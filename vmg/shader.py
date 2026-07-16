@@ -11,7 +11,7 @@ from OpenGL.GL.EXT.texture_filter_anisotropic import GL_MAX_TEXTURE_MAX_ANISOTRO
 
 from vmg.dng_texture import DngTextureAdapter
 from vmg.interfaces import RenderStateLike, ImageLike
-from vmg.photometric_scale import PhotometricScale
+from vmg.metadata import PhotometricScale
 from vmg.resources import resource_string
 from vmg.shader_exception import compile_shader
 from vmg.texture import Tile

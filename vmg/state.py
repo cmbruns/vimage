@@ -10,7 +10,7 @@ from PySide6.QtGui import Qt
 
 from vmg.frame import DimensionsQwn, LocationHpd, LocationObq, LocationNic, LocationOmp, LocationOnt, \
     LocationPrj, LocationQwn, LocationRelative, DimensionsOmp
-from vmg.input_format import InputFormat
+from vmg.metadata import InputFormat
 from vmg.interfaces import ImageLike
 from vmg.pixel_filter import PixelFilter
 from vmg.display_projection import DisplayProjection
@@ -323,8 +323,8 @@ class ViewState(QObject):
         self._zoom = 1.0  # windows per image
         self._center_rel = LocationRelative(0.5, 0.5)
         if self.image is not None:
-            self.view_heading_degrees = self.image.initial_heading_degrees
-            self.view_pitch_degrees = self.image.initial_pitch_degrees
+            self.view_heading_degrees = self.image.md.initial_heading_degrees
+            self.view_pitch_degrees = self.image.md.initial_pitch_degrees
             # Ignoring roll for now; we don't have nor want a view roll control
         else:
             self.view_heading_degrees = 0.0

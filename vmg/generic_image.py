@@ -4,8 +4,7 @@ from math import cos, radians, sin
 import numpy
 from PIL import Image, ExifTags, UnidentifiedImageError
 from vmg.frame import DimensionsOmp
-from vmg.input_format import InputFormat
-from vmg.texture import ExifOrientation
+from vmg.metadata import ExifOrientation, InputFormat
 
 logger = logging.getLogger(__name__)
 

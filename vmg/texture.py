@@ -10,6 +10,7 @@ from OpenGL import GL
 from OpenGL.GL.EXT.texture_filter_anisotropic import GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, GL_TEXTURE_MAX_ANISOTROPY_EXT
 
 from vmg.interfaces import TileLike
+from vmg.metadata import ExifOrientation
 
 # from OpenGL.GL import GLint, GLenum  # Causes inspection errors
 GLint = int
@@ -45,19 +46,6 @@ class LoadProgress(enum.Enum):
     TILES_CREATED = 4
     TILES_UPLOADED = 5
     DISPLAYED = 6
-
-
-class ExifOrientation(enum.Enum):
-    """Names describe the transformation from raw to oriented"""
-    UNSPECIFIED = 0
-    ROTATE_0 = 1
-    FLIP_HORIZONTAL = 2
-    ROTATE_180 = 3
-    FLIP_VERTICAL = 4
-    FLIP_HORIZONTAL_ROTATE_90_CCW = 5
-    ROTATE_90_CW = 6
-    FLIP_HORIZONTAL_ROTATE_90_CW = 7
-    ROTATE_90_CCW = 8
 
 
 def omp_for_rmp(rmp: tuple[int, int], size_rmp: tuple[int, int], orientation: ExifOrientation) -> tuple[int, int]:

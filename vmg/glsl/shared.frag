@@ -170,14 +170,14 @@ vec4 show_boundaries(vec4 baseColor, vec2 texelCoord,
     float stripe = step(0.5, fract((texelCoord.x + texelCoord.y) * 4.0));
     vec4 edgeColor = vec4(mix(color1, color2, stripe), 1);
 
-    // Final opacity: fade * 0.25
-    return mix(baseColor, edgeColor, fade * 0.25);
+    // Final opacity: fade * something
+    return mix(baseColor, edgeColor, fade * 0.4);
 }
 
 vec4 texel_boundaries(vec4 baseColor, vec2 texelCoord) {
     return show_boundaries(baseColor, texelCoord,
-            0.7,  // edge thickness
-            vec3(0, 0, 0.4), vec3(1, 1, 0.6)  // color1, color2
+            1.2,  // edge thickness
+            vec3(0, 0, 0.3), vec3(1, 1, 0.7)  // color1, color2
     );
 }
 

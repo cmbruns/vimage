@@ -24,7 +24,7 @@ from vmg.circular_combo_box import CircularComboBox
 from vmg.command import CropToSelection
 from vmg.image_loader import ImageLoader
 from vmg.interfaces import ImageLike
-from vmg.input_format import InputFormat
+from vmg.metadata import InputFormat
 from vmg.lens_dialog import LensDialog
 from vmg.log import LogDialog
 from vmg.natural_sort import natural_sort_key

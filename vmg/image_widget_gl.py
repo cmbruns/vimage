@@ -13,10 +13,9 @@ from OpenGL import GL
 from PySide6 import QtCore, QtGui, QtOpenGLWidgets, QtWidgets
 from PySide6.QtCore import QEvent, Qt, QPoint
 
-from vmg.input_format import InputFormat
+from vmg.metadata import InputFormat, PhotometricScale
 from vmg.interfaces import ImageLike
 from vmg.offscreen_context import OffscreenContext
-from vmg.photometric_scale import PhotometricScale
 from vmg.selection_box import (CursorHolder)
 from vmg.state import ViewState
 from vmg.shader import IImageShader, SphericalShader, RectangularTileShader, SphericalDngShader, RectangularDngShader

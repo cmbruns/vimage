@@ -68,6 +68,6 @@ void main()
     color = srgb_from_linear(color);
 
     // OK to do texel boundary and selection box composition in sRGB space...
-    color = texel_boundaries(color, p_ttc * textureSize(demosaic_tile, 0));
+    color = texel_boundaries(color, p_ttc * textureSize(bayer_tile, 0));
     color = selection_box(p_omp, color, background_color, sel_rect_omp, omp_scale_qwn);
 }
