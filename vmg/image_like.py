@@ -2,7 +2,7 @@
 Intended as partial Replacement for ImageData, Texture
 """
 
-from ctypes import c_float, c_uint8, c_void_p, cast, sizeof
+from ctypes import c_float, c_void_p, cast, sizeof
 import enum
 import json
 import logging
@@ -28,7 +28,6 @@ from vmg.frame import DimensionsOmp
 from vmg.metadata import InputFormat, PhotometricScale, ImageMetadata
 from vmg.interfaces import ImageLike, TileLike
 from vmg.resources import resource_string
-from vmg.shader import Sampler2DUniform, ViewerUniforms, PanoUniforms, FisheyeUniforms
 
 logger = logging.getLogger(__name__)
 GLenum = int
@@ -534,7 +533,7 @@ class Tile(TileLike):
             return False
         GL.glBindTexture(GL.GL_TEXTURE_2D, self.texture_id)
         # Debuggable texture parameters
-        # Anisotropic filtering
+        # Anisotropic filtering AFTER texture binding
         if view_state.anisotropic_filtering:
             aniso = GL.glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT)
         else:
