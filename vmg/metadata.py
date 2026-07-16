@@ -98,6 +98,7 @@ class ImageMetadata:
                 orientation_index = exif_tags[274].value
                 print(f"orientation {orientation_index}")
                 # TODO
+        self.upper_bound = numpy.iinfo(page.dtype).max
         # black level, white level
         max_value = numpy.iinfo(page.dtype).max
         if debug:

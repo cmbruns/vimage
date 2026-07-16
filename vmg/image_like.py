@@ -624,7 +624,7 @@ class DngImage(BasicImageLike):
         tex_format = GL.GL_R16
         data_type = GL.GL_UNSIGNED_SHORT
         # pad tiles by 2 pixels so cubic interpolation is seamless
-        PAD = 2
+        PAD = 4  # 3, so demosaic has full neighborhood.
         top = 0
         top_pad = 0
         while top < h:
