@@ -13,7 +13,7 @@ from vmg.elapsed_time import ElapsedTime
 from vmg.image_data import ImageData
 from vmg.interfaces import ImageLike
 from vmg.offscreen_context import OffscreenContext
-from vmg.pil_image import PilImage, InappropriateImageLoader, DngImage
+from vmg.image_like import PilImage, InappropriateImageLoader, DngImage
 from vmg.texture import Texture
 
 
