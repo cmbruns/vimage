@@ -39,12 +39,16 @@ TILE_SIZE = 512
 
 
 class LoadProgress(enum.Enum):
-    NONE = 1
-    METADATA_LOADED = 2
-    ARRAYS_CREATED = 3
-    TILES_CREATED = 4
-    TILES_UPLOADED = 5
-    DISPLAYED = 6
+    """Values are estimates of percent complete"""
+    NONE = 0
+    OBJECT_CREATED = 2
+    FILE_OPENED = 4
+    METADATA_LOADED = 15
+    ARRAY_CREATED = 40
+    TILES_CREATED = 65
+    TILES_UPLOADED = 90
+    DISPLAYED = 100
+    ERROR = -999
 
 
 gl_type_for_numpy_dtype = {
@@ -85,10 +89,12 @@ class ImageSignaller(QtCore.QObject):
 
 class BasicImageLike(ImageLike):
     def __init__(self):
+        self.sq = ImageSignaller()
+        self.set_progress(LoadProgress.OBJECT_CREATED)
+        logger.info("Image object created")
         self._array = numpy.eye(1)
         self.md = ImageMetadata()
         self._tiles: list[TileLike] = []
-        self.sq = ImageSignaller()
         self.load_progress = LoadProgress.NONE
 
     @property
@@ -118,6 +124,10 @@ class BasicImageLike(ImageLike):
     @property
     def raw_rot_ont(self) -> NDArray[numpy.floating]:
         return self.md.pcm_R_geo
+
+    def set_progress(self, progress: LoadProgress):
+        self.load_progress = progress
+        self.sq.progress_changed.emit(progress.value, self)  # noqa
 
     @property
     def size_omp(self) -> DimensionsOmp:
@@ -580,18 +590,16 @@ class DngImage(BasicImageLike):
     def __init__(self, file_name: str):
         super().__init__()
         self.md.photometric_scale = PhotometricScale.LINEAR
-        self.md.orientation = ExifOrientation.ROTATE_0
         with tifffile.TiffFile(file_name) as dng:
+            self.set_progress(LoadProgress.FILE_OPENED)
             page = dng.pages[0]
             # Populate metadata
             self.md.file_name = file_name
-            self.sq.progress_changed.emit(2, self)  # noqa
-            self.load_dng_metadata(page)
-            # TODO: replace metadata system with this:
-            self.md.file_name = file_name
             self.md.load_tifffile_page(page)
+            self.set_progress(LoadProgress.METADATA_LOADED)
             # Slurp the raw bytes
             self._array = page.asarray()
+            self.set_progress(LoadProgress.ARRAY_CREATED)
         self.bayer_array = self._array
         h, w = self.bayer_array.shape
         self.md.size_rpx = (w, h)
@@ -659,42 +667,6 @@ class DngImage(BasicImageLike):
                 left_pad = PAD
             top += TILE_SIZE
             top_pad = PAD
-
-    def load_dng_metadata(self, page):
-        exif_ifd = page.tags.get("ExifTag")
-        print(exif_ifd)
-        if exif_ifd:
-            exif_tags = exif_ifd.value
-            print(exif_tags)
-            if 274 in exif_tags:
-                orientation_index = exif_tags[274].value
-                print(f"orientation {orientation_index}")
-        black = None
-        black_dim = None
-        white = None
-        for tag in page.tags.values():
-            if tag.code == 50714:  # BlackLevel
-                black = tag.value
-            elif tag.code == 50713:  # BlackLevelRepeatDim
-                black_dim = tag.value
-            elif tag.code == 50717:  # WhiteLevel
-                white = tag.value
-        for key in page.tags:
-            # print(key)
-            pass
-        print("BlackLevel:", black)
-        print("BlackLevelRepeatDim:", black_dim)
-        print("WhiteLevel:", white)
-        as_shot_neutral = page.tags['AsShotNeutral'].value
-        print("AsShotNeutral:", as_shot_neutral)
-        color_matrix1 = page.tags['ColorMatrix1'].value
-        print('ColorMatrix1', color_matrix1)
-        # forward_matrix = page.tags['ForwardMatrix1'].value
-        # print('ForwardMatrix1', forward_matrix)
-        # baseline_exposure = page.tags['BaselineExposure'].value  # not in misphere
-        # print('BaselineExposure', baseline_exposure)
-        # maker_note = page.tags["MakerNote"].value
-        # print(maker_note.decode(errors="replace"))
 
     def paint_gl(self, program, tile_X_img_location: GLint = -1, uv_bounds_location: GLint = -1) -> None:
         is_complete = True  # start optimistic
