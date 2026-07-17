@@ -41,7 +41,8 @@ void main()
         discard;
 
     // How many digits to show?
-    float num_digits = ceil(log(data_max) / log(10.0));
+    float base = 16.0;  // prepare for hex display
+    float num_digits = ceil(log(format_max) / log(base));
 
     // Width of a single digit, in image pixels
     float w = (right_margin - left_margin) / num_digits;
@@ -85,7 +86,7 @@ void main()
 
     vec4 intensity_v = texture(tile, p_ttc);
 
-    // Not needed because all vimage pixel values are raw.
+    // Not needed because all vimage texture values are as-found.
     // if (srgb_gamma)
     //     intensity_v = sRGB_gamma_correct(intensity_v);
 
@@ -93,20 +94,27 @@ void main()
 
     float intensity = intensity_v[c];
 
-    float p = pow(10.0, tens_place);
-    if (tens_place > 0.0 && intensity < p)
+    const bool zero_pad_left = true;
+    float p = pow(base, tens_place);
+    if (tens_place > 0.0 && intensity < p && !zero_pad_left)
         discard; // number does not have this many digits
 
-    float digit = floor(10.0 * fract(intensity / (10.0 * p)));
+    float digit = floor(base * fract(intensity / (base * p)));
 
-    vec4 pixel = texture(numerals, vec2(0.1 * (digit + dx), dy));
+    // compensate for imperfections of this particular numeral texture
+    // hex_digits_df.png (used for both hex and decimal display)
+    const float fudge_scale = 0.998;  // Increase to move "9" or "F" to the left
+    const float fudge_offset = 0.010;  // Increase to move "0" to the left
+    const float stride = fudge_scale * 1.0 / 16.0;  // 16 characters in atlas, plus fudge factor
+    const float tracking = 0.88;  // lower to push numerals closer together
+    vec4 pixel = texture(numerals, vec2(fudge_offset + stride * (digit + tracking * dx), dy));
 
     // antialiasing
     // float radius = 18.0 * texels_per_pixel;
     float radius = 2500.0 * abs(dFdx(p_ttc.x))/w; // optional, slower
 
     const float l0 = 0.50; // outer edge of white outline
-    const float l1 = 0.53; // inner border between white outline and black middle
+    const float l1 = 0.65; // inner border between white outline and black middle
 
     if (pixel.r < (l0 - radius))
         discard; // way outside numeral
@@ -134,5 +142,5 @@ void main()
     vec3 color     = mix(border_color, center_color, wb_ratio);
     float alpha    = smoothstep(l0 - radius, l0 + radius, pixel.r);
 
-    fragColor = vec4(color, alpha * fade);
+    fragColor = vec4(color, 0.75 * alpha * fade);
 }

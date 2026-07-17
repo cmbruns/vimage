@@ -192,7 +192,6 @@ class PilImage(BasicImageLike):
             pil_image = pil_image.convert("RGBA")
         self._array = numpy.array(pil_image)
         self.md.data_max = self._array.max()
-        print(f"data max = {self.md.data_max}")
         self.pil_image = pil_image  # TODO: MainWindow needs refactor
 
     def initialize_gl(self) -> None:

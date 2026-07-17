@@ -52,6 +52,7 @@ class ImageMetadata:
         self.size_rpx = (1, 1)  # raw array size
         self.camera_model = None
         self.orientation = ExifOrientation.ROTATE_0
+        self.rpx_R_opx = numpy.eye(2, dtype=numpy.float32)
         self.input_format = InputFormat.STANDARD_PHOTO
         self.photometric_scale = PhotometricScale.SRGB
         self.upper_bound = 255
@@ -159,8 +160,9 @@ class ImageMetadata:
         orientation_code: int = exif.get("Orientation", 1)
         self.orientation = ExifOrientation(orientation_code)
         logger.debug(f"Image EXIF orientation = {self.orientation}")
-        rpx_X_opx = rotation_for_exif_orientation.get(orientation_code, numpy.eye(2, dtype=numpy.float32))
-        self.size_opx = DimensionsOmp(*[abs(x) for x in (rpx_X_opx.T @ self.size_rpx)])
+        self.rpx_R_opx = rotation_for_exif_orientation.get(orientation_code, numpy.eye(2, dtype=numpy.float32))
+        print(self.rpx_R_opx)
+        self.size_opx = DimensionsOmp(*[abs(x) for x in (self.rpx_R_opx.T @ self.size_rpx)])
         w, h = self.size_opx
         model = exif.get("Model", "").lower()
         logger.debug(f"Camera model = '{model}'")

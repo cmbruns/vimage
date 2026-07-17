@@ -33,10 +33,10 @@ void main()
     bool rowEven = (img_texel.y & 1) == 0;
     bool colEven = (img_texel.x & 1) == 0;
     // RGGB Bayer pattern
-    if      ( rowEven &&  colEven) bayer_color = bayer_color * vec4(4, 0, 0, 1);  // red
-    else if ( rowEven && !colEven) bayer_color = bayer_color * vec4(0, 2, 0, 1);  // green
-    else if (!rowEven &&  colEven) bayer_color = bayer_color * vec4(0, 2, 0, 1);  // green
-    else if (!rowEven && !colEven) bayer_color = bayer_color * vec4(0, 0, 4, 1);  // blue
+    if      ( rowEven &&  colEven) bayer_color = bayer_color * vec4(1, 0, 0, 1);  // red
+    else if ( rowEven && !colEven) bayer_color = bayer_color * vec4(0, 1, 0, 1);  // green
+    else if (!rowEven &&  colEven) bayer_color = bayer_color * vec4(0, 1, 0, 1);  // green
+    else if (!rowEven && !colEven) bayer_color = bayer_color * vec4(0, 0, 1, 1);  // blue
 
     // Blend bayer and demosaicked depending on mipmap level
     // At high zoom the user sees the pure raw DNG mosaic.

@@ -139,7 +139,7 @@ class NumeralShader(IImageShader):
         self.uChannelCount = Uniform("channel_count", GL.glUniform1i)
         self.uFormatMax = Uniform("format_max", GL.glUniform1f)
         self.uDataMax = Uniform("data_max", GL.glUniform1f)
-        with resource_stream("vmg.images", "digits_df2.png") as df:
+        with resource_stream("vmg.images", "hex_digits_df.png") as df:
             numeral_pil = Image.open(df)
             self.numeral_array = numpy.array(numeral_pil)
 
