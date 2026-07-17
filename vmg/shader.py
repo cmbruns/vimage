@@ -2,9 +2,11 @@ import traceback
 
 import abc
 import logging
+from PIL import Image
 from math import radians
 from typing import Callable, OrderedDict
 
+import numpy
 from OpenGL import GL
 from OpenGL.GL.shaders import compileProgram, compileShader
 from OpenGL.GL.EXT.texture_filter_anisotropic import GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, GL_TEXTURE_MAX_ANISOTROPY_EXT
@@ -12,7 +14,7 @@ from OpenGL.GL.EXT.texture_filter_anisotropic import GL_MAX_TEXTURE_MAX_ANISOTRO
 from vmg.dng_texture import DngTextureAdapter
 from vmg.interfaces import RenderStateLike, ImageLike
 from vmg.metadata import PhotometricScale
-from vmg.resources import resource_string
+from vmg.resources import resource_stream, resource_string
 from vmg.shader_exception import compile_shader
 from vmg.texture import Tile
 
@@ -126,6 +128,68 @@ class DemosaicShader(IImageShader):
         GL.glUseProgram(self.program)
 
 
+class NumeralShader(IImageShader):
+    """Paints numeric intensity values onto very zoomed in pixels"""
+    def __init__(self):
+        self.program = None
+        self.numeral_texture_id = None
+        self.uNdc_X_omp = Uniform("ndc_X_omp", GL.glUniformMatrix3fv)
+        self.uTile = Sampler2DUniform("tile")
+        self.uNumerals = Sampler2DUniform("numerals")
+        with resource_stream("vmg.images", "digits_df2.png") as df:
+            numeral_pil = Image.open(df)
+            self.numeral_array = numpy.array(numeral_pil)
+
+    def initialize_gl(self) -> None:
+        # Texturize numeral signed distance field
+        self.numeral_texture_id = GL.glGenTextures(1)
+        GL.glBindTexture(GL.GL_TEXTURE_2D, self.numeral_texture_id)
+        assert len(self.numeral_array.shape) == 2  # monochrome
+        GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_SWIZZLE_G, GL.GL_RED)
+        GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_SWIZZLE_B, GL.GL_RED)
+        h, w = self.numeral_array.shape
+        GL.glTexImage2D(
+            GL.GL_TEXTURE_2D,
+            0,
+            GL.GL_RED,
+            w, h,
+            0,
+            GL.GL_RED,
+            GL.GL_UNSIGNED_BYTE,
+            self.numeral_array,
+        )
+        GL.glGenerateMipmap(GL.GL_TEXTURE_2D)
+        GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_LINEAR)
+        GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_LINEAR_MIPMAP_LINEAR)
+        GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_S, GL.GL_CLAMP_TO_BORDER)
+        GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_T, GL.GL_CLAMP_TO_BORDER)
+
+        self.program = compileProgram(
+            compile_shader("vmg.glsl",
+                           ["tile_rect.vert"], GL.GL_VERTEX_SHADER),
+            compile_shader("vmg.glsl",
+                           [
+                               "shared.frag",
+                               "numeral.frag",
+                           ], GL.GL_FRAGMENT_SHADER),
+        )
+        for u in self.uNdc_X_omp, self.uTile, self.uNumerals:
+            u.get_location(self.program)
+
+    def paint_gl(self, state: RenderStateLike, image: ImageLike) -> None:
+        if self.program is None:
+            self.initialize_gl()
+        GL.glUseProgram(self.program)
+        self.uNdc_X_omp.set(1, True, state.ndc_xform_omp())
+        self.uNumerals.set(1, self.numeral_texture_id)
+        for tile in image.tiles():
+            self.uTile.set(0, tile.texture_id)
+            assert tile.vao is not None
+            # TODO: this is for standard photos only
+            GL.glBindVertexArray(tile.vao)
+            GL.glDrawArrays(GL.GL_TRIANGLE_STRIP, 0, 4)
+
+
 class RectangularTileShader(IImageShader):
     def __init__(self):
         self.shader = None
@@ -141,6 +205,7 @@ class RectangularTileShader(IImageShader):
         self.background_color = [0.5, 0.5, 0.5, 0.5]
         self.box_shader = SelectionBoxShader()
         self.tile_boundary_shader = TileBoundaryShader()
+        self.numeral_shader = NumeralShader()
 
     def initialize_gl(self) -> None:
         try:
@@ -161,6 +226,7 @@ class RectangularTileShader(IImageShader):
             self.input_is_linear.get_location(self.shader)
             self.box_shader.initialize_gl()
             self.tile_boundary_shader.initialize_gl()
+            self.numeral_shader.initialize_gl()
         except BaseException as exc:
             traceback.print_exception(exc)
             raise
@@ -179,6 +245,7 @@ class RectangularTileShader(IImageShader):
         self.brightness.set(state.brightness)
         self.input_is_linear.set(image.photometric_scale == PhotometricScale.LINEAR)
         image.paint_gl(self, state)
+        self.numeral_shader.paint_gl(state, image)
         if state.show_tile_boundaries:
             self.tile_boundary_shader.paint_gl(state, image)
 

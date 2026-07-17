@@ -1,35 +1,34 @@
-#version 410 core
+#pragma include "shared.frag"
 
-uniform sampler2D tileTexture;
-uniform sampler2D numeralTexture;
+uniform sampler2D tile;
+uniform sampler2D numerals;
 
-uniform int   channel_count;        // set from host
-uniform float format_max;
-uniform float data_max;
-uniform bool  srgb_gamma;
-uniform vec2  texture_pixels;       // pixels per texture (or use textureSize)
-uniform float micrometers_per_pixel;
-uniform mat2  rotation;             // set from host (identity if no rotation)
+// TODO: pass in as uniforms
+const int   channel_count = 3;  // set from host
+const float format_max = 255;
+const float data_max = 255;
+// const bool  srgb_gamma = true;  // This might not be needed in vimage.
+// uniform float texels_per_pixel;
+const mat2  rotation = mat2(1);             // set from host (identity if no rotation)
 
 const float left_margin   = 0.1;
 const float right_margin  = 0.9;
 const float top_margin    = 0.9;
 const float bottom_margin = 0.1;
 
-in  vec2 vTexCoord;   // from vertex shader
+in  vec2 p_ttc;   // from vertex shader
 out vec4 fragColor;
-
-// Convert linear RGB component to sRGB gamma corrected color space
-float sRGB_gamma_correct(float c)
-{
-    const float a = 0.055;
-    return (c < 0.0031308) ? 12.92*c : (1.0+a)*pow(c, 1.0/2.4) - a;
-}
 
 void main()
 {
+    float lod = textureQueryLod(tile, p_ttc).y;
+    if (lod > -6)
+        discard;  // not relevant for small pixels
+    float fade = smoothstep(-5.0, -8.0, lod);  // smoothly blend in at high zoom
+
     // pixel-relative texture coordinates
-    vec2 local_coords = fract(texture_pixels * vTexCoord);
+    vec2 texture_pixels = textureSize(tile, 0);
+    vec2 local_coords = fract(texture_pixels * p_ttc);
 
     // rotate numbers
     local_coords -= vec2(0.5);
@@ -86,11 +85,15 @@ void main()
     if (channel_count == 2 && c == 1)
         c = 3;
 
-    float intensity = texture(tileTexture, vTexCoord)[c];
-    if (srgb_gamma)
-        intensity = sRGB_gamma_correct(intensity);
+    vec4 intensity_v = texture(tile, p_ttc);
 
-    intensity = floor(format_max * intensity + 0.5); // exact integer
+    // Not needed because all vimage pixel values are raw.
+    // if (srgb_gamma)
+    //     intensity_v = sRGB_gamma_correct(intensity_v);
+
+    intensity_v = floor(format_max * intensity_v + 0.5); // exact integer
+
+    float intensity = intensity_v[c];
 
     float p = pow(10.0, tens_place);
     if (tens_place > 0.0 && intensity < p)
@@ -98,11 +101,11 @@ void main()
 
     float digit = floor(10.0 * fract(intensity / (10.0 * p)));
 
-    vec4 pixel = texture(numeralTexture, vec2(0.1 * (digit + dx), dy));
+    vec4 pixel = texture(numerals, vec2(0.1 * (digit + dx), dy));
 
     // antialiasing
-    float radius = 18.0 * micrometers_per_pixel;
-    // float radius = 2500.0 * abs(dFdx(vTexCoord.x))/w; // optional, slower
+    // float radius = 18.0 * texels_per_pixel;
+    float radius = 2500.0 * abs(dFdx(p_ttc.x))/w; // optional, slower
 
     const float l0 = 0.50; // outer edge of white outline
     const float l1 = 0.53; // inner border between white outline and black middle
@@ -110,9 +113,28 @@ void main()
     if (pixel.r < (l0 - radius))
         discard; // way outside numeral
 
+    vec3 border_color = vec3(1.0);
+    vec3 center_color = vec3(0.0);
+
+    // tint the numerals per color channel
+    if (channel_count > 1) {
+        if (c == 0) {  // red
+            border_color = vec3(1.0, 0.8, 0.8);
+            center_color = vec3(0.3, 0.0, 0.0);
+        }
+        else if (c == 1) {  // green
+            border_color = vec3(0.8, 1.0, 0.8);
+            center_color = vec3(0.0, 0.2, 0.0);
+        }
+        else if (c == 2) {  // blue
+            border_color = vec3(0.8, 0.8, 1.0);
+            center_color = vec3(0.0, 0.0, 0.4);
+        }
+    }
+
     float wb_ratio = smoothstep(l0 - radius, l1 + radius, pixel.r);
-    vec3 color     = mix(vec3(1.0), vec3(0.0), wb_ratio);
+    vec3 color     = mix(border_color, center_color, wb_ratio);
     float alpha    = smoothstep(l0 - radius, l0 + radius, pixel.r);
 
-    fragColor = vec4(color, alpha);
+    fragColor = vec4(color, alpha * fade);
 }
