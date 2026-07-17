@@ -7,7 +7,6 @@ import enum
 import json
 import logging
 from OpenGL.GL.shaders import compileProgram, compileShader
-from math import cos, radians, sin, degrees
 from typing import Iterator, Optional
 
 import exiftool
@@ -19,7 +18,7 @@ from OpenGL.GL.EXT.texture_filter_anisotropic import (
     GL_TEXTURE_MAX_ANISOTROPY_EXT,
 )
 import PIL
-from PIL import ExifTags, Image
+from PIL import Image
 from PySide6 import QtCore
 import tifffile
 
@@ -159,6 +158,23 @@ class InappropriateImageLoader(OSError):
     pass
 
 
+class TileCreateInfo:
+    """Parameters for creating a renderable image tile"""
+    def __init__(self, image: ImageLike, pad: int=2):
+        self.image: ImageLike = image
+        self.left: int = 0
+        self.top: int = 0
+        self.width: int = 0
+        self.height: int = 0
+        self.left_pad: int = pad
+        self.top_pad: int = pad
+        self.right_pad: int = pad
+        self.bottom_pad: int = pad
+        self.internal_format: GLenum = GL.GL_RGBA
+        self.tex_format: GLenum = self.internal_format
+        self.data_type: GLenum = GL.GL_UNSIGNED_BYTE
+
+
 class PilImage(BasicImageLike):
     def __init__(self, file_name: str):
         super().__init__()
@@ -169,8 +185,6 @@ class PilImage(BasicImageLike):
         self.md.file_name = file_name
         self.sq.progress_changed.emit(2, self)  # noqa
         self.md.load_pil_image(pil_image)
-        # self.load_pil_metadata(pil_image)  # TODO: use metadata method
-        # self.metadata = load_metadata(file_name)
         # Create numpy array of image
         self.sq.progress_changed.emit(15, self)  # noqa
         # TODO: create a palette shader to avoid munging pixels here
@@ -186,114 +200,29 @@ class PilImage(BasicImageLike):
         Construct tiles to be rendered
         Call from loading thread with OpenGL context current
         """
-        max_texture_size = GL.glGetIntegerv(GL.GL_MAX_TEXTURE_SIZE)  # noqa
-        assert max_texture_size >= TILE_SIZE
-        # Loop over tiles
-        w, h = self.size_raw  # TODO: raw or logical?
-        channel_count = 1
-        if len(self.array.shape) > 2:
-            channel_count = self.array.shape[2]
-        internal_format = internal_format_for_channel_count[channel_count]
-        tex_format = internal_format  # TODO: BGR, GL_RGB16 etc.
-        data_type = gl_type_for_numpy_dtype[self.array.dtype]
-        debug = False
-        if debug:
-            # Set rightmost 4 columns green for testing.
-            arr = self.array
-            arr[:, -4:, 0] = 0  # R
-            arr[:, -4:, 1] = 255  # G
-            arr[:, -4:, 2] = 0  # B
-            # Left 4 columns red
-            arr = self.array
-            arr[:, :4, 0] = 255  # R
-            arr[:, :4, 1] = 0  # G
-            arr[:, :4, 2] = 0  # B
-            # Top 4 rows blue
-            arr[:4, :, 0] = 0  # R
-            arr[:4, :, 1] = 0  # G
-            arr[:4, :, 2] = 255  # B
-        # pad tiles by 2 pixels so cubic interpolation is seamless
-        PAD = 2
-        top = 0
-        top_pad = 0
-        while top < h:
-            # determine height
-            height = min(TILE_SIZE, h - top)
-            # determine bottom_pad
-            if top + TILE_SIZE >= h:
-                bottom_pad = 0
-            else:
-                bottom_pad = min(PAD, h - top - TILE_SIZE)
-            left = 0
-            left_pad = 0
-            while left < w:
-                # determine width
-                width = min(TILE_SIZE, w - left)
-                # determine right pad
-                if left + TILE_SIZE >= w:
-                    right_pad = 0
-                else:
-                    right_pad = min(PAD, w - left - TILE_SIZE)
-                tile = Tile(
-                    image=self,
-                    left=left,
-                    top=top,
-                    width=width,
-                    height=height,
-                    left_pad=left_pad,
-                    top_pad=top_pad,
-                    right_pad=right_pad,
-                    bottom_pad=bottom_pad,
-                    internal_format=internal_format,
-                    tex_format=tex_format,
-                    data_type=data_type,
-                )
-                self._tiles.append(tile)
-                tile.initialize_gl()
-                # advance
-                left += TILE_SIZE
-                left_pad = PAD
-            top += TILE_SIZE
-            top_pad = PAD
+        for tile in generate_tiles(self):
+            self._tiles.append(tile)
 
 
 class Tile(TileLike):
-    def __init__(
-            self,
-            image: ImageLike,
-            # portion of the image covered by this tile
-            left: int,
-            top: int,
-            width: int,
-            height: int,
-            left_pad: int,
-            top_pad: int,
-            right_pad: int,
-            bottom_pad: int,
-            internal_format: GLenum,
-            tex_format: GLenum,
-            data_type: GLenum,
-    ):
-        self.image = image
-        self.internal_format = internal_format
-        self.tex_format = tex_format
-        self.data_type = data_type
+    def __init__(self, tci: TileCreateInfo):
+        self.tci = tci
         self.vao = None
         self.vbo = None
-        self.padded_width = width + left_pad + right_pad
-        self.padded_height = height + top_pad + bottom_pad
+        self.padded_width = tci.width + tci.left_pad + tci.right_pad
+        self.padded_height = tci.height + tci.top_pad + tci.bottom_pad
         # Convert to oriented image pixel coordinates (omp)
-        left_rmp = left
-        right_rmp = left_rmp + width
-        top_rmp = top
-        bottom_rmp = top_rmp + height
-        left_omp, top_omp = omp_for_rmp((left_rmp, top_rmp), image.size_raw, image.orientation)
-        right_omp, bottom_omp = omp_for_rmp((right_rmp, bottom_rmp), image.size_raw, image.orientation)
-        left_tc = left_pad / self.padded_width
-        right_tc = 1 - right_pad / self.padded_width
-        top_tc = top_pad / self.padded_height
-        bottom_tc = 1 - bottom_pad / self.padded_height
-        if image.orientation in [
+        left_rmp = tci.left
+        right_rmp = left_rmp + tci.width
+        top_rmp = tci.top
+        bottom_rmp = top_rmp + tci.height
+        left_omp, top_omp = omp_for_rmp((left_rmp, top_rmp), tci.image.size_raw, tci.image.orientation)
+        right_omp, bottom_omp = omp_for_rmp((right_rmp, bottom_rmp), tci.image.size_raw, tci.image.orientation)
+        left_tc = tci.left_pad / self.padded_width
+        right_tc = 1 - tci.right_pad / self.padded_width
+        top_tc = tci.top_pad / self.padded_height
+        bottom_tc = 1 - tci.bottom_pad / self.padded_height
+        if tci.image.orientation in [
             ExifOrientation.FLIP_HORIZONTAL_ROTATE_90_CCW,
             ExifOrientation.ROTATE_90_CW,
             ExifOrientation.FLIP_HORIZONTAL_ROTATE_90_CW,
@@ -323,24 +252,18 @@ class Tile(TileLike):
             ).flatten()
         self.texture_id = None
         self.load_sync = None
-        self.left = left
-        self.top = top
-        self.width = width
-        self.left_pad = left_pad
-        self.right_pad = right_pad
-        self.top_pad = top_pad
-        self.height = height
-        iw, ih = image.size_raw
+
+        iw, ih = tci.image.size_raw
         self._tile_X_img = numpy.array([
-            [iw / self.padded_width, 0, -(left - left_pad)/self.padded_width],
-            [0, ih / self.padded_height, -(top - top_pad)/self.padded_height],
+            [iw / self.padded_width, 0, -(tci.left - tci.left_pad)/self.padded_width],
+            [0, ih / self.padded_height, -(tci.top - tci.top_pad)/self.padded_height],
             [0, 0, 1],
         ], dtype=numpy.float32)
         self.uv_bounds = (  # // (u_min, v_min, u_max, v_max)
-            left_pad / self.padded_width,
-            top_pad / self.padded_height,
-            (left_pad + width) / self.padded_width,
-            (top_pad + height) / self.padded_height)
+            tci.left_pad / self.padded_width,
+            tci.top_pad / self.padded_height,
+            (tci.left_pad + tci.width) / self.padded_width,
+            (tci.top_pad + tci.height) / self.padded_height)
         self.boundary_ebo = None
 
     def initialize_gl(self):
@@ -351,25 +274,25 @@ class Tile(TileLike):
         GL.glBindTexture(GL.GL_TEXTURE_2D, self.texture_id)
         GL.glPixelStorei(GL.GL_UNPACK_ALIGNMENT, 1)  # In case width is odd
         # Show monochrome images as gray, not red
-        if self.internal_format == GL.GL_RED:
+        if self.tci.internal_format == GL.GL_RED:
             GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_SWIZZLE_G, GL.GL_RED)
             GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_SWIZZLE_B, GL.GL_RED)
         # TODO: use preferred internal format in image data...
         # row stride required for horizontal tiling
-        iw, ih = self.image.size_raw
+        iw, ih = self.tci.image.size_raw
         GL.glPixelStorei(GL.GL_UNPACK_ROW_LENGTH, iw)
-        GL.glPixelStorei(GL.GL_UNPACK_SKIP_PIXELS, self.left - self.left_pad)
-        GL.glPixelStorei(GL.GL_UNPACK_SKIP_ROWS, self.top - self.top_pad)
+        GL.glPixelStorei(GL.GL_UNPACK_SKIP_PIXELS, self.tci.left - self.tci.left_pad)
+        GL.glPixelStorei(GL.GL_UNPACK_SKIP_ROWS, self.tci.top - self.tci.top_pad)
         GL.glTexImage2D(
             GL.GL_TEXTURE_2D,
             0,
-            self.internal_format,
+            self.tci.internal_format,
             self.padded_width,
             self.padded_height,
             0,
-            self.tex_format,
-            self.data_type,
-            self.image.array,
+            self.tci.tex_format,
+            self.tci.data_type,
+            self.tci.image.array,
         )
         GL.glGenerateMipmap(GL.GL_TEXTURE_2D)
         # Anisotropic filtering
@@ -468,6 +391,60 @@ class Tile(TileLike):
         return self._tile_X_img
 
 
+def generate_tiles(
+        image: ImageLike,
+        tile_size: int = TILE_SIZE,
+        pad: int = 2,
+        tex_format=None,
+        tile_class: type = Tile,
+) -> Iterator[Tile]:
+    max_texture_size = GL.glGetIntegerv(GL.GL_MAX_TEXTURE_SIZE)  # noqa
+    assert max_texture_size >= tile_size
+    # Loop over tiles
+    w, h = (int(x) for x in image.size_raw)
+    channel_count = image.md.channel_count
+    internal_format = internal_format_for_channel_count[channel_count]
+    if tex_format is None:
+        tex_format = internal_format  # TODO: BGR, GL_RGB16 etc.
+    data_type = gl_type_for_numpy_dtype[image.array.dtype]
+    top = 0
+    top_pad = 0
+    while top < h:
+        # determine height
+        height = min(tile_size, h - top)
+        # determine bottom_pad
+        if top + tile_size >= h:
+            bottom_pad = 0
+        else:
+            bottom_pad = min(pad, h - top - tile_size)
+        left = 0
+        left_pad = 0
+        while left < w:
+            tci = TileCreateInfo(image, pad)
+            tci.left = left
+            tci.top = top
+            tci.width = min(tile_size, w - left)
+            tci.height = height
+            tci.left_pad = left_pad
+            tci.top_pad = top_pad
+            if left + tile_size >= w:
+                tci.right_pad = 0
+            else:
+                tci.right_pad = min(pad, w - left - tile_size)
+            tci.bottom_pad = bottom_pad
+            tci.internal_format = internal_format
+            tci.tex_format = tex_format
+            tci.data_type = data_type
+            tile = tile_class(tci)
+            tile.initialize_gl()
+            yield tile
+            # advance
+            left += tile_size
+            left_pad = pad
+        top += tile_size
+        top_pad = pad
+
+
 class DngImage(BasicImageLike):
     def __init__(self, file_name: str):
         super().__init__()
@@ -483,15 +460,7 @@ class DngImage(BasicImageLike):
             self._array = page.asarray()
             self.set_progress(LoadProgress.ARRAY_CREATED)
         self.md.data_max = self._array.max()
-        print(f"data max = {self.md.data_max}")
         self.bayer_array = self._array
-        h, w = self.bayer_array.shape
-        self.md.size_rpx = (w, h)
-        self.md.size_opx = DimensionsOmp(w, h)  # For now...
-        if self.bayer_array.dtype != numpy.uint16:
-            raise Exception(f"Unexpected dtype {self.bayer_array.dtype}")
-        assert len(self.bayer_array.shape) == 2
-        #
         self.pil_image = Image.fromarray(self.bayer_array)
 
     def initialize_gl(self) -> None:
@@ -499,58 +468,14 @@ class DngImage(BasicImageLike):
         Construct tiles to be rendered
         Call from loading thread with OpenGL context current
         """
-        max_texture_size = GL.glGetIntegerv(GL.GL_MAX_TEXTURE_SIZE)  # noqa
-        assert max_texture_size >= TILE_SIZE
-        # Loop over tiles
-        h, w = self.bayer_array.shape
-        # Bayer image is structurally monochrome
-        internal_format = GL.GL_RED
         assert self.bayer_array.dtype == numpy.uint16
-        tex_format = GL.GL_R16
-        data_type = GL.GL_UNSIGNED_SHORT
-        # pad tiles by 2 pixels so cubic interpolation is seamless
-        PAD = 6  # 3, so demosaic has full neighborhood.
-        top = 0
-        top_pad = 0
-        while top < h:
-            # determine height
-            height = min(TILE_SIZE, h - top)
-            # determine bottom_pad
-            if top + TILE_SIZE >= h:
-                bottom_pad = 0
-            else:
-                bottom_pad = min(PAD, h - top - TILE_SIZE)
-            left = 0
-            left_pad = 0
-            while left < w:
-                # determine width
-                width = min(TILE_SIZE, w - left)
-                # determine right pad
-                if left + TILE_SIZE >= w:
-                    right_pad = 0
-                else:
-                    right_pad = min(PAD, w - left - TILE_SIZE)
-                tile = DngTile(
-                    image=self,
-                    left=left,
-                    top=top,
-                    width=width,
-                    height=height,
-                    left_pad=left_pad,
-                    top_pad=top_pad,
-                    right_pad=right_pad,
-                    bottom_pad=bottom_pad,
-                    internal_format=internal_format,
-                    tex_format=tex_format,
-                    data_type=data_type,
-                )
-                self._tiles.append(tile)
-                tile.initialize_gl()
-                # advance
-                left += TILE_SIZE
-                left_pad = PAD
-            top += TILE_SIZE
-            top_pad = PAD
+        for tile in generate_tiles(
+            image=self,
+            pad=6,
+            tex_format=GL.GL_R16,
+            tile_class=DngTile,
+        ):
+            self._tiles.append(tile)
 
     def paint_gl(self, program, tile_X_img_location: GLint = -1, uv_bounds_location: GLint = -1) -> None:
         is_complete = True  # start optimistic
@@ -573,37 +498,11 @@ class DngTile(Tile):
     demosaic_program = None
     demosaic_vao = None
 
-    def __init__(
-            self,
-            image: DngImage,
-            # portion of the image covered by this tile
-            left: int,
-            top: int,
-            width: int,
-            height: int,
-            left_pad: int,
-            top_pad: int,
-            right_pad: int,
-            bottom_pad: int,
-            internal_format: GLenum,
-            tex_format: GLenum,
-            data_type: GLenum,
-    ):
-        super().__init__(image=image,
-                         left=left,
-                         top=top,
-                         width=width,
-                         height=height,
-                         left_pad=left_pad,
-                         top_pad=top_pad,
-                         right_pad=right_pad,
-                         bottom_pad=bottom_pad,
-                         internal_format=internal_format,
-                         tex_format=tex_format,
-                         data_type=data_type)
+    def __init__(self, tci: TileCreateInfo):
+        super().__init__(tci)
         self.bayer_texture_id = None
         self.texture_id = None  # alias for bayer_texture_id
-        self.bayer_array = image.bayer_array
+        self.bayer_array = tci.image.bayer_array
         self.demosaic_texture_id = None
         self.render_vao = None
 
@@ -615,10 +514,10 @@ class DngTile(Tile):
         self.texture_id = self.bayer_texture_id
         GL.glBindTexture(GL.GL_TEXTURE_2D, self.bayer_texture_id)
         GL.glPixelStorei(GL.GL_UNPACK_ALIGNMENT, 1)  # In case width is odd
-        bayer_w, bayer_h = self.image.size_raw
-        GL.glPixelStorei(GL.GL_UNPACK_ROW_LENGTH, bayer_w)
-        GL.glPixelStorei(GL.GL_UNPACK_SKIP_PIXELS, self.left - self.left_pad)
-        GL.glPixelStorei(GL.GL_UNPACK_SKIP_ROWS, self.top - self.top_pad)
+        bayer_w, bayer_h = self.tci.image.size_raw
+        GL.glPixelStorei(GL.GL_UNPACK_ROW_LENGTH, int(bayer_w))
+        GL.glPixelStorei(GL.GL_UNPACK_SKIP_PIXELS, self.tci.left - self.tci.left_pad)
+        GL.glPixelStorei(GL.GL_UNPACK_SKIP_ROWS, self.tci.top - self.tci.top_pad)
 
         GL.glTexImage2D(
             GL.GL_TEXTURE_2D,

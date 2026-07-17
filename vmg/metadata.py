@@ -87,9 +87,9 @@ class ImageMetadata:
                     continue
                 # print(att)
         # SIZE
-        self.size_opx = page.imagewidth, page.imagelength
+        self.size_opx = DimensionsOmp(page.imagewidth, page.imagelength)
         # same, unless we find an exif orientation tag later
-        self.size_rpx = DimensionsOmp(*self.size_opx)
+        self.size_rpx = tuple(int(x) for x in self.size_opx)
         # ORIENTATION (not tested yet)
         exif_ifd = page.tags.get("ExifTag")
         if exif_ifd:
@@ -166,8 +166,6 @@ class ImageMetadata:
         logger.debug(f"Camera model = '{model}'")
         if w != 2 * h:
             self.input_format = InputFormat.STANDARD_PHOTO  # Non-2:1 aspect is always a regular photo
-        elif self.is_dng:
-            self.input_format = InputFormat.DUAL_FISHEYE
         else:
             # 2016 Gear 360 unstitched image has certain sizes
             if model == "sm-c200" and ((w, h) == (7776, 3888) or (w, h) == (5792, 2896)):
