@@ -279,6 +279,7 @@ class RectangularDngShader(IImageShader):
         self.tile_X_img_location = -1
         self.uv_bounds_location = -1
         self.tile_boundary_shader = TileBoundaryShader()
+        self.numeral_shader = NumeralShader()
 
     def initialize_gl(self) -> None:
         try:
@@ -309,6 +310,7 @@ class RectangularDngShader(IImageShader):
                 uniform.get_location(self.shader)
             self.box_shader.initialize_gl()
             self.tile_boundary_shader.initialize_gl()
+            self.numeral_shader.initialize_gl()
         except BaseException as exc:
             traceback.print_exception(exc)
             raise
@@ -323,6 +325,7 @@ class RectangularDngShader(IImageShader):
         GL.glUniform1f(self.omp_scale_qwn_location, state.omp_scale_qwn())
         self.brightness.set(state.brightness)
         image.paint_gl(self)
+        self.numeral_shader.paint_gl(state, image)
         if state.show_tile_boundaries:
             self.tile_boundary_shader.paint_gl(state, image)
 

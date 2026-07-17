@@ -509,7 +509,7 @@ class DngImage(BasicImageLike):
         tex_format = GL.GL_R16
         data_type = GL.GL_UNSIGNED_SHORT
         # pad tiles by 2 pixels so cubic interpolation is seamless
-        PAD = 4  # 3, so demosaic has full neighborhood.
+        PAD = 6  # 3, so demosaic has full neighborhood.
         top = 0
         top_pad = 0
         while top < h:
@@ -602,6 +602,7 @@ class DngTile(Tile):
                          tex_format=tex_format,
                          data_type=data_type)
         self.bayer_texture_id = None
+        self.texture_id = None  # alias for bayer_texture_id
         self.bayer_array = image.bayer_array
         self.demosaic_texture_id = None
         self.render_vao = None
@@ -611,6 +612,7 @@ class DngTile(Tile):
         GL.glBindBuffer(GL.GL_ARRAY_BUFFER, self.vbo)
         GL.glBufferData(GL.GL_ARRAY_BUFFER, len(self.vertexes) * sizeof(c_float), self.vertexes, GL.GL_STATIC_DRAW)
         self.bayer_texture_id = GL.glGenTextures(1)
+        self.texture_id = self.bayer_texture_id
         GL.glBindTexture(GL.GL_TEXTURE_2D, self.bayer_texture_id)
         GL.glPixelStorei(GL.GL_UNPACK_ALIGNMENT, 1)  # In case width is odd
         bayer_w, bayer_h = self.image.size_raw

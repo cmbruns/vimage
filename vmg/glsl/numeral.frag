@@ -21,9 +21,8 @@ out vec4 fragColor;
 void main()
 {
     float lod = textureQueryLod(tile, p_ttc).y;
-    if (lod > -6)
-        discard;  // not relevant for small pixels
     float fade = smoothstep(-5.0, -8.0, lod);  // smoothly blend in at high zoom
+    if (fade <= 0) discard;
 
     // pixel-relative texture coordinates
     vec2 texture_pixels = textureSize(tile, 0);

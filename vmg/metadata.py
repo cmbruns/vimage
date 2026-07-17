@@ -100,10 +100,8 @@ class ImageMetadata:
                 print(f"orientation {orientation_index}")
                 # TODO
         self.upper_bound = numpy.iinfo(page.dtype).max
+        self.channel_count = page.samplesperpixel
         # black level, white level
-        max_value = numpy.iinfo(page.dtype).max
-        if debug:
-            print(max_value)
         for tag in page.tags.values():
             if tag.code == 50714:  # BlackLevel
                 try:
