@@ -136,6 +136,9 @@ class NumeralShader(IImageShader):
         self.uNdc_X_omp = Uniform("ndc_X_omp", GL.glUniformMatrix3fv)
         self.uTile = Sampler2DUniform("tile")
         self.uNumerals = Sampler2DUniform("numerals")
+        self.uChannelCount = Uniform("channel_count", GL.glUniform1i)
+        self.uFormatMax = Uniform("format_max", GL.glUniform1f)
+        self.uDataMax = Uniform("data_max", GL.glUniform1f)
         with resource_stream("vmg.images", "digits_df2.png") as df:
             numeral_pil = Image.open(df)
             self.numeral_array = numpy.array(numeral_pil)
@@ -173,7 +176,14 @@ class NumeralShader(IImageShader):
                                "numeral.frag",
                            ], GL.GL_FRAGMENT_SHADER),
         )
-        for u in self.uNdc_X_omp, self.uTile, self.uNumerals:
+        for u in (
+            self.uNdc_X_omp,
+            self.uTile,
+            self.uNumerals,
+            self.uChannelCount,
+            self.uFormatMax,
+            self.uDataMax,
+        ):
             u.get_location(self.program)
 
     def paint_gl(self, state: RenderStateLike, image: ImageLike) -> None:
@@ -182,6 +192,9 @@ class NumeralShader(IImageShader):
         GL.glUseProgram(self.program)
         self.uNdc_X_omp.set(1, True, state.ndc_xform_omp())
         self.uNumerals.set(1, self.numeral_texture_id)
+        self.uChannelCount.set(image.md.channel_count)
+        self.uFormatMax.set(image.md.upper_bound)
+        self.uDataMax.set(image.md.data_max)
         for tile in image.tiles():
             self.uTile.set(0, tile.texture_id)
             assert tile.vao is not None

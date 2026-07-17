@@ -168,7 +168,8 @@ class PilImage(BasicImageLike):
             raise InappropriateImageLoader() from e
         self.md.file_name = file_name
         self.sq.progress_changed.emit(2, self)  # noqa
-        self.load_pil_metadata(pil_image)
+        self.md.load_pil_image(pil_image)
+        # self.load_pil_metadata(pil_image)  # TODO: use metadata method
         # self.metadata = load_metadata(file_name)
         # Create numpy array of image
         self.sq.progress_changed.emit(15, self)  # noqa
@@ -176,6 +177,8 @@ class PilImage(BasicImageLike):
         if pil_image.mode in ["P",]:  # Palette image
             pil_image = pil_image.convert("RGBA")
         self._array = numpy.array(pil_image)
+        self.md.data_max = self._array.max()
+        print(f"data max = {self.md.data_max}")
         self.pil_image = pil_image  # TODO: MainWindow needs refactor
 
     def initialize_gl(self) -> None:
@@ -252,126 +255,6 @@ class PilImage(BasicImageLike):
                 left_pad = PAD
             top += TILE_SIZE
             top_pad = PAD
-
-    def load_pil_metadata(self, pil_image):
-        # Size
-        self.md.size_rpx = pil_image.size
-        self.md.size_opx = pil_image.size  # for now
-        # Extract exif and xmp metadata
-        exif0 = pil_image.getexif()
-        exif = {
-            PIL.ExifTags.TAGS[k]: v
-            for k, v in exif0.items()
-            if k in PIL.ExifTags.TAGS
-        }
-        for ifd_id in PIL.ExifTags.IFD:
-            try:
-                ifd = exif0.get_ifd(ifd_id)
-                if ifd_id == PIL.ExifTags.IFD.GPSInfo:
-                    resolve = PIL.ExifTags.GPSTAGS
-                else:
-                    resolve = PIL.ExifTags.TAGS
-                for k, v in ifd.items():
-                    tag = resolve.get(k, k)
-                    exif[tag] = v
-            except KeyError:
-                pass
-        try:
-            xmp = pil_image.getxmp()  # noqa
-        except AttributeError:
-            xmp = {}
-        # EXIF orientation
-        orientation_code: int = exif.get("Orientation", 1)
-        self.md.orientation = ExifOrientation(orientation_code)
-        raw_rot_omp = rotation_for_exif_orientation.get(
-            orientation_code, numpy.eye(2, dtype=numpy.float32))
-        self.md.size_opx = DimensionsOmp(*[abs(x) for x in (
-                raw_rot_omp.T @ self.size_raw)])
-        # Input format
-        model = exif.get("Model", "").lower()
-        w, h = self.size_omp.x, self.size_omp.y
-        # All panos we know about have a 2:1 aspect ratio
-        if w != h * 2:
-            self.md.input_format = InputFormat.STANDARD_PHOTO
-        elif model == "sm-c200" and ((w, h) == (7776, 3888) or (w, h) == (5792, 2896)):
-            # 2016 Gear 360 raw image is dual fisheye
-            self.md.input_format = InputFormat.DUAL_FISHEYE
-        elif model.startswith("ricoh theta"):
-            self.md.input_format = InputFormat.EQUIRECTANGULAR
-            # TODO theta Z1 raw
-        elif model.startswith("qjxj01fj"):  # Xiaomi misphere
-            # Raw dual fisheye is a particular size
-            if (w, h) != (6912, 3456):
-                self.md.input_format = InputFormat.EQUIRECTANGULAR
-            else:
-                # TODO: could be equirect or fisheye. There is no metadata way to be sure.
-                # equirect is least surprise, more discoverable than the other way around
-                # if we had a RAW image (other image type) dual fisheye would be the answer
-                self.md.input_format = InputFormat.EQUIRECTANGULAR
-        else:
-            self.md.input_format = InputFormat.EQUIRECTANGULAR  # TODO: setting?
-        # raw_rot_ont  panorama camera orientation
-        try:
-            desc = xmp["xmpmeta"]["RDF"]["Description"]
-            # Normalize to a list
-            if isinstance(desc, dict):
-                desc_list = [desc]
-            else:
-                desc_list = desc
-            is_pano: Optional[bool] = None  # don't know yet
-            pose_heading = 0.0
-            pose_pitch = 0.0
-            pose_roll = 0.0
-            initial_heading = 0.0
-            initial_pitch = 0.0
-            initial_roll = 0.0
-            for d in desc_list:
-                if "PoseHeadingDegrees" in d:
-                    pose_heading = radians(float(d["PoseHeadingDegrees"]))
-                    is_pano = True
-                if "PosePitchDegrees" in d:
-                    pose_pitch = radians(float(d["PosePitchDegrees"]))
-                    is_pano = True
-                if "PoseRollDegrees" in d:
-                    pose_roll = radians(float(d["PoseRollDegrees"]))
-                    is_pano = True
-                if "InitialViewHeadingDegrees" in d:
-                    self.md.initial_heading_degrees = float(d["InitialViewHeadingDegrees"])
-                    is_pano = True
-                if "InitialViewPitchDegrees" in d:
-                    self.md.initial_pitch_degrees = float(d["InitialViewPitchDegrees"])
-                    is_pano = True
-                if "InitialViewRollDegrees" in d:
-                    self.md.initial_roll_degrees = float(d["InitialViewRollDegrees"])
-                    is_pano = True
-            Use360PanoReferenceConvention = False
-            if Use360PanoReferenceConvention:
-                pose_roll = -pose_roll
-            if pose_heading != 0 or pose_pitch != 0 or pose_roll != 0:
-                logger.info(f"Pose heading, pitch, roll = ({degrees(pose_heading)}, {degrees(pose_pitch)}, {degrees(pose_roll)})")
-            # TODO: use new frame shorthands everywhere
-            # https://github.com/cmbruns/vimage/issues/74
-            # Photographer's camera pose
-            pcm_rot_geo = numpy.array([
-                [cos(pose_roll), -sin(pose_roll), 0],
-                [sin(pose_roll), cos(pose_roll), 0],
-                [0, 0, 1],
-            ], dtype=numpy.float32)
-            pcm_rot_geo = pcm_rot_geo @ [
-                [1, 0, 0],
-                [0, cos(pose_pitch), sin(pose_pitch)],
-                [0, -sin(pose_pitch), cos(pose_pitch)],
-            ]
-            pcm_rot_geo = pcm_rot_geo @ [
-                [cos(pose_heading), 0, sin(pose_heading)],
-                [0, 1, 0],
-                [-sin(pose_heading), 0, cos(pose_heading)],
-            ]
-            # Initial View
-            # TODO incorporate IVW into pipeline separate from GEO
-            self.md.pcm_R_geo = pcm_rot_geo
-        except (KeyError, TypeError):
-            pass
 
 
 class Tile(TileLike):
@@ -599,6 +482,8 @@ class DngImage(BasicImageLike):
             # Slurp the raw bytes
             self._array = page.asarray()
             self.set_progress(LoadProgress.ARRAY_CREATED)
+        self.md.data_max = self._array.max()
+        print(f"data max = {self.md.data_max}")
         self.bayer_array = self._array
         h, w = self.bayer_array.shape
         self.md.size_rpx = (w, h)

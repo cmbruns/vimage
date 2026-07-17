@@ -4,11 +4,10 @@ uniform sampler2D tile;
 uniform sampler2D numerals;
 
 // TODO: pass in as uniforms
-const int   channel_count = 3;  // set from host
-const float format_max = 255;
-const float data_max = 255;
-// const bool  srgb_gamma = true;  // This might not be needed in vimage.
-// uniform float texels_per_pixel;
+uniform int   channel_count = 3;  // set from host
+uniform float format_max = 255;
+uniform float data_max = 255;
+
 const mat2  rotation = mat2(1);             // set from host (identity if no rotation)
 
 const float left_margin   = 0.1;

@@ -48,20 +48,22 @@ class ImageMetadata:
         # Reasonable defaults wherever possible
         # General metadata
         self.file_name = None
-        self.size_opx = (1, 1)  # logical size, exif oriented
-        self.size_rpx = DimensionsOmp(1, 1)  # raw array size
+        self.size_opx = DimensionsOmp(1, 1)  # logical size, exif oriented
+        self.size_rpx = (1, 1)  # raw array size
         self.camera_model = None
         self.orientation = ExifOrientation.ROTATE_0
         self.input_format = InputFormat.STANDARD_PHOTO
         self.photometric_scale = PhotometricScale.SRGB
+        self.upper_bound = 255
+        self.channel_count = 3
+        self.data_max = 255  # Set data_max AFTER loading image bytes
         # Pano metadata
         self.initial_heading_degrees = 0.0
         self.initial_pitch_degrees = 0.0
         self.pcm_R_geo = numpy.eye(3, dtype=numpy.float32)
         # Dng metadata
-        self.upper_bound = 255
         self.black_level = 0
-        self.white_level = 256
+        self.white_level = 255
         self.color_matrix1 = numpy.eye(3, dtype=numpy.float32)
         self.as_shot_neutral = (1.0, 1.0, 1.0)
 
@@ -90,7 +92,6 @@ class ImageMetadata:
         self.size_rpx = DimensionsOmp(*self.size_opx)
         # ORIENTATION (not tested yet)
         exif_ifd = page.tags.get("ExifTag")
-        print(exif_ifd)
         if exif_ifd:
             exif_tags = exif_ifd.value
             print(exif_tags)
@@ -130,6 +131,7 @@ class ImageMetadata:
         self.size_rpx = w, h  # Unrotated dimension
         # TODO: move away from DimensionOmp and other frame vectors
         self.size_opx = DimensionsOmp(w, h)
+        self.channel_count = channel_count_for_pil_mode.get(pil_image.mode, 3)
         exif0 = pil_image.getexif()
         exif = {
             ExifTags.TAGS[k]: v
@@ -160,7 +162,7 @@ class ImageMetadata:
         self.orientation = ExifOrientation(orientation_code)
         logger.debug(f"Image EXIF orientation = {self.orientation}")
         rpx_X_opx = rotation_for_exif_orientation.get(orientation_code, numpy.eye(2, dtype=numpy.float32))
-        self.size_opx = tuple([abs(x) for x in (rpx_X_opx.T @ self.size_rpx)])
+        self.size_opx = DimensionsOmp(*[abs(x) for x in (rpx_X_opx.T @ self.size_rpx)])
         w, h = self.size_opx
         model = exif.get("Model", "").lower()
         logger.debug(f"Camera model = '{model}'")
@@ -204,6 +206,19 @@ class ImageMetadata:
     def load_exiftool(self, file_name):
         raise NotImplementedError
 
+
+channel_count_for_pil_mode = {
+    "1": 1,      # bilevel
+    "L": 1,      # 8‑bit grayscale
+    "P": 1,      # palette (indexed)
+    "LA": 2,     # L + alpha
+    "RGB": 3,
+    "RGBA": 4,
+    "CMYK": 4,
+    "YCbCr": 3,
+    "I": 1,      # 32‑bit signed integer
+    "F": 1,      # 32‑bit float
+}
 
 rotation_for_exif_orientation = {
     1: numpy.array([[1, 0], [0, 1]], dtype=numpy.float32),
