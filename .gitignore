@@ -12,3 +12,4 @@
 /vmg/git_hash.txt
 __pycache__
 /.pytest_cache
+/current_test_images

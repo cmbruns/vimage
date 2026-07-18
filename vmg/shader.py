@@ -140,6 +140,7 @@ class NumeralShader(IImageShader):
         self.uFormatMax = Uniform("format_max", GL.glUniform1f)
         self.uDataMax = Uniform("data_max", GL.glUniform1f)
         self.uRotation = Uniform("rotation", GL.glUniformMatrix2fv)
+        self.uPixelNumerals = Uniform("pixel_numerals", GL.glUniform1i)
         with resource_stream("vmg.images", "hex_digits_df.png") as df:
             numeral_pil = Image.open(df)
             self.numeral_array = numpy.array(numeral_pil)
@@ -185,6 +186,7 @@ class NumeralShader(IImageShader):
             self.uFormatMax,
             self.uDataMax,
             self.uRotation,
+            self.uPixelNumerals,
         ):
             u.get_location(self.program)
 
@@ -198,6 +200,7 @@ class NumeralShader(IImageShader):
         self.uFormatMax.set(image.md.upper_bound)
         self.uDataMax.set(image.md.data_max)
         self.uRotation.set(1, False, image.md.rpx_R_opx)
+        self.uPixelNumerals.set(state.pixel_numerals.value)
         for tile in image.tiles():
             self.uTile.set(0, tile.texture_id)
             assert tile.vao is not None

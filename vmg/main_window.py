@@ -27,7 +27,7 @@ from vmg.metadata import InputFormat
 from vmg.lens_dialog import LensDialog
 from vmg.log import LogDialog
 from vmg.natural_sort import natural_sort_key
-from vmg.pixel_filter import PixelFilter
+from vmg.pixel_filter import PixelFilter, PixelNumerals
 from vmg.progress import ProgressStatus, ProgressState
 from vmg.display_projection import DisplayProjection
 from vmg.recent_file import RecentFileList
@@ -137,6 +137,13 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
             self.actionMirror_Clamp_To_Edge,
         ):
             self.wrap_group.addAction(wrap)
+        self.numerals_group = QtGui.QActionGroup(self)
+        for num in (
+            self.actionHexadecimal,
+            self.actionDecimal,
+            self.actionNone,
+        ):
+            self.numerals_group.addAction(num)
         # Add image list progress label to toolbar
         self.list_label = QtWidgets.QLabel("0/0")
         self.list_label.setMinimumWidth(40)
@@ -591,6 +598,16 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         ))
 
     @QtCore.Slot(bool)  # noqa
+    def on_actionDecimal_toggled(self, is_checked: bool):  # noqa
+        if not is_checked:
+            return
+        wgl = self.imageWidgetGL
+        if wgl.view_state.pixel_numerals == PixelNumerals.DECIMAL:
+            return
+        wgl.view_state.pixel_numerals = PixelNumerals.DECIMAL
+        wgl.update()
+
+    @QtCore.Slot(bool)  # noqa
     def on_actionDual_FisheyeInput_toggled(self, is_checked: bool):  # noqa
         if is_checked:
             if self.imageWidgetGL.set_input_format(InputFormat.DUAL_FISHEYE):
@@ -628,6 +645,16 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
             self.toolBar.show()
             self.statusbar.show()
             self.showNormal()
+
+    @QtCore.Slot(bool)  # noqa
+    def on_actionHexadecimal_toggled(self, is_checked: bool):  # noqa
+        if not is_checked:
+            return
+        wgl = self.imageWidgetGL
+        if wgl.view_state.pixel_numerals == PixelNumerals.HEXADECIMAL:
+            return
+        wgl.view_state.pixel_numerals = PixelNumerals.HEXADECIMAL
+        wgl.update()
 
     @QtCore.Slot(bool)  # noqa
     def on_actionMirror_Clamp_To_Edge_toggled(self, is_checked: bool):  # noqa
@@ -679,6 +706,16 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         if self.image_index >= len(self.image_list):
             self.image_index -= len(self.image_list)
         self.activate_indexed_image()
+
+    @QtCore.Slot(bool)  # noqa
+    def on_actionNone_toggled(self, is_checked: bool):  # noqa
+        if not is_checked:
+            return
+        wgl = self.imageWidgetGL
+        if wgl.view_state.pixel_numerals == PixelNumerals.NONE:
+            return
+        wgl.view_state.pixel_numerals = PixelNumerals.NONE
+        wgl.update()
 
     @QtCore.Slot()  # noqa
     def on_actionOpen_triggered(self):  # noqa

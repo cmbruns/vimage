@@ -1,13 +1,18 @@
 #pragma include "shared.frag"
 
+const int NUMERALS_HEXADECIMAL = 1;
+const int NUMERALS_DECIMAL = 2;
+const int NUMERALS_NONE = 3;
+
 uniform sampler2D tile;
 uniform sampler2D numerals;
 
-// TODO: pass in as uniforms
 uniform int   channel_count = 3;  // set from host
 uniform float format_max = 255;
 uniform float data_max = 255;
-uniform mat2 rotation = mat2(1);             // set from host (identity if no rotation)
+uniform mat2 rotation = mat2(1);
+uniform int pixel_numerals = NUMERALS_HEXADECIMAL;  // TODO: uniform
+
 
 const float left_margin   = 0.1;
 const float right_margin  = 0.9;
@@ -19,6 +24,11 @@ out vec4 fragColor;
 
 void main()
 {
+    if (pixel_numerals == NUMERALS_NONE) {
+        discard;
+        return;
+    }
+
     float lod = textureQueryLod(tile, p_ttc).y;
     float fade = smoothstep(-5.0, -8.0, lod);  // smoothly blend in at high zoom
     if (fade <= 0) discard;
@@ -41,6 +51,9 @@ void main()
 
     // How many digits to show?
     float base = 16.0;  // prepare for hex display
+    if (pixel_numerals == NUMERALS_DECIMAL) {
+        base = 10.0;
+    }
     float num_digits = ceil(log(format_max) / log(base));
 
     // Width of a single digit, in image pixels
@@ -93,7 +106,7 @@ void main()
 
     float intensity = intensity_v[c];
 
-    const bool zero_pad_left = true;
+    bool zero_pad_left = pixel_numerals == NUMERALS_HEXADECIMAL;
     float p = pow(base, tens_place);
     if (tens_place > 0.0 && intensity < p && !zero_pad_left)
         discard; // number does not have this many digits
@@ -110,7 +123,7 @@ void main()
 
     // antialiasing
     // float radius = 18.0 * texels_per_pixel;
-    float radius = 2500.0 * abs(dFdx(p_ttc.x))/w; // optional, slower
+    float radius = 3000.0 * abs(dFdx(p_ttc.x))/w; // optional, slower
 
     const float l0 = 0.50; // outer edge of white outline
     const float l1 = 0.65; // inner border between white outline and black middle

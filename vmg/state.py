@@ -12,7 +12,7 @@ from vmg.frame import DimensionsQwn, LocationHpd, LocationObq, LocationNic, Loca
     LocationPrj, LocationQwn, LocationRelative, DimensionsOmp
 from vmg.metadata import InputFormat
 from vmg.interfaces import ImageLike
-from vmg.pixel_filter import PixelFilter
+from vmg.pixel_filter import PixelFilter, PixelNumerals
 from vmg.display_projection import DisplayProjection
 from vmg.selection_box import SelectionBox, CursorHolder
 
@@ -43,6 +43,7 @@ class ViewState(QObject):
         self.show_tile_boundaries = False
         self.anisotropic_filtering = True
         self.texture_wrap = GL.GL_CLAMP_TO_EDGE
+        self.pixel_numerals = PixelNumerals.HEXADECIMAL
         # self.input_is_linear = False
 
     @property
