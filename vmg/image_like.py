@@ -6,7 +6,6 @@ from ctypes import c_float, c_void_p, cast, sizeof
 import enum
 import json
 import logging
-from math import cos, radians, sin
 from typing import Iterator, Optional
 
 import exiftool
@@ -162,7 +161,7 @@ class InappropriateImageLoader(OSError):
 
 class TileCreateInfo:
     """Parameters for creating a renderable image tile"""
-    def __init__(self, image: ImageLike, pad: int=2):
+    def __init__(self, image: ImageLike, pad: int = 2):
         self.image: ImageLike = image
         self.left: int = 0
         self.top: int = 0
@@ -186,8 +185,6 @@ class PilImage(BasicImageLike):
             raise InappropriateImageLoader() from e
         self.md.file_name = file_name
         self.sq.progress_changed.emit(2, self)  # noqa
-        print(id(ExifOrientation))
-        print(id(self.md))
         self.md.load_pil_image(pil_image)  # Breaks exif orientation
         # Create numpy array of image
         self.sq.progress_changed.emit(15, self)  # noqa
@@ -344,7 +341,7 @@ class Tile(TileLike):
         # Debuggable texture parameters
         # Anisotropic filtering AFTER texture binding
         if view_state.anisotropic_filtering:
-            aniso = GL.glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT)
+            aniso = GL.glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT)  # noqa
         else:
             aniso = 1
         GL.glTexParameterf(GL.GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, aniso)
@@ -513,7 +510,7 @@ class DngTile(Tile):
         self.vbo = GL.glGenBuffers(1)  # noqa
         GL.glBindBuffer(GL.GL_ARRAY_BUFFER, self.vbo)
         GL.glBufferData(GL.GL_ARRAY_BUFFER, len(self.vertexes) * sizeof(c_float), self.vertexes, GL.GL_STATIC_DRAW)
-        self.bayer_texture_id = GL.glGenTextures(1)
+        self.bayer_texture_id = GL.glGenTextures(1)  # noqa
         self.texture_id = self.bayer_texture_id
         GL.glBindTexture(GL.GL_TEXTURE_2D, self.bayer_texture_id)
         GL.glPixelStorei(GL.GL_UNPACK_ALIGNMENT, 1)  # In case width is odd
@@ -553,8 +550,8 @@ class DngTile(Tile):
         demosaic_h = max(1, self.padded_height // 2)
         # Create framebuffer
         if self.demosaic_framebuffer is None:
-            self.demosaic_framebuffer = GL.glGenFramebuffers(1)
-            self.demosaic_vao = GL.glGenVertexArrays(1)
+            self.demosaic_framebuffer = GL.glGenFramebuffers(1)  # noqa
+            self.demosaic_vao = GL.glGenVertexArrays(1)  # noqa
             self.demosaic_program = compileProgram(
                 compileShader(
                     resource_string("vmg.glsl", "demosaic.vert"),
@@ -566,7 +563,7 @@ class DngTile(Tile):
         GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, self.demosaic_framebuffer)
 
         # Create demosaic color texture
-        self.demosaic_texture_id = GL.glGenTextures(1)
+        self.demosaic_texture_id = GL.glGenTextures(1)  # noqa
         GL.glBindTexture(GL.GL_TEXTURE_2D, self.demosaic_texture_id)
         GL.glPixelStorei(GL.GL_UNPACK_ALIGNMENT, 1)  # In case width is odd
         # Allocate storage for level 0 of demosaic tile (RGB float)
@@ -614,7 +611,7 @@ class DngTile(Tile):
         GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_NEAREST)
         GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_LINEAR_MIPMAP_LINEAR)
         # Anisotropic filtering
-        f_largest = GL.glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT)
+        f_largest = GL.glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT)  # noqa
         GL.glTexParameterf(GL.GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, f_largest)
 
         # TODO: so much duplicated code
@@ -637,7 +634,7 @@ class DngTile(Tile):
         if not self.is_ready_for_display():
             return False
         if self.render_vao is None:
-            self.render_vao = GL.glGenVertexArrays(1)
+            self.render_vao = GL.glGenVertexArrays(1)  # noqa
             self.vao = self.render_vao
             GL.glBindVertexArray(self.render_vao)
             GL.glBindBuffer(GL.GL_ARRAY_BUFFER, self.vbo)

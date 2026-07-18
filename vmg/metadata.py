@@ -1,11 +1,10 @@
-from typing import Optional
-
 import enum
 import logging
 from math import cos, radians, sin
 
 import numpy
 import PIL
+from PIL import ExifTags
 
 from vmg.exif_orientation import ExifOrientation
 from vmg.frame import DimensionsOmp
@@ -112,13 +111,12 @@ class ImageMetadata:
         assert len(cm) == 18
         a = numpy.array(cm, numpy.float32).reshape(9, 2)
         self.color_matrix1 = (a[:, 0] / a[:, 1]).reshape(3, 3)
-        print('ColorMatrix1', self.color_matrix1)
         # TODO full dng pipeline not done
 
     def load_pil_image(self, pil_image):
         w, h = pil_image.size
         self.size_rpx = w, h  # Unrotated dimension
-        # TODO: move away from DimensionOmp and other frame vectors
+        # TODO: move away from DimensionsOmp and other frame vectors
         self.size_opx = DimensionsOmp(w, h)
         self.channel_count = channel_count_for_pil_mode.get(pil_image.mode, 3)
         exif0 = pil_image.getexif()
