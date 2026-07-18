@@ -5,7 +5,6 @@ import numpy
 from numpy.typing import NDArray
 
 from vmg.display_projection import DisplayProjection
-from vmg.exif_orientation import ExifOrientation
 from vmg.frame import DimensionsOmp
 from vmg.metadata import InputFormat, PhotometricScale
 from vmg.pixel_filter import PixelFilter

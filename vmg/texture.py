@@ -10,7 +10,7 @@ from OpenGL import GL
 from OpenGL.GL.EXT.texture_filter_anisotropic import GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, GL_TEXTURE_MAX_ANISOTROPY_EXT
 
 from vmg.interfaces import TileLike
-from vmg.metadata import ExifOrientation
+from vmg.exif_orientation import ExifOrientation
 
 # from OpenGL.GL import GLint, GLenum  # Causes inspection errors
 GLint = int

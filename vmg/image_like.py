@@ -6,7 +6,7 @@ from ctypes import c_float, c_void_p, cast, sizeof
 import enum
 import json
 import logging
-from OpenGL.GL.shaders import compileProgram, compileShader
+from math import cos, radians, sin
 from typing import Iterator, Optional
 
 import exiftool
@@ -17,14 +17,16 @@ from OpenGL.GL.EXT.texture_filter_anisotropic import (
     GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT,
     GL_TEXTURE_MAX_ANISOTROPY_EXT,
 )
+from OpenGL.GL.shaders import compileProgram, compileShader
 import PIL
 from PIL import Image
 from PySide6 import QtCore
 import tifffile
 
-from vmg.exif_orientation import ExifOrientation
+# from vmg.exif_orientation import ExifOrientation
 from vmg.frame import DimensionsOmp
 from vmg.metadata import InputFormat, PhotometricScale, ImageMetadata
+from vmg.exif_orientation import ExifOrientation
 from vmg.interfaces import ImageLike, TileLike
 from vmg.resources import resource_string
 
@@ -184,7 +186,9 @@ class PilImage(BasicImageLike):
             raise InappropriateImageLoader() from e
         self.md.file_name = file_name
         self.sq.progress_changed.emit(2, self)  # noqa
-        self.md.load_pil_image(pil_image)
+        print(id(ExifOrientation))
+        print(id(self.md))
+        self.md.load_pil_image(pil_image)  # Breaks exif orientation
         # Create numpy array of image
         self.sq.progress_changed.emit(15, self)  # noqa
         # TODO: create a palette shader to avoid munging pixels here

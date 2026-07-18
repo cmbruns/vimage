@@ -1,26 +1,16 @@
+from typing import Optional
+
 import enum
 import logging
 from math import cos, radians, sin
 
 import numpy
-from PIL import ExifTags
+import PIL
 
+from vmg.exif_orientation import ExifOrientation
 from vmg.frame import DimensionsOmp
 
 logger = logging.getLogger(__name__)
-
-
-class ExifOrientation(enum.Enum):
-    """Names describe the transformation from raw to oriented"""
-    UNSPECIFIED = 0
-    ROTATE_0 = 1
-    FLIP_HORIZONTAL = 2
-    ROTATE_180 = 3
-    FLIP_VERTICAL = 4
-    FLIP_HORIZONTAL_ROTATE_90_CCW = 5
-    ROTATE_90_CW = 6
-    FLIP_HORIZONTAL_ROTATE_90_CW = 7
-    ROTATE_90_CCW = 8
 
 
 class InputFormat(enum.Enum):
@@ -51,7 +41,7 @@ class ImageMetadata:
         self.size_opx = DimensionsOmp(1, 1)  # logical size, exif oriented
         self.size_rpx = (1, 1)  # raw array size
         self.camera_model = None
-        self.orientation = ExifOrientation.ROTATE_0
+        self.orientation: ExifOrientation = ExifOrientation.ROTATE_0
         self.rpx_R_opx = numpy.eye(2, dtype=numpy.float32)
         self.input_format = InputFormat.STANDARD_PHOTO
         self.photometric_scale = PhotometricScale.SRGB
@@ -133,17 +123,17 @@ class ImageMetadata:
         self.channel_count = channel_count_for_pil_mode.get(pil_image.mode, 3)
         exif0 = pil_image.getexif()
         exif = {
-            ExifTags.TAGS[k]: v
+            PIL.ExifTags.TAGS[k]: v
             for k, v in exif0.items()
-            if k in ExifTags.TAGS
+            if k in PIL.ExifTags.TAGS
         }
-        for ifd_id in ExifTags.IFD:
+        for ifd_id in PIL.ExifTags.IFD:
             try:
                 ifd = exif0.get_ifd(ifd_id)
-                if ifd_id == ExifTags.IFD.GPSInfo:
-                    resolve = ExifTags.GPSTAGS
+                if ifd_id == PIL.ExifTags.IFD.GPSInfo:
+                    resolve = PIL.ExifTags.GPSTAGS
                 else:
-                    resolve = ExifTags.TAGS
+                    resolve = PIL.ExifTags.TAGS
                 for k, v in ifd.items():
                     tag = resolve.get(k, k)
                     exif[tag] = v
@@ -161,7 +151,6 @@ class ImageMetadata:
         self.orientation = ExifOrientation(orientation_code)
         logger.debug(f"Image EXIF orientation = {self.orientation}")
         self.rpx_R_opx = rotation_for_exif_orientation.get(orientation_code, numpy.eye(2, dtype=numpy.float32))
-        print(self.rpx_R_opx)
         self.size_opx = DimensionsOmp(*[abs(x) for x in (self.rpx_R_opx.T @ self.size_rpx)])
         w, h = self.size_opx
         model = exif.get("Model", "").lower()

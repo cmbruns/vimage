@@ -14,7 +14,8 @@ from vmg.dng import DngImage
 from vmg.frame import DimensionsOmp
 from vmg.interfaces import ImageLike
 from vmg.texture import Texture
-from vmg.metadata import ExifOrientation, InputFormat, PhotometricScale
+from vmg.metadata import InputFormat, PhotometricScale
+from vmg.exif_orientation import ExifOrientation
 
 logger = logging.getLogger(__name__)
 
