@@ -7,8 +7,7 @@ uniform sampler2D numerals;
 uniform int   channel_count = 3;  // set from host
 uniform float format_max = 255;
 uniform float data_max = 255;
-
-const mat2  rotation = mat2(1);             // set from host (identity if no rotation)
+uniform mat2 rotation = mat2(1);             // set from host (identity if no rotation)
 
 const float left_margin   = 0.1;
 const float right_margin  = 0.9;
