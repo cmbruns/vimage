@@ -134,7 +134,7 @@ class ViewState(QObject):
     def hpd_for_ont(p_ont: LocationOnt) -> LocationHpd:
         return LocationHpd(
             degrees(atan2(p_ont.x, -p_ont.z)),
-            degrees(asin(p_ont.y)),
+            degrees(max(-1, min(1, p_ont.y))),
         )
 
     def _input_format(self) -> InputFormat:

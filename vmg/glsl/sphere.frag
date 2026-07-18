@@ -17,10 +17,6 @@ uniform bool input_is_linear = false;
 in vec2 p_nic;
 out vec4 color;
 
-vec2 tct_for_tcr(vec2 tcr) {
-    tcr = tcr - floor(tcr); // Shift to range 0-1
-    return (tile_X_img * vec3(tcr, 1)).xy;
-}
 
 void main()
 {
@@ -63,8 +59,8 @@ void main()
                     p_raw,
                     df_fov_radians,  // fisheye field of view
                     df_lens_rot_radians);  // lens rotation offset
-            vec2 front_tct = tct_for_tcr(pair.front_tc);
-            vec2 rear_tct = tct_for_tcr(pair.rear_tc);
+            vec2 front_tct = tct_for_tcr(tile_X_img, pair.front_tc);
+            vec2 rear_tct = tct_for_tcr(tile_X_img, pair.rear_tc);
             if (pair.front_bias > 0.5) {
                 p_tcr = pair.front_tc;
                 p_tct = front_tct;
@@ -80,7 +76,7 @@ void main()
         case EQUIRECT_INPUT_FORMAT:
         default:
             vec2 p_img_tex = equirect_tex_coord(p_raw);
-            p_tct = tct_for_tcr(p_img_tex);
+            p_tct = tct_for_tcr(tile_X_img, p_img_tex);
             color = clip_n_filter(tile, p_tct, pixelFilter, true);
             break;
     }

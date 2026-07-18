@@ -34,7 +34,7 @@ GLenum = int
 GLint = int
 
 
-TILE_SIZE = 512
+TILE_SIZE = 2048
 
 
 class LoadProgress(enum.Enum):
@@ -491,6 +491,9 @@ class DngImage(BasicImageLike):
                 self.sq.image_displayed.emit(self)  # noqa
             # break  # just one tile for testing
 
+    def tiles(self) -> Iterator[DngTile]:  # TODO: protocol for dng tiles
+        yield from super().tiles()
+
 
 class DngTile(Tile):
     # Loader thread resources:
@@ -623,7 +626,7 @@ class DngTile(Tile):
         GL.glBufferData(GL.GL_ELEMENT_ARRAY_BUFFER, indices.nbytes, indices, GL.GL_STATIC_DRAW)
 
         # Clean up
-        GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, 0)
+        # GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, 0)
         GL.glBindTexture(GL.GL_TEXTURE_2D, 0)
         self.load_sync = GL.glFenceSync(GL.GL_SYNC_GPU_COMMANDS_COMPLETE, 0)
         GL.glFlush()  # macOS probably

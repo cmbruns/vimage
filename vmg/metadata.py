@@ -80,7 +80,7 @@ class ImageMetadata:
         self.size_opx = DimensionsOmp(page.imagewidth, page.imagelength)
         # same, unless we find an exif orientation tag later
         self.size_rpx = tuple(int(x) for x in self.size_opx)
-        # ORIENTATION (not tested yet)
+        # EXIF ORIENTATION (not tested yet)
         exif_ifd = page.tags.get("ExifTag")
         if exif_ifd:
             exif_tags = exif_ifd.value
@@ -89,6 +89,12 @@ class ImageMetadata:
                 orientation_index = exif_tags[274].value
                 print(f"orientation {orientation_index}")
                 # TODO
+        w, h = self.size_opx
+        # Input format  TODO: subtler decision tree
+        if w == 2 * h:
+            self.input_format = InputFormat.DUAL_FISHEYE
+        else:
+            self.input_format = InputFormat.STANDARD_PHOTO
         self.upper_bound = numpy.iinfo(page.dtype).max
         self.channel_count = page.samplesperpixel
         # black level, white level

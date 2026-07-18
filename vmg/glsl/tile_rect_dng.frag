@@ -34,10 +34,10 @@ void main()
     bool colEven = (img_texel.x & 1) == 0;
     // RGGB Bayer pattern - compromise between pure gray and totally saturated
     const float gpt = 0.6;  // gray component of bayer false coloring
-    if      ( rowEven &&  colEven) bayer_color = bayer_color * vec4(1.0, gpt, gpt, 1);  // red
+    if      ( rowEven &&  colEven) bayer_color = bayer_color * vec4(1.0, 0.6, 0.5, 1);  // red
     else if ( rowEven && !colEven) bayer_color = bayer_color * vec4(0.5, 1.0, 0.5, 1);  // green
     else if (!rowEven &&  colEven) bayer_color = bayer_color * vec4(0.5, 1.0, 0.5, 1);  // green
-    else if (!rowEven && !colEven) bayer_color = bayer_color * vec4(0.5, gpt, 1.0, 1);  // blue
+    else if (!rowEven && !colEven) bayer_color = bayer_color * vec4(0.5, 0.6, 1.0, 1);  // blue
 
     // Blend bayer and demosaicked depending on mipmap level
     // At high zoom the user sees the pure raw DNG mosaic.

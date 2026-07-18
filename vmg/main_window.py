@@ -362,6 +362,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
             # Accept all suffixes for supported image types
             if file.suffix.lower() in (
                 ".bmp",
+                ".dng",
                 ".heic",
                 ".heif",
                 ".png",

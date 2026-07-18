@@ -28,6 +28,7 @@ uniform mat3 tile_X_img;
 uniform int display_projection = STEREOGRAPHIC_DISPLAY_PROJECTION;
 uniform mat3 ont_rot_obq = mat3(1);
 uniform mat3 raw_rot_ont = mat3(1);
+uniform vec4 uv_bounds = vec4(0, 0, 1, 1);  // (u_min, v_min, u_max, v_max)
 
 // Dual fisheye only
 uniform float df_fov_radians = radians(195.0);
@@ -36,11 +37,23 @@ uniform float df_lens_rot_radians = 0.0;
 in vec2 p_nic;
 out vec4 color;
 
+bool check_bounds(vec2 p_tct) {
+    return p_tct.x < uv_bounds[0]
+        || p_tct.y < uv_bounds[1]
+        || p_tct.x > uv_bounds[2]
+        || p_tct.y > uv_bounds[3];
+}
+
+vec4 color_sphere(vec3 p) {
+    return vec4(0.5 * (p + vec3(1)), 1);
+}
+
 void main()
 {
     // Convert normalized image screen coordinates (nic) to
     // viewer-space 3D direction (obq)
     vec3 p_obq = obq_for_nic(p_nic, display_projection);
+    if (p_obq == INVALID_OBQ) discard;
 
     // Convert direction to sky-up physical camera world frame (ont),
     // then to physical camera frame 3D direction (raw)
@@ -65,16 +78,29 @@ void main()
         p_tct = rear_tct;
     }
 
+    // Clip to tile
+    bool reject_front = check_bounds(front_tct);
+    bool reject_rear = check_bounds(rear_tct);
+
+    // if (reject_front && reject_rear) discard;
+    if (reject_front && pair.front_bias >= 1.0) discard;
+    if (reject_rear && pair.front_bias <= 0.0) discard;
+
+    float front_bias = pair.front_bias;
+
+    if (reject_front) front_bias = 0.0;
+    if (reject_rear) front_bias = 1.0;
+
     // TODO: allow manual front/rear bias adjustment
 
     vec4 front_color_d = clip_n_filter(demosaic_tile, front_tct, pixelFilter, true);
     vec4 rear_color_d = clip_n_filter(demosaic_tile, rear_tct, pixelFilter, true);
-    vec4 demosaic_color = mix(rear_color_d, front_color_d, pair.front_bias);
+    vec4 demosaic_color = mix(rear_color_d, front_color_d, front_bias);
 
     vec4 front_color_b = texture(bayer_tile, front_tct);
     vec4 rear_color_b = texture(bayer_tile, rear_tct);
     // TODO: should bayer_color have a sharp transition along the seam?
-    vec4 bayer_color = mix(rear_color_b, front_color_b, pair.front_bias);
+    vec4 bayer_color = mix(rear_color_b, front_color_b, front_bias);
 
     // For Bayer mosaic we need to know the parity of this texel
     //   in the full image, not just the tile.
