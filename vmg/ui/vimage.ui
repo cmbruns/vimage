@@ -148,6 +148,14 @@
      <addaction name="actionBrightnessMinus"/>
      <addaction name="actionBrightnessPlus"/>
     </widget>
+    <widget class="QMenu" name="menuPixel_Values">
+     <property name="title">
+      <string>Pixel Values</string>
+     </property>
+     <addaction name="actionHexadecimal"/>
+     <addaction name="actionDecimal"/>
+     <addaction name="actionNone"/>
+    </widget>
     <addaction name="actionReset_View"/>
     <addaction name="separator"/>
     <addaction name="menuZoom"/>
@@ -164,6 +172,7 @@
     <addaction name="separator"/>
     <addaction name="actionView_Log"/>
     <addaction name="menuDebug"/>
+    <addaction name="menuPixel_Values"/>
    </widget>
    <widget class="QMenu" name="menuHelp">
     <property name="title">
@@ -659,6 +668,33 @@
   <action name="actionIncrease_LOD_Bias">
    <property name="text">
     <string>Increase LOD Bias</string>
+   </property>
+  </action>
+  <action name="actionHexadecimal">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Hexadecimal</string>
+   </property>
+  </action>
+  <action name="actionDecimal">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Decimal</string>
+   </property>
+  </action>
+  <action name="actionNone">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>None</string>
    </property>
   </action>
  </widget>
