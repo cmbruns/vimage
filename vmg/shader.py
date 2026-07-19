@@ -12,7 +12,7 @@ from OpenGL.GL.shaders import compileProgram, compileShader
 from OpenGL.GL.EXT.texture_filter_anisotropic import GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, GL_TEXTURE_MAX_ANISOTROPY_EXT
 
 from vmg.interfaces import RenderStateLike, ImageLike
-from vmg.metadata import PhotometricScale
+from vmg.metadata import PhotometricScale, InputFormat
 from vmg.resources import resource_stream, resource_string
 from vmg.shader_exception import compile_shader
 from vmg.texture import Tile, LoadProgress
@@ -379,6 +379,7 @@ class SphericalShader(IImageShader):
         self.uv_bounds_location = None
         self.brightness = Uniform("brightness", GL.glUniform1f)
         self.input_is_linear = Uniform("input_is_linear", GL.glUniform1i)
+        self.uRenderPass = Uniform("render_pass", GL.glUniform1i)
         # TODO dual fisheye parameters should be stored per-camera or whatever
         self.df_fov_radians = radians(195.0)
         self.df_lens_rot_radians = radians(0.0)
@@ -411,7 +412,7 @@ class SphericalShader(IImageShader):
         self.uv_bounds_location = GL.glGetUniformLocation(self.shader, "uv_bounds")
         self.df_fov_radians_location = GL.glGetUniformLocation(self.shader, "df_fov_radians")
         self.df_lens_rot_radians_location = GL.glGetUniformLocation(self.shader, "df_lens_rot_radians")
-        for u in self.brightness, self.input_is_linear:
+        for u in self.brightness, self.input_is_linear, self.uRenderPass:
             u.get_location(self.shader)
 
     def paint_gl(self, state: RenderStateLike, image: ImageLike) -> None:
@@ -435,7 +436,12 @@ class SphericalShader(IImageShader):
         GL.glUniform1f(self.df_lens_rot_radians_location, self.df_lens_rot_radians)
         self.brightness.set(state.brightness)
         self.input_is_linear.set(image.photometric_scale == PhotometricScale.LINEAR)
+        self.uRenderPass.set(1)
         image.paint_gl(self, state)
+        if image.input_format == InputFormat.DUAL_FISHEYE:
+            # second render pass for rear lens
+            self.uRenderPass.set(2)
+            image.paint_gl(self, state)
 
 
 class SphericalDngShader(IImageShader):

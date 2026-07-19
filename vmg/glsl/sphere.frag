@@ -13,6 +13,7 @@ uniform float df_fov_radians = radians(195.0);
 uniform float df_lens_rot_radians = 0.0;
 uniform float brightness = 0.0;
 uniform bool input_is_linear = false;
+uniform int render_pass = 1;  // for tiled dual fisheye
 
 in vec2 p_nic;
 out vec4 color;
@@ -22,30 +23,8 @@ void main()
 {
     // Convert normalized image screen coordinates (nic) to
     // app-view-modified world 3D coordinates (obq)
-    vec3 p_obq;
-    switch(display_projection) {
-        case STEREOGRAPHIC_DISPLAY_PROJECTION:
-            p_obq = stereographic_xyz(p_nic);
-            break;
-        case AZ_EQ_DISPLAY_PROJECTION:
-            if (! azeqd_valid(p_nic)) {
-                color = vec4(0);
-                return;
-            }
-            p_obq = azimuthal_equidistant_xyz(p_nic);
-            break;
-        case GNOMONIC_DISPLAY_PROJECTION:
-            p_obq = gnomonic_xyz(p_nic);
-            break;
-        case EQUIRECT_DISPLAY_PROJECTION:
-        default :
-            if (! equirect_valid(p_nic)) {
-                color = vec4(0);
-                return;
-            }
-            p_obq = equirect_xyz(p_nic);
-            break;
-    }
+    vec3 p_obq = obq_for_nic(p_nic, display_projection);
+    if (p_obq == INVALID_OBQ) discard;
 
     // Convert direction to sky-up world frame (ont), then to camera frame (raw)
     vec3 p_raw = raw_rot_ont * ont_rot_obq * p_obq;
@@ -59,19 +38,21 @@ void main()
                     p_raw,
                     df_fov_radians,  // fisheye field of view
                     df_lens_rot_radians);  // lens rotation offset
-            vec2 front_tct = tct_for_tcr(tile_X_img, pair.front_tc);
-            vec2 rear_tct = tct_for_tcr(tile_X_img, pair.rear_tc);
-            if (pair.front_bias > 0.5) {
-                p_tcr = pair.front_tc;
-                p_tct = front_tct;
+            float alpha = 1.0;
+            if (render_pass == 2)  {
+                alpha = 1.0 - pair.front_bias;
+                p_tcr = pair.rear_tc;
+                if (pair.front_bias >= 1) discard;
             }
             else {
-                p_tcr = pair.rear_tc;
-                p_tct = rear_tct;
+                alpha = 1.0;  // first pass fully overwrites every valid pixel
+                p_tcr = pair.front_tc;
+                if (pair.front_bias <= 0) discard;
             }
-            vec4 front_color = clip_n_filter(tile, front_tct, pixelFilter, true);
-            vec4 rear_color = clip_n_filter(tile, rear_tct, pixelFilter, true);
-            color = mix(rear_color, front_color, pair.front_bias);
+
+            p_tct = tct_for_tcr(tile_X_img, p_tcr);
+            color = clip_n_filter(tile, p_tct, pixelFilter, true);
+            color.a = alpha;
             break;
         case EQUIRECT_INPUT_FORMAT:
         default:
@@ -87,8 +68,7 @@ void main()
         || p_tct.x > uv_bounds[2]
         || p_tct.y > uv_bounds[3])
     {
-        color = vec4(0);
-        return;
+        discard;
     }
 
     // Apply brightness
