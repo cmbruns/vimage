@@ -39,16 +39,17 @@ void main()
                     df_fov_radians,  // fisheye field of view
                     df_lens_rot_radians);  // lens rotation offset
             float alpha = 1.0;
-            if (render_pass == 2)  {
-                alpha = 1.0 - pair.front_bias;
-                p_tcr = pair.rear_tc;
-                if (pair.front_bias >= 1) discard;
-            }
-            else {
+            if (render_pass == 1) {
                 alpha = 1.0;  // first pass fully overwrites every valid pixel
                 p_tcr = pair.front_tc;
                 if (pair.front_bias <= 0) discard;
             }
+            else if (render_pass == 2)  {
+                alpha = 1.0 - pair.front_bias;  // blend second pass
+                p_tcr = pair.rear_tc;
+                if (pair.front_bias >= 1) discard;
+            }
+            else discard;
 
             p_tct = tct_for_tcr(tile_X_img, p_tcr);
             color = clip_n_filter(tile, p_tct, pixelFilter, true);
@@ -62,7 +63,7 @@ void main()
             break;
     }
 
-    // TODO: valid get tile texture bounds from a uniform
+    // TODO: valid get tile texture bounds from a uniform for best filtering
     if (p_tct.x < uv_bounds[0]
         || p_tct.y < uv_bounds[1]
         || p_tct.x > uv_bounds[2]

@@ -33,6 +33,7 @@ uniform vec4 uv_bounds = vec4(0, 0, 1, 1);  // (u_min, v_min, u_max, v_max)
 // Dual fisheye only
 uniform float df_fov_radians = radians(195.0);
 uniform float df_lens_rot_radians = 0.0;
+uniform int render_pass = 1;
 
 in vec2 p_nic;
 out vec4 color;
@@ -61,46 +62,34 @@ void main()
 
     // Look up tile texture coordinate(s)
     vec2 p_tcr;  // Full image texture coordinate
-    vec2 p_tct;  // Tile texture coordinate
     // Always dual fisheye with DNG as far as we know
     TexCoordPair pair = dual_fisheye_tex_coord(
             p_raw,
             df_fov_radians,  // fisheye field of view
             df_lens_rot_radians);  // lens rotation offset
-    vec2 front_tct = tct_for_tcr(tile_X_img, pair.front_tc);
-    vec2 rear_tct = tct_for_tcr(tile_X_img, pair.rear_tc);
-    if (pair.front_bias > 0.5) {
+    float alpha = 1.0;
+    if (render_pass == 1) {
+        alpha = 1.0;  // first pass fully overwrites every valid pixel
         p_tcr = pair.front_tc;
-        p_tct = front_tct;
+        if (pair.front_bias <= 0) discard;
     }
-    else {
+    else if (render_pass == 2)  {
+        alpha = 1.0 - pair.front_bias;  // blend second pass
         p_tcr = pair.rear_tc;
-        p_tct = rear_tct;
+        if (pair.front_bias >= 1) discard;
     }
+    else discard;
+
+    vec2 p_tct = tct_for_tcr(tile_X_img, p_tcr);  // Tile texture coordinate
 
     // Clip to tile
-    bool reject_front = check_bounds(front_tct);
-    bool reject_rear = check_bounds(rear_tct);
-
-    // if (reject_front && reject_rear) discard;
-    if (reject_front && pair.front_bias >= 1.0) discard;
-    if (reject_rear && pair.front_bias <= 0.0) discard;
-
-    float front_bias = pair.front_bias;
-
-    if (reject_front) front_bias = 0.0;
-    if (reject_rear) front_bias = 1.0;
+    if (check_bounds(p_tct)) discard;
 
     // TODO: allow manual front/rear bias adjustment
 
-    vec4 front_color_d = clip_n_filter(demosaic_tile, front_tct, pixelFilter, true);
-    vec4 rear_color_d = clip_n_filter(demosaic_tile, rear_tct, pixelFilter, true);
-    vec4 demosaic_color = mix(rear_color_d, front_color_d, front_bias);
-
-    vec4 front_color_b = texture(bayer_tile, front_tct);
-    vec4 rear_color_b = texture(bayer_tile, rear_tct);
+    vec4 demosaic_color = clip_n_filter(demosaic_tile, p_tct, pixelFilter, true);
     // TODO: should bayer_color have a sharp transition along the seam?
-    vec4 bayer_color = mix(rear_color_b, front_color_b, front_bias);
+    vec4 bayer_color = texture(bayer_tile, p_tct);
 
     // For Bayer mosaic we need to know the parity of this texel
     //   in the full image, not just the tile.
@@ -123,6 +112,7 @@ void main()
     float lod = textureQueryLod(bayer_tile, p_tct).y;
     float demosaic_bias = clamp(lod + 6, 0.0, 4.0);  // Blended color between lod 0->1
     color = mix(bayer_color, demosaic_color, demosaic_bias * 0.25);
+    color.a = alpha;
 
     // TODO: black level, white level, white balance, color_matrix,
     //  XYZ->linear sRGB, tone mapping,

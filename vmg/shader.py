@@ -450,6 +450,7 @@ class SphericalDngShader(IImageShader):
     uViewer = ViewerUniforms()
     uPano = PanoUniforms()
     uFisheye = FisheyeUniforms()
+    uRenderPass = Uniform("render_pass", GL.glUniform1i)
 
     def __init__(self):
         self.shader = None
@@ -476,6 +477,7 @@ class SphericalDngShader(IImageShader):
                     self.uFisheye,
                     self.uBayerTile,
                     self.uDemosaicTile,
+                    self.uRenderPass,
             ):
                 uniform.get_location(self.shader)
         except BaseException as exc:
@@ -495,7 +497,13 @@ class SphericalDngShader(IImageShader):
         self.uFisheye["df_fov_radians"].set(self.df_fov_radians)
         self.uFisheye["df_lens_rot_radians"].set(self.df_lens_rot_radians)
         self.uViewer["brightness"].set(state.brightness)
-        # self.input_is_linear.set(image.photometric_scale == PhotometricScale.LINEAR) # NOT USED?
+        self.uRenderPass.set(1)
+        self._paint_one_pass(image)
+        if image.md.input_format == InputFormat.DUAL_FISHEYE:
+            self.uRenderPass.set(2)
+            self._paint_one_pass(image)
+
+    def _paint_one_pass(self, image):
         is_complete = True
         for tile in image.tiles():
             # GL.glUniformMatrix3fv(program.tile_X_img_location, 1, True, tile.tile_X_img)
@@ -505,17 +513,11 @@ class SphericalDngShader(IImageShader):
             self.uBayerTile.set(0, tile.bayer_texture_id)
             if not tile.paint_gl():
                 is_complete = False
-            if is_complete and image.load_progress != LoadProgress.DISPLAYED:
-                image.load_progress = LoadProgress.DISPLAYED
-                image.sq.image_displayed.emit(image)  # noqa  # TODO: maybe don't hoist this here...
             # break  # just one tile for testing
-        # image.paint_gl(self.tile_X_img_location, self.uv_bounds_location)
-        # Clean up
-        GL.glBindTexture(GL.GL_TEXTURE_2D, 0) # unbind from active unit
-        GL.glActiveTexture(GL.GL_TEXTURE1)
-        GL.glBindTexture(GL.GL_TEXTURE_2D, 0)
-        GL.glActiveTexture(GL.GL_TEXTURE0)
-        GL.glBindTexture(GL.GL_TEXTURE_2D, 0)
+        if is_complete and image.load_progress != LoadProgress.DISPLAYED:
+            image.load_progress = LoadProgress.DISPLAYED
+            image.sq.image_displayed.emit(image)  # noqa  # TODO: maybe don't hoist this here...
+
 
 class TileBoundaryShader(IImageShader):
     def __init__(self):
