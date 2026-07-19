@@ -1,6 +1,8 @@
+from typing import Optional
+
 import enum
 import logging
-from math import cos, radians, sin
+from math import cos, radians, sin, degrees
 
 import numpy
 import PIL
@@ -90,6 +92,9 @@ class ImageMetadata:
                 print(f"orientation {orientation_index}")
                 # TODO
         w, h = self.size_opx
+        # TODO: pano orientation
+        xmp_tag = page.tags.get("XMP")
+        print("XMP tag", xmp_tag)
         # Input format  TODO: subtler decision tree
         if w == 2 * h:
             self.input_format = InputFormat.DUAL_FISHEYE
@@ -172,25 +177,64 @@ class ImageMetadata:
             try:
                 # TODO: InitialViewHeadingDegrees
                 desc = xmp["xmpmeta"]["RDF"]["Description"]
-                heading = radians(float(desc["PoseHeadingDegrees"]))
-                pitch = radians(float(desc["PosePitchDegrees"]))
-                roll = radians(float(desc["PoseRollDegrees"]))
-                m = numpy.array([
-                    [cos(roll), -sin(roll), 0],
-                    [sin(roll), cos(roll), 0],
+                # Normalize to a list
+                if isinstance(desc, dict):
+                    desc_list = [desc]
+                else:
+                    desc_list = desc
+                is_pano: Optional[bool] = None  # don't know yet
+                pose_heading = 0.0
+                pose_pitch = 0.0
+                pose_roll = 0.0
+                initial_heading = 0.0
+                initial_pitch = 0.0
+                initial_roll = 0.0
+                for d in desc_list:
+                    if "PoseHeadingDegrees" in d:
+                        pose_heading = radians(float(d["PoseHeadingDegrees"]))
+                        is_pano = True
+                    if "PosePitchDegrees" in d:
+                        pose_pitch = radians(float(d["PosePitchDegrees"]))
+                        is_pano = True
+                    if "PoseRollDegrees" in d:
+                        pose_roll = radians(float(d["PoseRollDegrees"]))
+                        is_pano = True
+                    if "InitialViewHeadingDegrees" in d:
+                        self.initial_heading_degrees = float(d["InitialViewHeadingDegrees"])
+                        is_pano = True
+                    if "InitialViewPitchDegrees" in d:
+                        self.initial_pitch_degrees = float(d["InitialViewPitchDegrees"])
+                        is_pano = True
+                    if "InitialViewRollDegrees" in d:
+                        self.initial_roll_degrees = float(d["InitialViewRollDegrees"])
+                        is_pano = True
+                Use360PanoReferenceConvention = False
+                if Use360PanoReferenceConvention:
+                    pose_roll = -pose_roll
+                if pose_heading != 0 or pose_pitch != 0 or pose_roll != 0:
+                    logger.info(
+                        f"Pose heading, pitch, roll = ({degrees(pose_heading)}, {degrees(pose_pitch)}, {degrees(pose_roll)})")
+                # TODO: use new frame shorthands everywhere
+                # https://github.com/cmbruns/vimage/issues/74
+                # Photographer's camera pose
+                pcm_rot_geo = numpy.array([
+                    [cos(pose_roll), -sin(pose_roll), 0],
+                    [sin(pose_roll), cos(pose_roll), 0],
                     [0, 0, 1],
                 ], dtype=numpy.float32)
-                m = m @ [
+                pcm_rot_geo = pcm_rot_geo @ [
                     [1, 0, 0],
-                    [0, cos(pitch), sin(pitch)],
-                    [0, -sin(pitch), cos(pitch)],
+                    [0, cos(pose_pitch), sin(pose_pitch)],
+                    [0, -sin(pose_pitch), cos(pose_pitch)],
                 ]
-                m = m @ [
-                    [cos(heading), 0, sin(heading)],
+                pcm_rot_geo = pcm_rot_geo @ [
+                    [cos(pose_heading), 0, sin(pose_heading)],
                     [0, 1, 0],
-                    [-sin(heading), 0, cos(heading)],
+                    [-sin(pose_heading), 0, cos(pose_heading)],
                 ]
-                self.pcm_R_geo = m
+                # Initial View
+                # TODO incorporate IVW into pipeline separate from GEO
+                self.pcm_R_geo = pcm_rot_geo
             except (KeyError, TypeError):
                 pass
 

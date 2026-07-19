@@ -448,12 +448,14 @@ def generate_tiles(
 class DngImage(BasicImageLike):
     def __init__(self, file_name: str):
         super().__init__()
-        self.md.photometric_scale = PhotometricScale.LINEAR
         with tifffile.TiffFile(file_name) as dng:
             self.set_progress(LoadProgress.FILE_OPENED)
+            for i, page in enumerate(dng.pages):
+                print(page.dtype)
             page = dng.pages[0]
             # Populate metadata
             self.md.file_name = file_name
+            self.md.photometric_scale = PhotometricScale.LINEAR
             self.md.load_tifffile_page(page)
             self.set_progress(LoadProgress.METADATA_LOADED)
             # Slurp the raw bytes
