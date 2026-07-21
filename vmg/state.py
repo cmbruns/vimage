@@ -8,7 +8,7 @@ from PySide6 import QtCore, QtGui
 from PySide6.QtCore import QPoint, QSize, QObject, QPointF
 from PySide6.QtGui import Qt
 
-from vmg.frame import DimensionsQwn, LocationHpd, LocationObq, LocationNic, LocationOmp, LocationOnt, \
+from vmg.frame import DimensionsQwn, LocationHpd, LocationUsr, LocationNic, LocationOmp, LocationGeo, \
     LocationPrj, LocationQwn, LocationRelative, DimensionsOmp
 from vmg.metadata import InputFormat
 from vmg.interfaces import ImageLike
@@ -131,7 +131,7 @@ class ViewState(QObject):
         return self.omp_for_qwn(LocationQwn(hover_min_qwn, hover_min_qwn, 0)).x
 
     @staticmethod
-    def hpd_for_ont(p_ont: LocationOnt) -> LocationHpd:
+    def hpd_for_ont(p_ont: LocationGeo) -> LocationHpd:
         return LocationHpd(
             degrees(atan2(p_ont.x, -p_ont.z)),
             degrees(max(-1, min(1, p_ont.y))),
@@ -223,10 +223,10 @@ class ViewState(QObject):
         ], dtype=numpy.float32)
         return LocationNic(*nic_xform_qwn @ p_qwn)
 
-    def obq_for_prj(self, p_prj: LocationPrj) -> LocationObq:
+    def usr_for_prj(self, p_prj: LocationPrj) -> LocationUsr:
         if self.display_projection == DisplayProjection.GNOMONIC:
             d = 1.0 / (p_prj[0] ** 2 + p_prj[1] ** 2 + 1) ** 0.5
-            p_obq = numpy.array([  # sphere orientation as viewed on screen
+            p_usr = numpy.array([  # sphere orientation as viewed on screen
                 d * p_prj[0],
                 d * p_prj[1],
                 -d,
@@ -234,28 +234,28 @@ class ViewState(QObject):
         elif self.display_projection == DisplayProjection.EQUIDISTANT:
             r = (p_prj[0] ** 2 + p_prj[1] ** 2) ** 0.5
             d = sin(r) / r
-            p_obq = numpy.array([  # sphere orientation as viewed on screen
+            p_usr = numpy.array([  # sphere orientation as viewed on screen
                 d * p_prj[0],
                 d * p_prj[1],
                 -cos(r),
             ], dtype=numpy.float32)
         elif self.display_projection == DisplayProjection.EQUIRECTANGULAR:
             cy = cos(p_prj[1])
-            p_obq = numpy.array([  # sphere orientation as viewed on screen
+            p_usr = numpy.array([  # sphere orientation as viewed on screen
                 sin(p_prj[0]) * cy,
                 sin(p_prj[1]),
                 -cos(p_prj[0]) * cy,
             ], dtype=numpy.float32)
         elif self.display_projection == DisplayProjection.STEREOGRAPHIC:
             d = p_prj[0] ** 2 + p_prj[1] ** 2 + 4
-            p_obq = numpy.array([  # sphere orientation as viewed on screen
+            p_usr = numpy.array([  # sphere orientation as viewed on screen
                 4 * p_prj[0] / d,
                 4 * p_prj[1] / d,
                 (d - 8) / d,
             ], dtype=numpy.float32)
         else:
             assert False  # What projection is this?
-        return LocationObq(*p_obq)
+        return LocationUsr(*p_usr)
 
     def omp_for_qpoint(self, qpoint: QPoint) -> LocationOmp:
         return self.omp_for_qwn(LocationQwn.from_qpoint(qpoint))
@@ -283,11 +283,11 @@ class ViewState(QObject):
             [0, 0, 1],
         ], dtype=numpy.float32)
 
-    def ont_for_obq(self, p_obq: LocationObq) -> LocationOnt:
-        return LocationOnt(*self.ont_rot_obq @ p_obq)
+    def ont_for_usr(self, p_usr: LocationUsr) -> LocationGeo:
+        return LocationGeo(*self.ont_rot_usr @ p_usr)
 
     @property
-    def ont_rot_obq(self) -> NDArray[numpy.float32]:
+    def ont_rot_usr(self) -> NDArray[numpy.float32]:
         c = cos(radians(self.view_heading_degrees))
         s = sin(radians(self.view_heading_degrees))
         rot_heading = numpy.array([
@@ -304,10 +304,10 @@ class ViewState(QObject):
         ], dtype=numpy.float32)
         return rot_heading @ rot_pitch
 
-    def ont_for_qwn(self, p_qwn: LocationQwn) -> LocationOnt:
+    def ont_for_qwn(self, p_qwn: LocationQwn) -> LocationGeo:
         p_prj = self.prj_for_qwn(p_qwn)
-        p_obq = self.obq_for_prj(p_prj)
-        return self.ont_for_obq(p_obq)
+        p_usr = self.usr_for_prj(p_prj)
+        return self.ont_for_usr(p_usr)
 
     def prj_for_qwn(self, p_qwn: LocationQwn) -> LocationPrj:
         p_nic = self.nic_for_qwn(p_qwn)

@@ -37,7 +37,7 @@ class LocationHpd(BasicVec2):
         return self.y
 
 
-class LocationObq(BasicVec3):
+class LocationUsr(BasicVec3):
     pass
 
 
@@ -49,7 +49,7 @@ class LocationOmp(BasicVec3):
     pass
 
 
-class LocationOnt(BasicVec3):
+class LocationGeo(BasicVec3):
     pass
 
 

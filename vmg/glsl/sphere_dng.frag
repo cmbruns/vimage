@@ -224,11 +224,12 @@ void main()
     float lod = textureQueryLod(demosaic_tile, p_tcr).y;
     float demosaic_bias = clamp(lod + 6, 0.0, 4.0);  // Blended color between lod 0->1
 
-    const bool debug = true;
+    const bool debug = false;
     if (debug) {
+        // Visualize lods
         color = vec4(0, demosaic_bias * 0.25, 0, 1);
         return;
-        // demosaic_bias = 4.0;
+        // demosaic_bias = 4.0;  // pure demosaic
     }
 
     color = mix(bayer_color, demosaic_color, demosaic_bias * 0.25);

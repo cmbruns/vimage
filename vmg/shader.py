@@ -94,7 +94,7 @@ class PanoUniforms(UniformGroup):
         self["window_size"].set(*[int(x) for x in state.window_size])
         self["window_zoom"].set(state.zoom)
         self["display_projection"].set(state.display_projection.value)
-        self["ont_rot_obq"].set(1, True, state.ont_rot_obq)
+        self["ont_rot_obq"].set(1, True, state.ont_rot_usr)
         self["raw_rot_ont"].set(1, True, state.raw_rot_ont)
 
 
@@ -427,7 +427,7 @@ class SphericalShader(IImageShader):
         GL.glUseProgram(self.shader)
         GL.glUniform1f(self.zoom_location, state.zoom)
         GL.glUniform1i(self.pixelFilter_location, state.pixel_filter.value)
-        GL.glUniformMatrix3fv(self.ont_rot_obq_location, 1, True, state.ont_rot_obq)
+        GL.glUniformMatrix3fv(self.ont_rot_obq_location, 1, True, state.ont_rot_usr)
         GL.glUniformMatrix3fv(self.raw_rot_ont_location, 1, True, image.raw_rot_ont)
         GL.glUniform2i(self.window_size_location, *[int(x) for x in state.window_size])
         GL.glUniform1i(self.input_format_location, image.input_format.value)
@@ -497,7 +497,7 @@ class SphericalDngShader(IImageShader):
         self.uViewer["brightness"].set(state.brightness)
         self.uViewer["pixelFilter"].set(state.pixel_filter.value)
         self.uPano["window_zoom"].set(state.zoom)
-        self.uPano["ont_rot_obq"].set(1, True, state.ont_rot_obq)
+        self.uPano["ont_rot_obq"].set(1, True, state.ont_rot_usr)
         self.uPano["raw_rot_ont"].set(1, True, image.raw_rot_ont)
         self.uPano["window_size"].set(*[int(x) for x in state.window_size])
         self.uPano["display_projection"].set(state.display_projection.value)
