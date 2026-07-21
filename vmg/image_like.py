@@ -450,13 +450,23 @@ class DngImage(BasicImageLike):
         super().__init__()
         with tifffile.TiffFile(file_name) as dng:
             self.set_progress(LoadProgress.FILE_OPENED)
-            for i, page in enumerate(dng.pages):
-                print(page.dtype)
-            page = dng.pages[0]
+            root_page = dng.pages[0]
+            # Find raw image in ricoh theta Z1
+            page = None
+            for ix, series in enumerate(dng.series):
+                print(f"Series {ix}: Shape {series.shape}, Dtype {series.dtype}")
+                if series.dtype == numpy.uint16:
+                    raw_page = series
+                    page = raw_page.pages[0]
+            if page is None:
+                page = root_page
+            print(root_page.tags.get("AsShotNeutral").value)
             # Populate metadata
             self.md.file_name = file_name
             self.md.photometric_scale = PhotometricScale.LINEAR
-            self.md.load_tifffile_page(page)
+            self.md.upper_bound = numpy.iinfo(page.dtype).max
+            self.md.load_exiftool(file_name)  # takes longer but life is short
+            # self.md.load_tifffile_page(page)
             self.set_progress(LoadProgress.METADATA_LOADED)
             # Slurp the raw bytes
             self._array = page.asarray()

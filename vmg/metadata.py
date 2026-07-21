@@ -1,3 +1,6 @@
+import exiftool
+import json
+
 from typing import Optional
 
 import enum
@@ -68,7 +71,7 @@ class ImageMetadata:
             # print(page.get_resolution())
             # print(page.imagelength)
             # print(page.imagewidth)
-            print(page.is_dng)
+            # print(page.is_dng)
             print(repr(page.dtype))
             # print(page.is_tiled)  # TODO
             # print(page.photometric)  # 32803?
@@ -86,7 +89,7 @@ class ImageMetadata:
         exif_ifd = page.tags.get("ExifTag")
         if exif_ifd:
             exif_tags = exif_ifd.value
-            print(exif_tags)
+            # print(exif_tags)
             if 274 in exif_tags:
                 orientation_index = exif_tags[274].value
                 print(f"orientation {orientation_index}")
@@ -239,7 +242,31 @@ class ImageMetadata:
                 pass
 
     def load_exiftool(self, file_name):
-        raise NotImplementedError
+        with exiftool.ExifTool() as et:
+            raw = et.execute("-j", file_name)
+            exif = json.loads(raw)[0]
+        debug = True
+        if debug:
+            print(json.dumps(exif, indent=2, sort_keys=True))
+        w, h = exif["EXIF:ImageWidth"], exif["EXIF:ImageHeight"]
+        self.size_rpx = w, h
+        self.size_opx = DimensionsOmp(w, h)
+        self.channel_count = exif["EXIF:SamplesPerPixel"]
+        orientation_code = exif["EXIF:Orientation"]
+        self.orientation = ExifOrientation(orientation_code)
+        self.rpx_R_opx = rotation_for_exif_orientation.get(orientation_code, numpy.eye(2, dtype=numpy.float32))
+        self.size_opx = DimensionsOmp(*[abs(x) for x in (self.rpx_R_opx.T @ self.size_rpx)])
+        w, h = self.size_opx
+        if w != 2 * h:
+            self.input_format = InputFormat.STANDARD_PHOTO  # Non-2:1 aspect is always a regular photo
+        else:  # Panorama
+            if "EXIF:DNGVersion" in exif:
+                self.input_format = InputFormat.DUAL_FISHEYE
+            else:
+                self.input_format = InputFormat.EQUIRECTANGULAR
+            pose_heading = 0.0
+            pose_pitch = 0.0
+            pose_roll = 0.0
 
 
 channel_count_for_pil_mode = {

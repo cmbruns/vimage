@@ -50,7 +50,7 @@ class ImageLoader(QtCore.QObject):
     def load_from_file_name(self, file_name: str):
         # TODO: Try various image loaders
         image = None
-        for image_class in [PilImage, DngImage]:
+        for image_class in [DngImage, PilImage]:
             try:
                 image = image_class(file_name)
                 break
