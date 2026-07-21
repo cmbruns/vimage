@@ -143,8 +143,8 @@ class ViewState(QObject):
         else:
             return self.image.input_format
 
-    def hpd_for_qwn(self, p_ont: LocationQwn) -> LocationHpd:
-        return self.hpd_for_ont(self.ont_for_qwn(p_ont))
+    def hpd_for_qwn(self, p_qwn: LocationQwn) -> LocationHpd:
+        return self.hpd_for_ont(self.ont_for_qwn(p_qwn))
 
     def key_press_event(self, event: QtGui.QKeyEvent) -> None:
         if self._input_format() == InputFormat.STANDARD_PHOTO:

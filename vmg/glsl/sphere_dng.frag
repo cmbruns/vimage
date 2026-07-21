@@ -35,6 +35,11 @@ uniform float df_fov_radians = radians(195.0);
 uniform float df_lens_rot_radians = 0.0;
 uniform int render_pass = 1;
 
+// DNG only
+const int format_max = 65535;
+uniform ivec4 black_level = ivec4(0);
+uniform int white_level = format_max;
+
 in vec2 p_nic;
 out vec4 color;
 
@@ -47,6 +52,108 @@ bool check_bounds(vec2 p_tct) {
 
 vec4 color_sphere(vec3 p) {
     return vec4(0.5 * (p + vec3(1)), 1);
+}
+
+
+//--------------------------------------------------------------
+// 1. Map DNG illuminant tags → nominal Kelvin temperatures
+//--------------------------------------------------------------
+float tempFromIlluminant(int illum) {
+    if (illum == 1 || illum == 17) return 2856.0; // Std A
+    if (illum == 18) return 4874.0;               // Std B
+    if (illum == 19) return 6774.0;               // Std C
+    if (illum == 20) return 5003.0;               // D50
+    if (illum == 21) return 6504.0;               // D65
+    if (illum == 22) return 7504.0;               // D75
+    if (illum == 23) return 5455.0;               // D55
+    return 6504.0; // fallback
+}
+
+float calculate_dng_t(
+    vec3 asShotNeutral,
+    mat3 colorMatrix1,
+    mat3 colorMatrix2,
+    int illuminant1,
+    int illuminant2)
+{
+
+    float temp1 = tempFromIlluminant(illuminant1);
+    float temp2 = tempFromIlluminant(illuminant2);
+
+    //--------------------------------------------------------------
+    // 2. Build base Camera→XYZ matrix from average of CM1 & CM2
+    //--------------------------------------------------------------
+    mat3 cmBase = (colorMatrix1 + colorMatrix2) * 0.5;
+
+    mat3 camToXYZ = inverse(cmBase);
+
+    //--------------------------------------------------------------
+    // 3. Convert AsShotNeutral → white balance gains → XYZ
+    //--------------------------------------------------------------
+    vec3 wb = 1.0 / asShotNeutral;
+    vec3 xyz = camToXYZ * wb;
+
+    float xyzSum = xyz.x + xyz.y + xyz.z;
+    if (xyzSum <= 0.0) {
+        return 0.5; // fail-safe midpoint
+    }
+
+    //--------------------------------------------------------------
+    // 4. Convert XYZ → xy → uv → McCamy CCT
+    //--------------------------------------------------------------
+    float x = xyz.x / xyzSum;
+    float y = xyz.y / xyzSum;
+
+    float denom = (-2.0 * x + 12.0 * y + 3.0);
+    float u = (4.0 * x) / denom;
+    float v = (6.0 * y) / denom;
+
+    float n = (u - 0.3320) / (v - 0.1858);
+
+    float cct = -449.0 * n*n*n + 3525.0 * n*n - 6823.3 * n + 5524.07;
+
+    cct = clamp(cct, 2000.0, 12000.0);
+
+    //--------------------------------------------------------------
+    // 5. Convert to mireds and compute interpolation t
+    //--------------------------------------------------------------
+    float miredShot = 1.0 / cct;
+    float mired1 = 1.0 / temp1;
+    float mired2 = 1.0 / temp2;
+
+    if (abs(mired1 - mired2) < 1e-9) {
+        return 0.0;
+    }
+
+    float t = (miredShot - mired1) / (mired2 - mired1);
+
+    return clamp(t, 0.0, 1.0);
+}
+
+// Hardcoded Color Space Conversion Constants
+const mat3 bradfordD50toD65 = mat3(
+    0.9555766, -0.0282895,  0.0122982,
+   -0.0230393,  1.0099416, -0.0204830,
+    0.0631636,  0.0210077,  1.3299098
+);
+
+const mat3 xyzToSRGB = mat3(
+     3.2404542, -0.9692660,  0.0556434,
+    -1.5371385,  1.8760108, -0.2040259,
+    -0.4985314,  0.0415560,  1.0572252
+);
+
+mat3 linear_srgb_from_sensor(
+        vec3 asShotNeutral,
+        mat3 colorMatrixInterpolated)
+{
+    mat3 wbGainMatrix = mat3(
+        1.0 / asShotNeutral.r, 0.0, 0.0,
+        0.0, 1.0 / asShotNeutral.g, 0.0,
+        0.0, 0.0, 1.0 / asShotNeutral.b);
+
+    mat3 sensorToXYZ = inverse(colorMatrixInterpolated) * wbGainMatrix;
+    return xyzToSRGB * bradfordD50toD65 * sensorToXYZ;
 }
 
 void main()
@@ -83,7 +190,11 @@ void main()
     vec2 p_tct = tct_for_tcr(tile_X_img, p_tcr);  // Tile texture coordinate
 
     // Clip to tile
-    if (check_bounds(p_tct)) discard;
+    if (   p_tct.x < uv_bounds[0]
+        || p_tct.y < uv_bounds[1]
+        || p_tct.x > uv_bounds[2]
+        || p_tct.y > uv_bounds[3])
+        discard;
 
     // TODO: allow manual front/rear bias adjustment
 
@@ -109,12 +220,30 @@ void main()
     // Blend bayer and demosaicked depending on mipmap level
     // At high zoom the user sees the pure raw DNG mosaic.
     // At lower zoom, the user sees the demosaicked RGB interpretation.
-    float lod = textureQueryLod(bayer_tile, p_tct).y;
+    // TODO: this goes wonky near tile boundaries
+    float lod = textureQueryLod(demosaic_tile, p_tcr).y;
     float demosaic_bias = clamp(lod + 6, 0.0, 4.0);  // Blended color between lod 0->1
+
+    const bool debug = true;
+    if (debug) {
+        color = vec4(0, demosaic_bias * 0.25, 0, 1);
+        return;
+        // demosaic_bias = 4.0;
+    }
+
     color = mix(bayer_color, demosaic_color, demosaic_bias * 0.25);
     color.a = alpha;
 
     // TODO: black level, white level, white balance, color_matrix,
+
+    // black level
+    vec3 fblack = vec3(black_level.rga) / format_max;  // Are the two greens really different?
+    color.rgb = max(color.rgb - fblack, vec3(0));
+
+    // white level
+    vec3 fwhite = vec3(white_level) / format_max - fblack;
+    color.rgb /= fwhite;
+
     //  XYZ->linear sRGB, tone mapping,
 
     // Apply user brightness

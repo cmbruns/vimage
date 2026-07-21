@@ -57,7 +57,7 @@ class ImageMetadata:
         self.initial_pitch_degrees = 0.0
         self.pcm_R_geo = numpy.eye(3, dtype=numpy.float32)
         # Dng metadata
-        self.black_level = 0
+        self.black_level = (0, 0, 0)
         self.white_level = 255
         self.color_matrix1 = numpy.eye(3, dtype=numpy.float32)
         self.as_shot_neutral = (1.0, 1.0, 1.0)
@@ -256,6 +256,22 @@ class ImageMetadata:
         self.orientation = ExifOrientation(orientation_code)
         self.rpx_R_opx = rotation_for_exif_orientation.get(orientation_code, numpy.eye(2, dtype=numpy.float32))
         self.size_opx = DimensionsOmp(*[abs(x) for x in (self.rpx_R_opx.T @ self.size_rpx)])
+        if "EXIF:CFAPattern2" in exif:
+            assert exif["EXIF:CFAPattern2"] == "0 1 1 2"  # We only know RGGB
+        if "EXIF:BlackLevel" in exif:
+            black = [int(x) for x in exif["EXIF:BlackLevel"].split()]
+            if len(black) == 4:
+                self.black_level = black
+                print(self.black_level)
+            else:
+                raise RuntimeError(f"Unexpected black level {black}")
+        if "EXIF:WhiteLevel" in exif:
+            self.white_level = int(exif["EXIF:WhiteLevel"])
+        if "EXIF:ColorMatrix1" in exif:
+            cm1 = exif["EXIF:ColorMatrix1"].split()
+            assert len(cm1) == 9
+            self.color_matrix1 = numpy.array(cm1, dtype=numpy.float32).reshape((3, 3))
+            print(self.color_matrix1)  # noqa
         w, h = self.size_opx
         if w != 2 * h:
             self.input_format = InputFormat.STANDARD_PHOTO  # Non-2:1 aspect is always a regular photo
@@ -267,6 +283,79 @@ class ImageMetadata:
             pose_heading = 0.0
             pose_pitch = 0.0
             pose_roll = 0.0
+
+
+def calculate_dng_t(as_shot_neutral, color_matrix1, color_matrix2, illuminant1=17, illuminant2=21):
+    """
+    Calculates the DNG matrix interpolation weight 't' from AsShotNeutral.
+
+    Parameters:
+      as_shot_neutral: list or numpy.array of 3 floats, e.g., [0.52, 1.0, 0.63]
+      color_matrix1:   3x3 numpy.array representing ColorMatrix1 (Tungsten)
+      color_matrix2:   3x3 numpy.array representing ColorMatrix2 (Daylight)
+      illuminant1:     DNG tag integer for CalibrationIlluminant1 (Default: 17 = Standard Illuminant A)
+      illuminant2:     DNG tag integer for CalibrationIlluminant2 (Default: 21 = D65)
+    """
+
+    # 1. Map standard DNG Illuminant tags to their exact nominal Kelvin temperatures
+    # Reference: DNG Spec Chapter 6 (CalibrationIlluminant tags)
+    illuminant_temps = {
+        1: 2856,  # Standard Illuminant A (Tungsten)
+        17: 2856,  # Standard Illuminant A
+        18: 4874,  # Standard Illuminant B
+        19: 6774,  # Standard Illuminant C
+        20: 5003,  # D50
+        21: 6504,  # D65
+        22: 7504,  # D75
+        23: 5455,  # D55
+    }
+
+    temp1 = illuminant_temps.get(illuminant1, 2856)
+    temp2 = illuminant_temps.get(illuminant2, 6504)
+
+    # 2. Derive a generic, un-white-balanced Camera-to-XYZ matrix
+    # DNG spec defines ColorMatrix as XYZ -> Camera. We use its inverse.
+    # We use a base blend of CM1 and CM2 just to calculate a valid local proxy spatial environment.
+    cm_base = (color_matrix1 + color_matrix2) / 2.0
+    cam_to_xyz = numpy.linalg.inv(cm_base)
+
+    # 3. Project the AsShotNeutral raw channel scaling into CIE XYZ space
+    # (AsShotNeutral is inverted to represent white balance multipliers)
+    wb_gains = 1.0 / numpy.array(as_shot_neutral)
+    xyz = numpy.dot(cam_to_xyz, wb_gains)
+
+    # 4. Convert XYZ to CIE xy chromaticity coordinates
+    xyz_sum = xyz[0] + xyz[1] + xyz[2]
+    if xyz_sum == 0:
+        return 0.5  # Fail-safe midpoint if data evaluates to zero
+    x = xyz[0] / xyz_sum
+    y = xyz[1] / xyz_sum
+
+    # 5. McCamy's Cubic Approximation to find Correlated Color Temperature (CCT)
+    # Convert xy to CIE 1960 uv landscape vectors
+    u = (4.0 * x) / (-2.0 * x + 12.0 * y + 3.0)
+    v = (6.0 * y) / (-2.0 * x + 12.0 * y + 3.0)
+
+    # Epicenter of the chromatic adaptation path
+    n = (u - 0.3320) / (v - 0.1858)
+    cct_as_shot = -449.0 * (n ** 3) + 3525.0 * (n ** 2) - 6823.3 * n + 5524.07
+
+    # Bound the evaluated temperature logically
+    cct_as_shot = numpy.clip(cct_as_shot, 2000, 12000)
+
+    # 6. Calculate 't' using inverse temperatures (Mired scale) per DNG rules
+    mired_as_shot = 1.0 / cct_as_shot
+    mired_1 = 1.0 / temp1
+    mired_2 = 1.0 / temp2
+
+    # Guard against division by zero if both illuminants are identical
+    if mired_1 == mired_2:
+        return 0.0
+
+    t = (mired_as_shot - mired_1) / (mired_2 - mired_1)
+
+    # Clamp t tightly between [0.0, 1.0] per Adobe specification framework
+    return float(numpy.clip(t, 0.0, 1.0))
 
 
 channel_count_for_pil_mode = {

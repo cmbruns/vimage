@@ -47,32 +47,44 @@ void main()
     // 2.5 to give it a bit more blur
     const float rb_sampling_rate = 2.5;  // neighbor red/blue are 2 cells away
     const float g_sampling_rate = 2.5;  // sqrt(2.0);  // neighbor greens are diagonal
+    ivec2 max_tex = textureSize(bayer, 0) - ivec2(1);
+    ivec2 min_tex = ivec2(0);
     for (int x = iTexel.x - dt; x <= iTexel.x + dt; ++x)
     {
+        // RGGB aware manual clamp to edge
+        // Find the closest in-bounds texel matching the parity of the logical texel
+        int cx = x >= 0 ? x : (-x) & 1;
+        cx = cx <= max_tex.x ? cx : max_tex.x - ((cx + 1) & 1);
+
         float dx = x - texel.x;
         for (int y = iTexel.y - dt; y <= iTexel.y + dt; ++y)
         {
+            // RGGB aware manual clamp to edge
+            // Find the closest in-bounds texel matching the parity of the logical texel
+            int cy = y >= 0 ? y : (-y) & 1;
+            cy = cy <= max_tex.y ? cy : max_tex.y - ((cy + 1) & 1);
+
             float dy = y - texel.y;
             float dist = length(vec2(dx, dy));
             if (dist > window)
                 continue;
             vec2 xa = vec2(dist, window);
 
-            float w = 1.0;  // TODO: this is the fancy part...
+            float w = 1.0;
 
             if ((y & 1) == 0 && (x & 1) == 0) {  // red
                 w = lanczos(xa/rb_sampling_rate);  // scale by distance between samples
-                rgb.r += w * texelFetch(bayer, ivec2(x, y), 0).r;
+                rgb.r += w * texelFetch(bayer, ivec2(cx, cy), 0).r;
                 weights.r += w;
             }
             else if ((y & 1) != 0 && (x & 1) != 0) {  // blue
                 w = lanczos(xa/rb_sampling_rate);  // scale by distance between samples
-                rgb.b += w * texelFetch(bayer, ivec2(x, y), 0).r;
+                rgb.b += w * texelFetch(bayer, ivec2(cx, cy), 0).r;
                 weights.b += w;
             }
             else {  // green
                 w = lanczos(xa/g_sampling_rate);  // scale by distance between samples
-                rgb.g += w * texelFetch(bayer, ivec2(x, y), 0).r;
+                rgb.g += w * texelFetch(bayer, ivec2(cx, cy), 0).r;
                 weights.g += w;
             }
         }

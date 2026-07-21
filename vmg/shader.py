@@ -451,6 +451,9 @@ class SphericalDngShader(IImageShader):
     uPano = PanoUniforms()
     uFisheye = FisheyeUniforms()
     uRenderPass = Uniform("render_pass", GL.glUniform1i)
+    uBlackLevel = Uniform("black_level", GL.glUniform4i)
+    uWhiteLevel = Uniform("white_level", GL.glUniform1i)
+    uUvBounds = Uniform("uv_bounds", GL.glUniform4f)
 
     def __init__(self):
         self.shader = None
@@ -472,12 +475,15 @@ class SphericalDngShader(IImageShader):
                     GL.GL_FRAGMENT_SHADER),
             )
             for uniform in (
-                    self.uViewer,
-                    self.uPano,
-                    self.uFisheye,
-                    self.uBayerTile,
-                    self.uDemosaicTile,
-                    self.uRenderPass,
+                self.uViewer,
+                self.uPano,
+                self.uFisheye,
+                self.uBayerTile,
+                self.uDemosaicTile,
+                self.uRenderPass,
+                self.uBlackLevel,
+                self.uWhiteLevel,
+                self.uUvBounds,
             ):
                 uniform.get_location(self.shader)
         except BaseException as exc:
@@ -488,15 +494,18 @@ class SphericalDngShader(IImageShader):
         if self.shader is None:
             self.initialize_gl()
         GL.glUseProgram(self.shader)
-        self.uPano["window_zoom"].set(state.zoom)
+        self.uViewer["brightness"].set(state.brightness)
         self.uViewer["pixelFilter"].set(state.pixel_filter.value)
+        self.uPano["window_zoom"].set(state.zoom)
         self.uPano["ont_rot_obq"].set(1, True, state.ont_rot_obq)
         self.uPano["raw_rot_ont"].set(1, True, image.raw_rot_ont)
         self.uPano["window_size"].set(*[int(x) for x in state.window_size])
         self.uPano["display_projection"].set(state.display_projection.value)
         self.uFisheye["df_fov_radians"].set(self.df_fov_radians)
         self.uFisheye["df_lens_rot_radians"].set(self.df_lens_rot_radians)
-        self.uViewer["brightness"].set(state.brightness)
+        self.uBlackLevel.set(*image.md.black_level)
+        self.uWhiteLevel.set(image.md.white_level)
+        #
         self.uRenderPass.set(1)
         self._paint_one_pass(image)
         if image.md.input_format == InputFormat.DUAL_FISHEYE:
@@ -508,7 +517,7 @@ class SphericalDngShader(IImageShader):
         for tile in image.tiles():
             # GL.glUniformMatrix3fv(program.tile_X_img_location, 1, True, tile.tile_X_img)
             self.uViewer["tile_X_img"].set(1, True, tile.tile_X_img)
-            # GL.glUniform4f(program.uv_bounds_location, *tile.uv_bounds)  # TODO: Not used in pano mode?
+            self.uUvBounds.set(*tile.uv_bounds)
             self.uDemosaicTile.set(1, tile.demosaic_texture_id)
             self.uBayerTile.set(0, tile.bayer_texture_id)
             if not tile.paint_gl():
