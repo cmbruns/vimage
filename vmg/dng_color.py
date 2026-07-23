@@ -1,0 +1,27 @@
+from enum import IntEnum
+
+
+class LightSource(IntEnum):
+    UNKNOWN = 0
+    DAYLIGHT = 1
+    FLUORESCENT = 2
+    TUNGSTEN = 3  # Incandescent light
+    FLASH = 4
+    FINE_WEATHER = 9
+    CLOUDY_WEATHER = 10
+    SHADE = 11
+    DAYLIGHT_FLUORESCENT = 12        # D 5700 - 7100K
+    DAY_WHITE_FLUORESCENT = 13       # N 4600 - 5400K
+    COOL_WHITE_FLUORESCENT = 14      # W 3900 - 4500K
+    WHITE_FLUORESCENT = 15           # WW 3200 - 3700K
+    WARM_WHITE_FLUORESCENT = 16      # I 2600 - 3000K
+    STANDARD_LIGHT_A = 17
+    STANDARD_LIGHT_B = 18
+    STANDARD_LIGHT_C = 19
+    D55 = 20
+    D65 = 21
+    D75 = 22
+    D50 = 23
+    ISO_STUDIO_TUNGSTEN = 24
+    OTHER = 255
+

@@ -37,8 +37,8 @@ uniform int render_pass = 1;
 
 // DNG only
 const int format_max = 65535;
-uniform ivec4 black_level = ivec4(0);
-uniform int white_level = format_max;
+uniform vec3 black_level = vec3(0);
+uniform float white_level = 1.0;
 
 in vec2 p_nic;
 out vec4 color;
@@ -209,41 +209,33 @@ void main()
     vec2 tile_offset_texels = -ul_full_tct.xy * textureSize(bayer_tile, 0);
     vec2 this_texel_in_tile = p_tct * textureSize(bayer_tile, 0);
     ivec2 img_texel = ivec2(floor(this_texel_in_tile + tile_offset_texels));
-    bool rowEven = (img_texel.y & 1) == 0;
-    bool colEven = (img_texel.x & 1) == 0;
-    // RGGB Bayer pattern
-    if      ( rowEven &&  colEven) bayer_color = bayer_color * vec4(4, 0, 0, 1);  // red
-    else if ( rowEven && !colEven) bayer_color = bayer_color * vec4(0, 2, 0, 1);  // green
-    else if (!rowEven &&  colEven) bayer_color = bayer_color * vec4(0, 2, 0, 1);  // green
-    else if (!rowEven && !colEven) bayer_color = bayer_color * vec4(0, 0, 4, 1);  // blue
+    bayer_color = bayer_tint(img_texel, bayer_color);
 
     // Blend bayer and demosaicked depending on mipmap level
     // At high zoom the user sees the pure raw DNG mosaic.
     // At lower zoom, the user sees the demosaicked RGB interpretation.
     // TODO: this goes wonky near tile boundaries
     float lod = textureQueryLod(demosaic_tile, p_tcr).y;
-    float demosaic_bias = clamp(lod + 6, 0.0, 4.0);  // Blended color between lod 0->1
+    float demosaic_bias = clamp(lod + 9, 0.0, 4.0) * 0.25;  // Blended color between lod 0->1
 
     const bool debug = false;
     if (debug) {
         // Visualize lods
-        color = vec4(0, demosaic_bias * 0.25, 0, 1);
+        color = vec4(0, demosaic_bias, 0, 1);
         return;
-        // demosaic_bias = 4.0;  // pure demosaic
+        // demosaic_bias = 1.0;  // pure demosaic
     }
 
-    color = mix(bayer_color, demosaic_color, demosaic_bias * 0.25);
+    color = mix(bayer_color, demosaic_color, demosaic_bias);
     color.a = alpha;
 
     // TODO: black level, white level, white balance, color_matrix,
 
     // black level
-    vec3 fblack = vec3(black_level.rga) / format_max;  // Are the two greens really different?
-    color.rgb = max(color.rgb - fblack, vec3(0));
+    color.rgb = max(color.rgb - black_level, vec3(0));
 
     // white level
-    vec3 fwhite = vec3(white_level) / format_max - fblack;
-    color.rgb /= fwhite;
+    color.rgb /= vec3(white_level);
 
     //  XYZ->linear sRGB, tone mapping,
 

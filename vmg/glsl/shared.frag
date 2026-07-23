@@ -20,6 +20,23 @@ const int EQUIRECT_INPUT_FORMAT = 0;
 const int DUAL_FISHEYE_INPUT_FORMAT = 1;
 const int PERSPECTIVE_INPUT_FORMAT = 2;
 
+// Colorize raw grayscale bayer mosaic texel intensity
+vec4 bayer_tint(
+        ivec2 texel_rtc,  // must be full image texel index, because parity
+        vec4 bayer_color  // raw grayscale bayer mosaic intensity
+) {
+    bool rowEven = (texel_rtc.y & 1) == 0;
+    bool colEven = (texel_rtc.x & 1) == 0;
+    // RGGB Bayer pattern
+    vec4 mask = vec4(1);
+
+    if      ( rowEven &&  colEven) mask = vec4(1.0, 0.5, 0.4, 1);  // red
+    else if ( rowEven && !colEven) mask = vec4(0.4, 1.0, 0.4, 1);  // green
+    else if (!rowEven &&  colEven) mask = vec4(0.4, 1.0, 0.4, 1);  // green
+    else /* if (!rowEven && !colEven) */ mask = vec4(0.4, 0.5, 1.0, 1);  // blue
+    return bayer_color * mask;
+}
+
 vec4 equirect_color(sampler2D image, vec2 tex_coord)
 {
     // Use explicit gradients, to preserve anisotropic filtering during mipmap lookup

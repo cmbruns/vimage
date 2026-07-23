@@ -30,14 +30,7 @@ void main()
     vec2 tile_offset_texels = -ul_full_tct.xy * textureSize(bayer_tile, 0);
     vec2 this_texel_in_tile = p_ttc * textureSize(bayer_tile, 0);
     ivec2 img_texel = ivec2(floor(this_texel_in_tile + tile_offset_texels));
-    bool rowEven = (img_texel.y & 1) == 0;
-    bool colEven = (img_texel.x & 1) == 0;
-    // RGGB Bayer pattern - compromise between pure gray and totally saturated
-    const float gpt = 0.6;  // gray component of bayer false coloring
-    if      ( rowEven &&  colEven) bayer_color = bayer_color * vec4(1.0, 0.6, 0.5, 1);  // red
-    else if ( rowEven && !colEven) bayer_color = bayer_color * vec4(0.5, 1.0, 0.5, 1);  // green
-    else if (!rowEven &&  colEven) bayer_color = bayer_color * vec4(0.5, 1.0, 0.5, 1);  // green
-    else if (!rowEven && !colEven) bayer_color = bayer_color * vec4(0.5, 0.6, 1.0, 1);  // blue
+    bayer_color = bayer_tint(img_texel, bayer_color);
 
     // Blend bayer and demosaicked depending on mipmap level
     // At high zoom the user sees the pure raw DNG mosaic.

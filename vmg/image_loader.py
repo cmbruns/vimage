@@ -10,7 +10,6 @@ from PySide6 import QtCore
 from PySide6.QtCore import QCoreApplication
 
 from vmg.elapsed_time import ElapsedTime
-from vmg.image_data import ImageData
 from vmg.interfaces import ImageLike
 from vmg.offscreen_context import OffscreenContext
 from vmg.image_like import PilImage, InappropriateImageLoader, DngImage
@@ -29,7 +28,7 @@ class ImageLoader(QtCore.QObject):
         self.image_data_is_pending = False
 
     load_failed = QtCore.Signal(str)
-    texture_created = QtCore.Signal(ImageData)
+    texture_created = QtCore.Signal(ImageLike)
 
     @QtCore.Slot(str)  # noqa
     def cancel_load(self):
@@ -122,48 +121,8 @@ class ImageLoader(QtCore.QObject):
             logger.debug("about to create context")
             self.upload_image(self.current_image)
 
-    def texture_dng(self, image_data: ImageData) -> bool:
-        image_data.texture = image_data.dng_image.texture
-        return True
-
-    @QtCore.Slot(ImageData)  # noqa
-    def texture_pil(self, image_data: ImageData) -> bool:
-        if image_data.file_name.lower().endswith("dng"):
-            return False
-        et = ElapsedTime()
-        img = image_data.pil_image
-        assert img is not None
-        self.progress_changed.emit(15)  # noqa
-        if img.mode in ["P",]:
-            image_data.pil_image = image_data.pil_image.convert("RGBA")  # TODO: palette shader
-            img = image_data.pil_image
-            channel_count = 4
-        elif img.mode in ["1", "L", "I", "I;16", "I;16L", "I;16B", "I;16N", "F"]:
-            channel_count = 1
-        elif img.mode in ["LA", "La", "PA"]:
-            channel_count = 2
-        elif img.mode in ["RGB", "CMYK", "YCbCr", "LAB", "HSV", "BGR;15", "BGR;16", "BGR;24"]:
-            channel_count = 3
-        elif img.mode in ["RGBA", "RGBa"]:
-            channel_count = 4
-        else:
-            self.load_failed.emit(image_data.file_name)  # noqa
-            return False
-        data = img.tobytes()
-        image_data.texture = Texture(
-            channel_count=channel_count,
-            size=img.size,
-            data_type=GL.GL_UNSIGNED_BYTE,  # TODO...
-            data=data,
-            # tex_format=?,  # TODO:
-            orientation=image_data.orientation,
-        )
-        logger.info(f"PIL image processing took {et}")
-        image_data.texture.texture_displayed.connect(self.on_texture_displayed)
-        return True
-
-    @QtCore.Slot(ImageData)  # noqa
-    def texture_turbo_jpeg(self, image_data: ImageData) -> bool:
+    @QtCore.Slot(ImageLike)  # noqa
+    def texture_turbo_jpeg(self, image_data: ImageLike) -> bool:
         if not image_data.pil_image.format == "JPEG":
             return False
         if not image_data.file_is_readable():
@@ -200,36 +159,6 @@ class ImageLoader(QtCore.QObject):
     def on_progress_changed(self, progress: int, image: ImageLike):
         if image is self.current_image:
             self.progress_changed.emit(progress)
-
-    @QtCore.Slot(ImageData)  # noqa
-    def process_texture(self, image_data: ImageData):
-        logger.debug("running process_texture()")
-        if not self._is_current(image_data):
-            logger.debug("image data is not current")
-            return
-        self.progress_changed.emit(60)  # noqa
-        # Upload the texture in the image loading thread, using
-        # our shared OpenGL context
-        et = ElapsedTime()
-        logger.info(f"Starting texture upload in loader thread")
-        with self.offscreen_context:
-            logger.debug("Offscreen context is current")
-            image_data.texture.initialize_gl()
-            logger.debug("Texture is initialized")
-            if not self._is_current(image_data):
-                logger.debug("image data is not current")
-                return
-            num_loaded_tiles = self._loaded_tile_count(image_data)
-            while num_loaded_tiles < len(image_data.texture):
-                logger.debug("waiting for tile upload")
-                time.sleep(0.050)
-                if not self._is_current(image_data):
-                    logger.debug("image data is not current")
-                    return
-                num_loaded_tiles = self._loaded_tile_count(image_data)
-            logger.info(f"(Loading thread) tile upload took {et}")
-            self.progress_changed.emit(90)  # noqa
-        self.texture_created.emit(image_data)  # noqa
 
     def upload_image(self, image: ImageLike):
         if not self._is_current(image):

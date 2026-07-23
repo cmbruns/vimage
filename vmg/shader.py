@@ -451,8 +451,8 @@ class SphericalDngShader(IImageShader):
     uPano = PanoUniforms()
     uFisheye = FisheyeUniforms()
     uRenderPass = Uniform("render_pass", GL.glUniform1i)
-    uBlackLevel = Uniform("black_level", GL.glUniform4i)
-    uWhiteLevel = Uniform("white_level", GL.glUniform1i)
+    uBlackLevel = Uniform("black_level", GL.glUniform3f)
+    uWhiteLevel = Uniform("white_level", GL.glUniform1f)
     uUvBounds = Uniform("uv_bounds", GL.glUniform4f)
 
     def __init__(self):

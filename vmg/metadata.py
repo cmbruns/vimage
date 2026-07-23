@@ -1,16 +1,17 @@
-import exiftool
 import json
-
-from typing import Optional
 
 import enum
 import logging
 from math import cos, radians, sin, degrees
+from typing import Optional
 
+import exiftool
 import numpy
+from numpy.typing import NDArray
 import PIL
 from PIL import ExifTags
 
+from vmg.dng_color import LightSource
 from vmg.exif_orientation import ExifOrientation
 from vmg.frame import DimensionsOmp
 
@@ -60,7 +61,10 @@ class ImageMetadata:
         self.black_level = (0, 0, 0)
         self.white_level = 255
         self.color_matrix1 = numpy.eye(3, dtype=numpy.float32)
+        self.color_matrix2 = numpy.eye(3, dtype=numpy.float32)
         self.as_shot_neutral = (1.0, 1.0, 1.0)
+        self.illuminant1 = LightSource.STANDARD_LIGHT_A
+        self.illuminant2 = LightSource.D65
 
     def load_tifffile_page(self, page):
         debug = True
@@ -259,19 +263,27 @@ class ImageMetadata:
         if "EXIF:CFAPattern2" in exif:
             assert exif["EXIF:CFAPattern2"] == "0 1 1 2"  # We only know RGGB
         if "EXIF:BlackLevel" in exif:
-            black = [int(x) for x in exif["EXIF:BlackLevel"].split()]
+            black = [float(x)/self.upper_bound for x in exif["EXIF:BlackLevel"].split()]
             if len(black) == 4:
-                self.black_level = black
-                print(self.black_level)
-            else:
-                raise RuntimeError(f"Unexpected black level {black}")
+                # average the two green channels
+                black = black[0], 0.5 * (black[1] + black[2]), black[3]
+            assert len(black) == 3
+            self.black_level = black
+            print(self.black_level)
         if "EXIF:WhiteLevel" in exif:
-            self.white_level = int(exif["EXIF:WhiteLevel"])
+            self.white_level = float(exif["EXIF:WhiteLevel"]) / self.upper_bound
+        if "EXIF:AsShotNeutral" in exif:
+            self.as_shot_neutral = [float(x) for x in exif["EXIF:AsShotNeutral"].split()]
+            assert len(self.as_shot_neutral) == 3
         if "EXIF:ColorMatrix1" in exif:
             cm1 = exif["EXIF:ColorMatrix1"].split()
             assert len(cm1) == 9
             self.color_matrix1 = numpy.array(cm1, dtype=numpy.float32).reshape((3, 3))
-            print(self.color_matrix1)  # noqa
+        if "EXIF:ColorMatrix2" in exif:
+            cm1 = exif["EXIF:ColorMatrix2"].split()
+            assert len(cm1) == 9
+            self.color_matrix2 = numpy.array(cm1, dtype=numpy.float32).reshape((3, 3))
+
         w, h = self.size_opx
         if w != 2 * h:
             self.input_format = InputFormat.STANDARD_PHOTO  # Non-2:1 aspect is always a regular photo
@@ -285,7 +297,13 @@ class ImageMetadata:
             pose_roll = 0.0
 
 
-def calculate_dng_t(as_shot_neutral, color_matrix1, color_matrix2, illuminant1=17, illuminant2=21):
+def calculate_dng_t(
+        as_shot_neutral,
+        color_matrix1: NDArray,
+        color_matrix2: NDArray,
+        illuminant1: LightSource = LightSource.STANDARD_LIGHT_A,
+        illuminant2: LightSource = LightSource.D65,
+):
     """
     Calculates the DNG matrix interpolation weight 't' from AsShotNeutral.
 
