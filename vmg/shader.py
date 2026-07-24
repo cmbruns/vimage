@@ -88,14 +88,14 @@ class PanoUniforms(UniformGroup):
         self.add(Uniform("window_zoom", GL.glUniform1f))
         self.add(Uniform("display_projection", GL.glUniform1i))
         self.add(Uniform("ont_rot_obq", GL.glUniformMatrix3fv))
-        self.add(Uniform("raw_rot_ont", GL.glUniformMatrix3fv))
+        self.add(Uniform("pcm_rot_geo", GL.glUniformMatrix3fv))
 
     def set(self, state: RenderStateLike):
         self["window_size"].set(*[int(x) for x in state.window_size])
         self["window_zoom"].set(state.zoom)
         self["display_projection"].set(state.display_projection.value)
         self["ont_rot_obq"].set(1, True, state.ont_rot_usr)
-        self["raw_rot_ont"].set(1, True, state.raw_rot_ont)
+        self["pcm_rot_geo"].set(1, True, state.pcm_rot_geo)
 
 
 class FisheyeUniforms(UniformGroup):
@@ -371,7 +371,7 @@ class SphericalShader(IImageShader):
         self.zoom_location = None
         self.pixelFilter_location = None
         self.ont_rot_obq_location = None
-        self.raw_rot_ont_location = None
+        self.pcm_rot_geo_location = None
         self.window_size_location = None
         self.input_format_location = None
         self.display_projection_location = None
@@ -404,7 +404,7 @@ class SphericalShader(IImageShader):
         self.zoom_location = GL.glGetUniformLocation(self.shader, "window_zoom")
         self.pixelFilter_location = GL.glGetUniformLocation(self.shader, "pixelFilter")
         self.ont_rot_obq_location = GL.glGetUniformLocation(self.shader, "ont_rot_obq")
-        self.raw_rot_ont_location = GL.glGetUniformLocation(self.shader, "raw_rot_ont")
+        self.pcm_rot_geo_location = GL.glGetUniformLocation(self.shader, "pcm_rot_geo")
         self.window_size_location = GL.glGetUniformLocation(self.shader, "window_size")
         self.input_format_location = GL.glGetUniformLocation(self.shader, "input_format")
         self.display_projection_location = GL.glGetUniformLocation(self.shader, "display_projection")
@@ -428,7 +428,7 @@ class SphericalShader(IImageShader):
         GL.glUniform1f(self.zoom_location, state.zoom)
         GL.glUniform1i(self.pixelFilter_location, state.pixel_filter.value)
         GL.glUniformMatrix3fv(self.ont_rot_obq_location, 1, True, state.ont_rot_usr)
-        GL.glUniformMatrix3fv(self.raw_rot_ont_location, 1, True, image.raw_rot_ont)
+        GL.glUniformMatrix3fv(self.pcm_rot_geo_location, 1, True, image.md.pcm_R_geo)
         GL.glUniform2i(self.window_size_location, *[int(x) for x in state.window_size])
         GL.glUniform1i(self.input_format_location, image.input_format.value)
         GL.glUniform1i(self.display_projection_location, state.display_projection.value)
@@ -453,6 +453,8 @@ class SphericalDngShader(IImageShader):
     uRenderPass = Uniform("render_pass", GL.glUniform1i)
     uBlackLevel = Uniform("black_level", GL.glUniform3f)
     uWhiteLevel = Uniform("white_level", GL.glUniform1f)
+    uAsShotNeutral = Uniform("as_shot_neutral", GL.glUniform3f)
+    uColorMatrix = Uniform("color_matrix", GL.glUniformMatrix3fv)
     uUvBounds = Uniform("uv_bounds", GL.glUniform4f)
 
     def __init__(self):
@@ -483,6 +485,8 @@ class SphericalDngShader(IImageShader):
                 self.uRenderPass,
                 self.uBlackLevel,
                 self.uWhiteLevel,
+                self.uAsShotNeutral,
+                self.uColorMatrix,
                 self.uUvBounds,
             ):
                 uniform.get_location(self.shader)
@@ -498,13 +502,15 @@ class SphericalDngShader(IImageShader):
         self.uViewer["pixelFilter"].set(state.pixel_filter.value)
         self.uPano["window_zoom"].set(state.zoom)
         self.uPano["ont_rot_obq"].set(1, True, state.ont_rot_usr)
-        self.uPano["raw_rot_ont"].set(1, True, image.raw_rot_ont)
+        self.uPano["pcm_rot_geo"].set(1, True, image.md.pcm_R_geo)
         self.uPano["window_size"].set(*[int(x) for x in state.window_size])
         self.uPano["display_projection"].set(state.display_projection.value)
         self.uFisheye["df_fov_radians"].set(self.df_fov_radians)
         self.uFisheye["df_lens_rot_radians"].set(self.df_lens_rot_radians)
         self.uBlackLevel.set(*image.md.black_level)
         self.uWhiteLevel.set(image.md.white_level)
+        self.uAsShotNeutral.set(*image.md.as_shot_neutral)
+        self.uColorMatrix.set(1, True, image.md.color_matrix1)
         #
         self.uRenderPass.set(1)
         self._paint_one_pass(image)

@@ -3,15 +3,15 @@ import json
 import enum
 import logging
 from math import cos, radians, sin, degrees
+from numpy import linalg
 from typing import Optional
 
 import exiftool
 import numpy
-from numpy.typing import NDArray
 import PIL
 from PIL import ExifTags
 
-from vmg.dng_color import LightSource
+from vmg.dng_color import LightSource, calculate_dng_t
 from vmg.exif_orientation import ExifOrientation
 from vmg.frame import DimensionsOmp
 
@@ -56,15 +56,16 @@ class ImageMetadata:
         # Pano metadata
         self.initial_heading_degrees = 0.0
         self.initial_pitch_degrees = 0.0
+        self.initial_roll_degrees = 0.0
         self.pcm_R_geo = numpy.eye(3, dtype=numpy.float32)
         # Dng metadata
-        self.black_level = (0, 0, 0)
-        self.white_level = 255
+        self.black_level = (0.0, 0.0, 0.0)
+        self.white_level = 1.0
         self.color_matrix1 = numpy.eye(3, dtype=numpy.float32)
         self.color_matrix2 = numpy.eye(3, dtype=numpy.float32)
         self.as_shot_neutral = (1.0, 1.0, 1.0)
-        self.illuminant1 = LightSource.STANDARD_LIGHT_A
-        self.illuminant2 = LightSource.D65
+        self.calibration_illuminant1 = LightSource.STANDARD_LIGHT_A
+        self.calibration_illuminant2 = LightSource.D65
 
     def load_tifffile_page(self, page):
         debug = True
@@ -283,6 +284,35 @@ class ImageMetadata:
             cm1 = exif["EXIF:ColorMatrix2"].split()
             assert len(cm1) == 9
             self.color_matrix2 = numpy.array(cm1, dtype=numpy.float32).reshape((3, 3))
+        if "EXIF:CalibrationIlluminant1" in exif:
+            self.calibration_illuminant1 = LightSource(int(exif["EXIF:CalibrationIlluminant1"]))
+            print(self.calibration_illuminant1.name)
+        if "EXIF:CalibrationIlluminant2" in exif:
+            self.calibration_illuminant2 = LightSource(int(exif["EXIF:CalibrationIlluminant2"]))
+            print(self.calibration_illuminant2.name)
+        # TODO: some dng might have a ForwardMatrix available...
+        # Interpolate color matrix
+        dng_t = calculate_dng_t(
+            self.as_shot_neutral,
+            self.color_matrix1, self.color_matrix2,
+            self.calibration_illuminant1, self.calibration_illuminant2,
+        )
+        color_matrix = self.color_matrix1 * (1 - dng_t) + self.color_matrix2 * dng_t
+        # ColorMatrix requires us to undo white balance first, then invert the matrix.
+        wb_gain_matrix = numpy.diag([1/x for x in self.as_shot_neutral])
+        xyz_X_sensor = linalg.inv(color_matrix) @ wb_gain_matrix
+        lsrgb_X_xyz = numpy.array([
+            [+3.2404542, -1.5371385, -0.4985314],
+            [-0.9692660,  1.8760108,  0.0415560],
+            [+0.0556434, -0.2040259,  1.0572252],
+        ])
+        bradford_d65_X_d50 = numpy.array([
+            [+0.9555766, -0.0230393,  0.0631636],
+            [-0.0283858,  1.0099416,  0.0210077],
+            [+0.0123140, -0.0205076,  1.3299115]
+        ])
+        lsrgb_X_sensor = lsrgb_X_xyz @ bradford_d65_X_d50 @ xyz_X_sensor
+        print(lsrgb_X_sensor)
 
         w, h = self.size_opx
         if w != 2 * h:
@@ -295,85 +325,47 @@ class ImageMetadata:
             pose_heading = 0.0
             pose_pitch = 0.0
             pose_roll = 0.0
+            if "EXIF:PoseHeadingDegrees" in exif:
+                pose_heading = radians(float(exif["EXIF:PoseHeadingDegrees"]))
+            elif "EXIF:GPSImgDirection" in exif:
+                pose_heading = radians(float(exif["EXIF:GPSImgDirection"]))
+            if "EXIF:PosePitchDegrees" in exif:
+                pose_pitch = radians(float(exif["EXIF:PosePitchDegrees"]))
+            elif "Composite:RicohPitch" in exif:
+                pose_pitch = radians(float(exif["Composite:RicohPitch"]))
+            if "EXIF:PoseRollDegrees" in exif:
+                pose_roll = radians(float(exif["EXIF:PoseRollDegrees"]))
+            elif "Composite:RicohRoll" in exif:
+                pose_roll = radians(float(exif["Composite:RicohRoll"]))
+            if "EXIF:InitialViewHeadingDegrees" in exif:
+                self.initial_heading_degrees = float(exif["EXIF:InitialViewHeadingDegrees"])
+            if "EXIF:InitialViewPitchDegrees" in exif:
+                self.initial_pitch_degrees = float(exif["EXIF:InitialViewPitchDegrees"])
+            if "EXIF:InitialViewRollDegrees" in exif:
+                self.initial_roll_degrees = float(exif["EXIF:InitialViewRollDegrees"])
+            if pose_heading != 0 or pose_pitch != 0 or pose_roll != 0:
+                logger.info(
+                    f"Pose heading, pitch, roll = ({degrees(pose_heading)}, {degrees(pose_pitch)}, {degrees(pose_roll)})")
+                self.pcm_R_geo = self._pcm_rot_geo(pose_heading, pose_pitch, pose_roll)
 
-
-def calculate_dng_t(
-        as_shot_neutral,
-        color_matrix1: NDArray,
-        color_matrix2: NDArray,
-        illuminant1: LightSource = LightSource.STANDARD_LIGHT_A,
-        illuminant2: LightSource = LightSource.D65,
-):
-    """
-    Calculates the DNG matrix interpolation weight 't' from AsShotNeutral.
-
-    Parameters:
-      as_shot_neutral: list or numpy.array of 3 floats, e.g., [0.52, 1.0, 0.63]
-      color_matrix1:   3x3 numpy.array representing ColorMatrix1 (Tungsten)
-      color_matrix2:   3x3 numpy.array representing ColorMatrix2 (Daylight)
-      illuminant1:     DNG tag integer for CalibrationIlluminant1 (Default: 17 = Standard Illuminant A)
-      illuminant2:     DNG tag integer for CalibrationIlluminant2 (Default: 21 = D65)
-    """
-
-    # 1. Map standard DNG Illuminant tags to their exact nominal Kelvin temperatures
-    # Reference: DNG Spec Chapter 6 (CalibrationIlluminant tags)
-    illuminant_temps = {
-        1: 2856,  # Standard Illuminant A (Tungsten)
-        17: 2856,  # Standard Illuminant A
-        18: 4874,  # Standard Illuminant B
-        19: 6774,  # Standard Illuminant C
-        20: 5003,  # D50
-        21: 6504,  # D65
-        22: 7504,  # D75
-        23: 5455,  # D55
-    }
-
-    temp1 = illuminant_temps.get(illuminant1, 2856)
-    temp2 = illuminant_temps.get(illuminant2, 6504)
-
-    # 2. Derive a generic, un-white-balanced Camera-to-XYZ matrix
-    # DNG spec defines ColorMatrix as XYZ -> Camera. We use its inverse.
-    # We use a base blend of CM1 and CM2 just to calculate a valid local proxy spatial environment.
-    cm_base = (color_matrix1 + color_matrix2) / 2.0
-    cam_to_xyz = numpy.linalg.inv(cm_base)
-
-    # 3. Project the AsShotNeutral raw channel scaling into CIE XYZ space
-    # (AsShotNeutral is inverted to represent white balance multipliers)
-    wb_gains = 1.0 / numpy.array(as_shot_neutral)
-    xyz = numpy.dot(cam_to_xyz, wb_gains)
-
-    # 4. Convert XYZ to CIE xy chromaticity coordinates
-    xyz_sum = xyz[0] + xyz[1] + xyz[2]
-    if xyz_sum == 0:
-        return 0.5  # Fail-safe midpoint if data evaluates to zero
-    x = xyz[0] / xyz_sum
-    y = xyz[1] / xyz_sum
-
-    # 5. McCamy's Cubic Approximation to find Correlated Color Temperature (CCT)
-    # Convert xy to CIE 1960 uv landscape vectors
-    u = (4.0 * x) / (-2.0 * x + 12.0 * y + 3.0)
-    v = (6.0 * y) / (-2.0 * x + 12.0 * y + 3.0)
-
-    # Epicenter of the chromatic adaptation path
-    n = (u - 0.3320) / (v - 0.1858)
-    cct_as_shot = -449.0 * (n ** 3) + 3525.0 * (n ** 2) - 6823.3 * n + 5524.07
-
-    # Bound the evaluated temperature logically
-    cct_as_shot = numpy.clip(cct_as_shot, 2000, 12000)
-
-    # 6. Calculate 't' using inverse temperatures (Mired scale) per DNG rules
-    mired_as_shot = 1.0 / cct_as_shot
-    mired_1 = 1.0 / temp1
-    mired_2 = 1.0 / temp2
-
-    # Guard against division by zero if both illuminants are identical
-    if mired_1 == mired_2:
-        return 0.0
-
-    t = (mired_as_shot - mired_1) / (mired_2 - mired_1)
-
-    # Clamp t tightly between [0.0, 1.0] per Adobe specification framework
-    return float(numpy.clip(t, 0.0, 1.0))
+    @staticmethod
+    def _pcm_rot_geo(heading: float, pitch: float, roll: float):
+        pcm_rot_geo = numpy.array([
+            [cos(roll), -sin(roll), 0],
+            [sin(roll), cos(roll), 0],
+            [0, 0, 1],
+        ], dtype=numpy.float32)
+        pcm_rot_geo = pcm_rot_geo @ [
+            [1, 0, 0],
+            [0, cos(pitch), sin(pitch)],
+            [0, -sin(pitch), cos(pitch)],
+        ]
+        pcm_rot_geo = pcm_rot_geo @ [
+            [cos(heading), 0, sin(heading)],
+            [0, 1, 0],
+            [-sin(heading), 0, cos(heading)],
+        ]
+        return pcm_rot_geo
 
 
 channel_count_for_pil_mode = {

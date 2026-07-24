@@ -6,6 +6,7 @@ from ctypes import c_float, c_void_p, cast, sizeof
 import enum
 import json
 import logging
+from tifffile import TiffFileError
 from typing import Iterator, Optional
 
 import exiftool
@@ -259,7 +260,7 @@ class Tile(TileLike):
             [0, ih / self.padded_height, -(tci.top - tci.top_pad)/self.padded_height],
             [0, 0, 1],
         ], dtype=numpy.float32)
-        self.uv_bounds = (  # // (u_min, v_min, u_max, v_max)
+        self.uv_bounds = (  # (u_min, v_min, u_max, v_max)
             tci.left_pad / self.padded_width,
             tci.top_pad / self.padded_height,
             (tci.left_pad + tci.width) / self.padded_width,
@@ -448,29 +449,32 @@ def generate_tiles(
 class DngImage(BasicImageLike):
     def __init__(self, file_name: str):
         super().__init__()
-        with tifffile.TiffFile(file_name) as dng:
-            self.set_progress(LoadProgress.FILE_OPENED)
-            root_page = dng.pages[0]
-            # Find raw image in ricoh theta Z1
-            page = None
-            for ix, series in enumerate(dng.series):
-                print(f"Series {ix}: Shape {series.shape}, Dtype {series.dtype}")
-                if series.dtype == numpy.uint16:
-                    raw_page = series
-                    page = raw_page.pages[0]
-            if page is None:
-                page = root_page
-            print(root_page.tags.get("AsShotNeutral").value)
-            # Populate metadata
-            self.md.file_name = file_name
-            self.md.photometric_scale = PhotometricScale.LINEAR
-            self.md.upper_bound = numpy.iinfo(page.dtype).max
-            self.md.load_exiftool(file_name)  # takes longer but life is short
-            # self.md.load_tifffile_page(page)
-            self.set_progress(LoadProgress.METADATA_LOADED)
-            # Slurp the raw bytes
-            self._array = page.asarray()
-            self.set_progress(LoadProgress.ARRAY_CREATED)
+        try:
+            with tifffile.TiffFile(file_name) as dng:
+                self.set_progress(LoadProgress.FILE_OPENED)
+                root_page = dng.pages[0]
+                # Find raw image in ricoh theta Z1
+                page = None
+                for ix, series in enumerate(dng.series):
+                    print(f"Series {ix}: Shape {series.shape}, Dtype {series.dtype}")
+                    if series.dtype == numpy.uint16:
+                        raw_page = series
+                        page = raw_page.pages[0]
+                if page is None:
+                    page = root_page
+                print(root_page.tags.get("AsShotNeutral").value)
+                # Populate metadata
+                self.md.file_name = file_name
+                self.md.photometric_scale = PhotometricScale.LINEAR
+                self.md.upper_bound = numpy.iinfo(page.dtype).max
+                self.md.load_exiftool(file_name)  # takes longer but life is short
+                # self.md.load_tifffile_page(page)
+                self.set_progress(LoadProgress.METADATA_LOADED)
+                # Slurp the raw bytes
+                self._array = page.asarray()
+                self.set_progress(LoadProgress.ARRAY_CREATED)
+        except TiffFileError as exc:
+            raise InappropriateImageLoader() from exc
         self.md.data_max = self._array.max()
         self.bayer_array = self._array
         self.pil_image = Image.fromarray(self.bayer_array)
@@ -561,8 +565,8 @@ class DngTile(Tile):
 
         # Construct a second downsampled demosaic texture for zoomed out visualization
         # Theoretical mipmap level 1 size
-        demosaic_w = max(1, self.padded_width // 2)
-        demosaic_h = max(1, self.padded_height // 2)
+        demosaic_w = max(1, self.padded_width)
+        demosaic_h = max(1, self.padded_height)
         # Create framebuffer
         if self.demosaic_framebuffer is None:
             self.demosaic_framebuffer = GL.glGenFramebuffers(1)  # noqa

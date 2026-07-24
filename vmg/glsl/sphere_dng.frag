@@ -27,7 +27,7 @@ uniform mat3 tile_X_img;
 // 360 only
 uniform int display_projection = STEREOGRAPHIC_DISPLAY_PROJECTION;
 uniform mat3 ont_rot_obq = mat3(1);
-uniform mat3 raw_rot_ont = mat3(1);
+uniform mat3 pcm_rot_geo = mat3(1);
 uniform vec4 uv_bounds = vec4(0, 0, 1, 1);  // (u_min, v_min, u_max, v_max)
 
 // Dual fisheye only
@@ -39,6 +39,8 @@ uniform int render_pass = 1;
 const int format_max = 65535;
 uniform vec3 black_level = vec3(0);
 uniform float white_level = 1.0;
+uniform vec3 as_shot_neutral = vec3(1);
+uniform mat3 color_matrix = mat3(1);
 
 in vec2 p_nic;
 out vec4 color;
@@ -165,13 +167,13 @@ void main()
 
     // Convert direction to sky-up physical camera world frame (ont),
     // then to physical camera frame 3D direction (raw)
-    vec3 p_raw = raw_rot_ont * ont_rot_obq * p_obq;
+    vec3 p_pcm = pcm_rot_geo * ont_rot_obq * p_obq;
 
     // Look up tile texture coordinate(s)
     vec2 p_tcr;  // Full image texture coordinate
     // Always dual fisheye with DNG as far as we know
     TexCoordPair pair = dual_fisheye_tex_coord(
-            p_raw,
+            p_pcm,
             df_fov_radians,  // fisheye field of view
             df_lens_rot_radians);  // lens rotation offset
     float alpha = 1.0;
@@ -216,7 +218,7 @@ void main()
     // At lower zoom, the user sees the demosaicked RGB interpretation.
     // TODO: this goes wonky near tile boundaries
     float lod = textureQueryLod(demosaic_tile, p_tcr).y;
-    float demosaic_bias = clamp(lod + 9, 0.0, 4.0) * 0.25;  // Blended color between lod 0->1
+    float demosaic_bias = clamp(lod + 10, 0.0, 4.0) * 0.25;  // Blended color between lod 0->1
 
     const bool debug = false;
     if (debug) {
@@ -229,13 +231,17 @@ void main()
     color = mix(bayer_color, demosaic_color, demosaic_bias);
     color.a = alpha;
 
-    // TODO: black level, white level, white balance, color_matrix,
-
+    // TODO: illuminant fine points
     // black level
     color.rgb = max(color.rgb - black_level, vec3(0));
-
     // white level
-    color.rgb /= vec3(white_level);
+    color.rgb = min(color.rgb/(vec3(white_level) - black_level), vec3(1));
+    // white balance
+    // color.rgb /= as_shot_neutral;
+    // convert to xyz
+    color.rgb = inverse(color_matrix) * color.rgb;
+    // convert to linear srgb
+    color.rgb = xyzToSRGB * bradfordD50toD65 * color.rgb;
 
     //  XYZ->linear sRGB, tone mapping,
 

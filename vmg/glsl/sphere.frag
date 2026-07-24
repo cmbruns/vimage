@@ -6,7 +6,7 @@ uniform int display_projection = STEREOGRAPHIC_DISPLAY_PROJECTION;
 uniform sampler2D tile;
 uniform int pixelFilter = FILTER_NEAREST;
 uniform mat3 ont_rot_obq = mat3(1);
-uniform mat3 raw_rot_ont = mat3(1);
+uniform mat3 pcm_rot_geo = mat3(1);
 uniform mat3 tile_X_img = mat3(1);
 uniform vec4 uv_bounds = vec4(0, 0, 1, 1);  // (u_min, v_min, u_max, v_max)
 uniform float df_fov_radians = radians(195.0);
@@ -27,7 +27,7 @@ void main()
     if (p_obq == INVALID_OBQ) discard;
 
     // Convert direction to sky-up world frame (ont), then to camera frame (raw)
-    vec3 p_raw = raw_rot_ont * ont_rot_obq * p_obq;
+    vec3 p_raw = pcm_rot_geo * ont_rot_obq * p_obq;
 
     // Look up tile texture coordinate(s)
     vec2 p_tcr;  // Full image texture coordinate

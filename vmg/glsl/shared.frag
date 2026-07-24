@@ -33,7 +33,7 @@ vec4 bayer_tint(
     if      ( rowEven &&  colEven) mask = vec4(1.0, 0.5, 0.4, 1);  // red
     else if ( rowEven && !colEven) mask = vec4(0.4, 1.0, 0.4, 1);  // green
     else if (!rowEven &&  colEven) mask = vec4(0.4, 1.0, 0.4, 1);  // green
-    else /* if (!rowEven && !colEven) */ mask = vec4(0.4, 0.5, 1.0, 1);  // blue
+    else /* if (!rowEven && !colEven) */ mask = vec4(0.25, 0.5, 1.0, 1);  // blue
     return bayer_color * mask;
 }
 
@@ -102,12 +102,12 @@ struct TexCoordPair {
     float front_bias;  // range 0-1
 };
 
-TexCoordPair dual_fisheye_tex_coord(vec3 p_sph, float fov_radians, float lens_rot_radians)
+TexCoordPair dual_fisheye_tex_coord(vec3 p_pcm, float fov_radians, float lens_rot_radians)
 {
     // input vector space is 3D unit sphere, x-right, y-up, z-back (i.e. -Z forward/center)
     // range [-1, +1]
-    vec3 p_sph_front = p_sph;
-    vec3 p_sph_rear = p_sph * vec3(-1, 1, -1);  // rotate 180 about Y/up
+    vec3 p_sph_front = p_pcm;
+    vec3 p_sph_rear = p_pcm * vec3(-1, 1, -1);  // rotate 180 about Y/up
 
     // The two lenses can be slightly misaligned by an axial rotation
     float crot = cos(lens_rot_radians/2.0);
@@ -117,8 +117,9 @@ TexCoordPair dual_fisheye_tex_coord(vec3 p_sph, float fov_radians, float lens_ro
         -srot, crot);
 
     // Texture coordinates of each fisheye image center
-    vec2 center_front_tc = vec2(0.25, 0.5);  // left/front fisheye center in output texture coordinates
-    vec2 center_rear_tc = vec2(0.75, 0.5);  // rear camera occupies right half of image
+    // TODO: Ricoh Theta Z1 has front camera fisheye on the right; others may differ
+    vec2 center_front_tc = vec2(0.75, 0.5);  // right/front fisheye center in output texture coordinates
+    vec2 center_rear_tc = vec2(0.25, 0.5);  // left/rear camera occupies right half of image
 
     // Amount the two lenses overlap determines the blending region
     float z_limit = 0.4 * sin(fov_radians - radians(180));  // angular overlap region in z direction
@@ -134,12 +135,12 @@ TexCoordPair dual_fisheye_tex_coord(vec3 p_sph, float fov_radians, float lens_ro
     vec2 p_front_tc = center_front_tc + p_nfish_front * vec2(0.5, -1);  // Translate and scale
     vec2 p_rear_tc = center_rear_tc + p_nfish_rear * vec2(0.5, -1);
 
-    if (p_front_tc.x >= 0.5) front_bias = 0.0;
-    if (p_front_tc.x <= 0.0) front_bias = 0.0;
+    if (p_front_tc.x >= 1.0) front_bias = 0.0;
+    if (p_front_tc.x <= 0.5) front_bias = 0.0;
     if (p_front_tc.y >= 1.0) front_bias = 0.0;
     if (p_front_tc.y <= 0.0) front_bias = 0.0;
-    if (p_rear_tc.x <= 0.5) front_bias = 1.0;
-    if (p_rear_tc.x >= 1.0) front_bias = 1.0;
+    if (p_rear_tc.x <= 0.0) front_bias = 1.0;
+    if (p_rear_tc.x >= 0.5) front_bias = 1.0;
     if (p_rear_tc.y >= 1.0) front_bias = 1.0;
     if (p_rear_tc.y <= 0.0) front_bias = 1.0;
 
