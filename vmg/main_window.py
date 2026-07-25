@@ -16,7 +16,7 @@ from PIL import Image, ImageGrab
 from pillow_heif import register_heif_opener  # Support apple .HEIF images
 from PySide6 import QtCore, QtGui, QtWidgets
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QUndoStack
+from PySide6.QtGui import QUndoStack, QKeySequence
 from PySide6.QtWidgets import QFileDialog, QMessageBox
 
 from vmg.circular_combo_box import CircularComboBox
@@ -98,6 +98,21 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         rect_icon_file = resource_filename("vmg.images", "box_icon.png")
         self.actionSelect_Rectangle.setIcon(QtGui.QIcon(rect_icon_file))
         self.actionSelect_Rectangle.triggered.connect(self.imageWidgetGL.start_rect_with_no_point)
+        # Zoom In
+        self.actionZoom_In.setIcon(QtGui.QIcon(
+            resource_filename("vmg.images","zoom_in.png")))
+        self.toolBar.widgetForAction(self.actionZoom_In).setAutoRepeat(True)
+        self.actionZoom_In.setShortcuts([
+            QKeySequence(QKeySequence.StandardKey.ZoomIn),
+            QKeySequence("Ctrl+="),  # "+" but without the shift key
+        ])
+        # Zoom Out
+        self.actionZoom_Out.setIcon(QtGui.QIcon(
+            resource_filename("vmg.images","zoom_out.png")))
+        self.toolBar.widgetForAction(self.actionZoom_Out).setAutoRepeat(True)
+        self.actionZoom_Out.setShortcuts([
+            QKeySequence(QKeySequence.StandardKey.ZoomOut),
+        ])
         # Allow action shortcuts even when toolbar and menu bar are hidden
         self.addAction(self.actionNext)
         self.addAction(self.actionPrevious)
@@ -145,7 +160,8 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         # Add image list progress label to toolbar
         self.list_label = QtWidgets.QLabel("0/0")
         self.list_label.setMinimumWidth(40)
-        self.toolBar.addWidget(self.list_label)
+        separators = [a for a in self.toolBar.actions() if a.isSeparator()]
+        self.toolBar.insertWidget(separators[1], self.list_label)
         self.toolBar.addSeparator()
         self.toolBar.addAction(self.actionSelect_Rectangle)
         self.toolBar.addSeparator()
