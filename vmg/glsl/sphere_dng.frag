@@ -39,7 +39,7 @@ uniform int render_pass = 1;
 uniform vec3 black_level = vec3(0);
 uniform vec3 white_level = vec3(1);
 uniform vec3 as_shot_neutral = vec3(1);
-uniform mat3 lsr_X_rfv = mat3(1);
+uniform mat3 lsr_X_wba = mat3(1);
 
 in vec2 p_nic;
 out vec4 color;
@@ -120,23 +120,22 @@ void main()
         // demosaic_bias = 1.0;  // pure demosaic
     }
 
+    // Raw sensor color "sns"
     color = mix(bayer_color, demosaic_color, demosaic_bias);
     color.a = alpha;
 
-    // black level
+    // black level sns -> bkc
     color.rgb = max(color.rgb - black_level, vec3(0));
-    // white level
+    // white level bkc -> rfv (camera "linear reference value" in DNG spec)
     color.rgb = min(color.rgb/(white_level - black_level), vec3(1));
 
-    // clip so highlights are neutral
-    color.rgb = min(color.rgb, as_shot_neutral);
-
-    // up gain so non-clipped values fill valid range
-    float gain = min(min(as_shot_neutral.r, as_shot_neutral.g), as_shot_neutral.b);
-    color.rgb = color.rgb / gain;
+    // rfv -> wba  white balanced
+    color.rgb /= as_shot_neutral;
+    // clip so highlights are neutral, to avoid magenta sun
+    color.rgb = min(color.rgb, vec3(1));
 
     // convert to linear sRGB
-    color.rgb = lsr_X_rfv * color.rgb;
+    color.rgb = lsr_X_wba * color.rgb;
 
     // Apply user brightness
     // DNG is always photometrically linear

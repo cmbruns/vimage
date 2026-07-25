@@ -65,7 +65,7 @@ class ImageMetadata:
         self.color_matrix1 = numpy.eye(3, dtype=numpy.float32)
         self.color_matrix2 = numpy.eye(3, dtype=numpy.float32)
         # Convert camera sensor reference values to linear sRGB
-        self.lsr_X_rfv = numpy.eye(3, dtype=numpy.float32)
+        self.lsr_X_wba = numpy.eye(3, dtype=numpy.float32)
         self.baseline_exposure = 0.0
 
     def load_tifffile_page(self, page):
@@ -320,7 +320,8 @@ class ImageMetadata:
             [+0.0123140, -0.0205076,  1.3299115]
         ])
         d50_X_rfv = linalg.inv(rfv_X_d50)
-        self.lsr_X_rfv = lsr_X_d65 @ d65_X_d50 @ d50_X_rfv
+        rfv_X_wba = numpy.diag(self.as_shot_neutral)
+        self.lsr_X_wba = lsr_X_d65 @ d65_X_d50 @ d50_X_rfv @ rfv_X_wba
 
         w, h = self.size_opx
         if w != 2 * h:

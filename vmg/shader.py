@@ -268,7 +268,7 @@ class RectangularTileShader(IImageShader):
 class RectangularDngShader(IImageShader):
     uBlackLevel = Uniform("black_level", GL.glUniform3f)
     uWhiteLevel = Uniform("white_level", GL.glUniform3f)
-    uLsr_X_rfv = Uniform("lsr_X_rfv", GL.glUniformMatrix3fv)
+    uLsr_X_wba = Uniform("lsr_X_wba", GL.glUniformMatrix3fv)
 
     def __init__(self):
         self.shader = None
@@ -314,7 +314,7 @@ class RectangularDngShader(IImageShader):
                     self.uDemosaicTile,
                     self.uBlackLevel,
                     self.uWhiteLevel,
-                    self.uLsr_X_rfv,
+                    self.uLsr_X_wba,
             ):
                 uniform.get_location(self.shader)
             self.box_shader.initialize_gl()
@@ -334,7 +334,7 @@ class RectangularDngShader(IImageShader):
         GL.glUniform1f(self.omp_scale_qwn_location, state.omp_scale_qwn())
         self.uBlackLevel.set(*image.md.black_level)
         self.uWhiteLevel.set(*image.md.white_level)
-        self.uLsr_X_rfv.set(1, True, image.md.lsr_X_rfv)
+        self.uLsr_X_wba.set(1, True, image.md.lsr_X_wba)
         self.brightness.set(state.brightness + image.md.baseline_exposure)
         image.paint_gl(self)
         self.numeral_shader.paint_gl(state, image)
@@ -464,7 +464,7 @@ class SphericalDngShader(IImageShader):
     uBlackLevel = Uniform("black_level", GL.glUniform3f)
     uWhiteLevel = Uniform("white_level", GL.glUniform3f)
     uAsShotNeutral = Uniform("as_shot_neutral", GL.glUniform3f)
-    uLsr_X_rfv = Uniform("lsr_X_rfv", GL.glUniformMatrix3fv)
+    uLsr_X_wba = Uniform("lsr_X_wba", GL.glUniformMatrix3fv)
     uUvBounds = Uniform("uv_bounds", GL.glUniform4f)
 
     def __init__(self):
@@ -497,7 +497,7 @@ class SphericalDngShader(IImageShader):
                 self.uBlackLevel,
                 self.uWhiteLevel,
                 self.uAsShotNeutral,
-                self.uLsr_X_rfv,
+                self.uLsr_X_wba,
             ):
                 uniform.get_location(self.shader)
         except BaseException as exc:
@@ -520,7 +520,7 @@ class SphericalDngShader(IImageShader):
         self.uBlackLevel.set(*image.md.black_level)
         self.uWhiteLevel.set(*image.md.white_level)
         self.uAsShotNeutral.set(*image.md.as_shot_neutral)
-        self.uLsr_X_rfv.set(1, True, image.md.lsr_X_rfv)
+        self.uLsr_X_wba.set(1, True, image.md.lsr_X_wba)
         #
         self.uRenderPass.set(1)
         self._paint_one_pass(image)
