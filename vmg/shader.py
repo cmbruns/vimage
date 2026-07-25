@@ -453,6 +453,7 @@ class SphericalShader(IImageShader):
             self.uRenderPass.set(2)
             image.paint_gl(self, state)
 
+
 class SphericalDngShader(IImageShader):
     uBayerTile = Sampler2DUniform("bayer_tile")
     uDemosaicTile = Sampler2DUniform("demosaic_tile")
@@ -462,6 +463,7 @@ class SphericalDngShader(IImageShader):
     uRenderPass = Uniform("render_pass", GL.glUniform1i)
     uBlackLevel = Uniform("black_level", GL.glUniform3f)
     uWhiteLevel = Uniform("white_level", GL.glUniform3f)
+    uAsShotNeutral = Uniform("as_shot_neutral", GL.glUniform3f)
     uLsr_X_rfv = Uniform("lsr_X_rfv", GL.glUniformMatrix3fv)
     uUvBounds = Uniform("uv_bounds", GL.glUniform4f)
 
@@ -490,10 +492,11 @@ class SphericalDngShader(IImageShader):
                 self.uFisheye,
                 self.uBayerTile,
                 self.uDemosaicTile,
+                self.uUvBounds,
                 self.uRenderPass,
                 self.uBlackLevel,
                 self.uWhiteLevel,
-                self.uUvBounds,
+                self.uAsShotNeutral,
                 self.uLsr_X_rfv,
             ):
                 uniform.get_location(self.shader)
@@ -516,6 +519,7 @@ class SphericalDngShader(IImageShader):
         self.uFisheye["df_lens_rot_radians"].set(self.df_lens_rot_radians)
         self.uBlackLevel.set(*image.md.black_level)
         self.uWhiteLevel.set(*image.md.white_level)
+        self.uAsShotNeutral.set(*image.md.as_shot_neutral)
         self.uLsr_X_rfv.set(1, True, image.md.lsr_X_rfv)
         #
         self.uRenderPass.set(1)

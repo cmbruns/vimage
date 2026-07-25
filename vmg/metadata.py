@@ -61,6 +61,9 @@ class ImageMetadata:
         # Dng metadata
         self.black_level = (0.0, 0.0, 0.0)
         self.white_level = (1.0, 1.0, 1.0)
+        self.as_shot_neutral = (1.0, 1.0, 1.0)
+        self.color_matrix1 = numpy.eye(3, dtype=numpy.float32)
+        self.color_matrix2 = numpy.eye(3, dtype=numpy.float32)
         # Convert camera sensor reference values to linear sRGB
         self.lsr_X_rfv = numpy.eye(3, dtype=numpy.float32)
         self.baseline_exposure = 0.0
@@ -75,7 +78,7 @@ class ImageMetadata:
             # print(page.imagelength)
             # print(page.imagewidth)
             # print(page.is_dng)
-            print(repr(page.dtype))
+            # print(repr(page.dtype))
             # print(page.is_tiled)  # TODO
             # print(page.photometric)  # 32803?
             # print(page.resolution)
@@ -95,12 +98,12 @@ class ImageMetadata:
             # print(exif_tags)
             if 274 in exif_tags:
                 orientation_index = exif_tags[274].value
-                print(f"orientation {orientation_index}")
+                # print(f"orientation {orientation_index}")
                 # TODO
         w, h = self.size_opx
         # TODO: pano orientation
         xmp_tag = page.tags.get("XMP")
-        print("XMP tag", xmp_tag)
+        # print("XMP tag", xmp_tag)
         # Input format  TODO: subtler decision tree
         if w == 2 * h:
             self.input_format = InputFormat.DUAL_FISHEYE
@@ -119,15 +122,15 @@ class ImageMetadata:
             elif tag.code == 50717:  # WhiteLevel
                 assert tag.value % 1 == 0
                 self.white_level = int(tag.value)
-        print("BlackLevel:", self.black_level)
-        print("WhiteLevel:", self.white_level)
+        # print("BlackLevel:", self.black_level)
+        # print("WhiteLevel:", self.white_level)
         asn = page.tags['AsShotNeutral'].value
         assert len(asn) == 6
         as_shot_neutral = asn[0]/asn[1], asn[2]/asn[3], asn[4]/asn[5]
         cm = page.tags['ColorMatrix1'].value
         assert len(cm) == 18
         a = numpy.array(cm, numpy.float32).reshape(9, 2)
-        color_matrix1 = (a[:, 0] / a[:, 1]).reshape(3, 3)
+        self.color_matrix1 = (a[:, 0] / a[:, 1]).reshape(3, 3)
         # TODO full dng pipeline not done
 
     def load_pil_image(self, pil_image):
@@ -248,7 +251,7 @@ class ImageMetadata:
         with exiftool.ExifTool() as et:
             raw = et.execute("-j", file_name)
             exif = json.loads(raw)[0]
-        debug = True
+        debug = False
         if debug:
             print(json.dumps(exif, indent=2, sort_keys=True))
         w, h = exif["EXIF:ImageWidth"], exif["EXIF:ImageHeight"]
@@ -280,6 +283,7 @@ class ImageMetadata:
         if "EXIF:AsShotNeutral" in exif:
             self.as_shot_neutral = [float(x) for x in exif["EXIF:AsShotNeutral"].split()]
             assert len(self.as_shot_neutral) == 3
+            print(self.as_shot_neutral)
         if "EXIF:ColorMatrix1" in exif:
             cm1 = exif["EXIF:ColorMatrix1"].split()
             assert len(cm1) == 9

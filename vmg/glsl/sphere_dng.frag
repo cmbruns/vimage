@@ -38,6 +38,7 @@ uniform int render_pass = 1;
 // DNG only
 uniform vec3 black_level = vec3(0);
 uniform vec3 white_level = vec3(1);
+uniform vec3 as_shot_neutral = vec3(1);
 uniform mat3 lsr_X_rfv = mat3(1);
 
 in vec2 p_nic;
@@ -127,16 +128,23 @@ void main()
     // white level
     color.rgb = min(color.rgb/(white_level - black_level), vec3(1));
 
+    // clip so highlights are neutral
+    color.rgb = min(color.rgb, as_shot_neutral);
+
+    // up gain so non-clipped values fill valid range
+    float gain = min(min(as_shot_neutral.r, as_shot_neutral.g), as_shot_neutral.b);
+    color.rgb = color.rgb / gain;
+
     // convert to linear sRGB
     color.rgb = lsr_X_rfv * color.rgb;
 
     // Apply user brightness
     // DNG is always photometrically linear
-    vec4 brightened = pow(2.0, brightness) * color;  // apply to linear...
+    color.rgb *= pow(2.0, brightness);
 
     // The very final step of basic raw color processing is to apply the
     // customary display gamma.
-    color = srgb_from_linear(brightened);
+    color = srgb_from_linear(color);
 
     // It's OK to do overlays like texel boundaries and bounding box in
     // gamma srgb space
