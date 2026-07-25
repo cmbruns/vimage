@@ -251,7 +251,7 @@ class ImageMetadata:
         with exiftool.ExifTool() as et:
             raw = et.execute("-j", file_name)
             exif = json.loads(raw)[0]
-        debug = False
+        debug = True
         if debug:
             print(json.dumps(exif, indent=2, sort_keys=True))
         w, h = exif["EXIF:ImageWidth"], exif["EXIF:ImageHeight"]

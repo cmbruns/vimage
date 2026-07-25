@@ -15,7 +15,8 @@ uniform mat3 tile_X_img;
 // DNG only
 uniform vec3 black_level = vec3(0);
 uniform vec3 white_level = vec3(1);
-uniform mat3 lsr_X_rfv = mat3(1);
+uniform vec3 as_shot_neutral = vec3(1);
+uniform mat3 lsr_X_wba = mat3(1);
 
 in vec2 p_omp;
 in vec2 p_ttc;
@@ -44,13 +45,18 @@ void main()
     float demosaic_bias = clamp(lod + 6, 0.0, 4.0);  // Blended color between lod 0->1
     color = mix(bayer_color, demosaic_color, demosaic_bias * 0.25);
 
-    // black level
+    // black level sns -> bkc
     color.rgb = max(color.rgb - black_level, vec3(0));
-    // white level
+    // white level bkc -> rfv (camera "linear reference value" in DNG spec)
     color.rgb = min(color.rgb/(white_level - black_level), vec3(1));
 
+    // rfv -> wba  white balanced
+    color.rgb /= as_shot_neutral;
+    // clip so highlights are neutral, to avoid magenta sun
+    color.rgb = min(color.rgb, vec3(1));
+
     // convert to linear sRGB
-    color.rgb = lsr_X_rfv * color.rgb;
+    color.rgb = lsr_X_wba * color.rgb;
 
     // Apply brightness
     color.rgb *= pow(2.0, brightness);
