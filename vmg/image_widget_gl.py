@@ -220,11 +220,11 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
     @QtCore.Slot(float)
     def update_df_fov(self, fov_deg: float):
         fov_rad = radians(fov_deg)
-        if fov_rad == self.sphere_shader.df_fov_radians:
+        if self.image is None:
+            return
+        if fov_rad == self.image.md.df_fov_radians:
             return  # No change
-        self.sphere_shader.df_fov_radians = fov_rad
-        if self.program != self.sphere_shader:
-            return  # Wrong shader, no update needed
+        self.image.md.df_fov_radians = fov_rad
         if self.image.input_format != InputFormat.DUAL_FISHEYE:
             return  # Wrong format, no update needed
         self.update()  # Live update as user changes parameter
@@ -232,11 +232,11 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
     @QtCore.Slot(float)
     def update_df_lens_rot(self, rot_deg: float):
         rot_rad = radians(rot_deg)
-        if rot_rad == self.sphere_shader.df_lens_rot_radians:
+        if self.image is None:
+            return
+        if rot_rad == self.image.md.df_lens_rot_radians:
             return  # No change
-        self.sphere_shader.df_lens_rot_radians = rot_rad
-        if self.program != self.sphere_shader:
-            return  # Wrong shader, no update needed
+        self.image.md.df_lens_rot_radians = rot_rad
         if self.image.input_format != InputFormat.DUAL_FISHEYE:
             return  # Wrong format, no update needed
         self.update()  # Live update as user changes parameter

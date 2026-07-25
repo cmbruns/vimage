@@ -394,8 +394,6 @@ class SphericalShader(IImageShader):
         self.input_is_linear = Uniform("input_is_linear", GL.glUniform1i)
         self.uRenderPass = Uniform("render_pass", GL.glUniform1i)
         # TODO dual fisheye parameters should be stored per-camera or whatever
-        self.df_fov_radians = radians(195.0)
-        self.df_lens_rot_radians = radians(0.0)
         self.df_fov_radians_location = None
         self.df_lens_rot_radians_location = None
 
@@ -445,8 +443,8 @@ class SphericalShader(IImageShader):
         GL.glUniform2i(self.window_size_location, *[int(x) for x in state.window_size])
         GL.glUniform1i(self.input_format_location, image.input_format.value)
         GL.glUniform1i(self.display_projection_location, state.display_projection.value)
-        GL.glUniform1f(self.df_fov_radians_location, self.df_fov_radians)
-        GL.glUniform1f(self.df_lens_rot_radians_location, self.df_lens_rot_radians)
+        GL.glUniform1f(self.df_fov_radians_location, image.md.df_fov_radians)
+        GL.glUniform1f(self.df_lens_rot_radians_location, image.md.df_lens_rot_radians)
         self.brightness.set(state.brightness + image.md.baseline_exposure)
         self.input_is_linear.set(image.photometric_scale == PhotometricScale.LINEAR)
         self.uRenderPass.set(1)
@@ -472,9 +470,6 @@ class SphericalDngShader(IImageShader):
 
     def __init__(self):
         self.shader = None
-        # TODO dual fisheye parameters should be stored per-camera or per image
-        self.df_fov_radians = radians(195.0)
-        self.df_lens_rot_radians = radians(0.0)
         self.df_fov_radians_location = None
         self.df_lens_rot_radians_location = None
 
@@ -518,8 +513,8 @@ class SphericalDngShader(IImageShader):
         self.uPano["pcm_rot_geo"].set(1, True, image.md.pcm_R_geo)
         self.uPano["window_size"].set(*[int(x) for x in state.window_size])
         self.uPano["display_projection"].set(state.display_projection.value)
-        self.uFisheye["df_fov_radians"].set(self.df_fov_radians)
-        self.uFisheye["df_lens_rot_radians"].set(self.df_lens_rot_radians)
+        self.uFisheye["df_fov_radians"].set(image.md.df_fov_radians)
+        self.uFisheye["df_lens_rot_radians"].set(image.md.df_lens_rot_radians)
         self.uBlackLevel.set(*image.md.black_level)
         self.uWhiteLevel.set(*image.md.white_level)
         self.uAsShotNeutral.set(*image.md.as_shot_neutral)

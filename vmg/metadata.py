@@ -58,6 +58,9 @@ class ImageMetadata:
         self.initial_pitch_degrees = 0.0
         self.initial_roll_degrees = 0.0
         self.pcm_R_geo = numpy.eye(3, dtype=numpy.float32)
+        # Dual fisheye lens parameters
+        self.df_fov_radians = radians(195.0)
+        self.df_lens_rot_radians = radians(0.0)
         # Dng metadata
         self.black_level = (0.0, 0.0, 0.0)
         self.white_level = (1.0, 1.0, 1.0)
