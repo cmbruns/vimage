@@ -45,8 +45,8 @@ void main()
     const float window = dt + 0.5;  // Keep neighborhood symmetric-ish, shortest distance not visited here
     // Maybe both sampling rates should be 2.0 since that's the band limit for this raster
     // 2.5 to give it a bit more blur
-    const float rb_sampling_rate = 2.5;  // neighbor red/blue are 2 cells away
-    const float g_sampling_rate = 2.5;  // sqrt(2.0);  // neighbor greens are diagonal
+    const float rb_sampling_rate = 2.0;  // neighbor red/blue are 2 cells away
+    const float g_sampling_rate = 2.0;  // sqrt(2.0);  // neighbor greens are diagonal
     ivec2 max_tex = textureSize(bayer, 0) - ivec2(1);
     ivec2 min_tex = ivec2(0);
     for (int x = iTexel.x - dt; x <= iTexel.x + dt; ++x)

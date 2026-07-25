@@ -66,6 +66,8 @@ class ImageMetadata:
         self.as_shot_neutral = (1.0, 1.0, 1.0)
         self.calibration_illuminant1 = LightSource.STANDARD_LIGHT_A
         self.calibration_illuminant2 = LightSource.D65
+        # Convert camera sensor reference values to linear sRGB
+        self.lsr_X_rfv = numpy.eye(3, dtype=numpy.float32)
 
     def load_tifffile_page(self, page):
         debug = True
@@ -264,15 +266,21 @@ class ImageMetadata:
         if "EXIF:CFAPattern2" in exif:
             assert exif["EXIF:CFAPattern2"] == "0 1 1 2"  # We only know RGGB
         if "EXIF:BlackLevel" in exif:
-            black = [float(x)/self.upper_bound for x in exif["EXIF:BlackLevel"].split()]
+            try:
+                black = [float(x)/self.upper_bound for x in exif["EXIF:BlackLevel"].split()]
+            except AttributeError:
+                black = [float(exif["EXIF:BlackLevel"])/self.upper_bound] * 3
             if len(black) == 4:
                 # average the two green channels
                 black = black[0], 0.5 * (black[1] + black[2]), black[3]
             assert len(black) == 3
             self.black_level = black
-            print(self.black_level)
         if "EXIF:WhiteLevel" in exif:
-            self.white_level = float(exif["EXIF:WhiteLevel"]) / self.upper_bound
+            try:
+                white = [float(x)/self.upper_bound for x in exif["EXIF:WhiteLevel"].split()]
+            except AttributeError:
+                white = [float(exif["EXIF:WhiteLevel"])/self.upper_bound] * 3
+            self.white_level = white
         if "EXIF:AsShotNeutral" in exif:
             self.as_shot_neutral = [float(x) for x in exif["EXIF:AsShotNeutral"].split()]
             assert len(self.as_shot_neutral) == 3
@@ -297,22 +305,22 @@ class ImageMetadata:
             self.color_matrix1, self.color_matrix2,
             self.calibration_illuminant1, self.calibration_illuminant2,
         )
-        color_matrix = self.color_matrix1 * (1 - dng_t) + self.color_matrix2 * dng_t
+        rfv_X_d50 = self.color_matrix1 * (1 - dng_t) + self.color_matrix2 * dng_t
         # ColorMatrix requires us to undo white balance first, then invert the matrix.
-        wb_gain_matrix = numpy.diag([1/x for x in self.as_shot_neutral])
-        xyz_X_sensor = linalg.inv(color_matrix) @ wb_gain_matrix
-        lsrgb_X_xyz = numpy.array([
+        # wb_gain_matrix = numpy.diag([1/x for x in self.as_shot_neutral])
+        # xyz_X_sensor = linalg.inv(color_matrix) @ wb_gain_matrix
+        lsr_X_d65 = numpy.array([
             [+3.2404542, -1.5371385, -0.4985314],
             [-0.9692660,  1.8760108,  0.0415560],
             [+0.0556434, -0.2040259,  1.0572252],
         ])
-        bradford_d65_X_d50 = numpy.array([
+        d65_X_d50 = numpy.array([  # Bradford
             [+0.9555766, -0.0230393,  0.0631636],
             [-0.0283858,  1.0099416,  0.0210077],
             [+0.0123140, -0.0205076,  1.3299115]
         ])
-        lsrgb_X_sensor = lsrgb_X_xyz @ bradford_d65_X_d50 @ xyz_X_sensor
-        print(lsrgb_X_sensor)
+        d50_X_rfv = linalg.inv(rfv_X_d50)
+        self.lsr_X_rfv = lsr_X_d65 @ d65_X_d50 @ d50_X_rfv
 
         w, h = self.size_opx
         if w != 2 * h:

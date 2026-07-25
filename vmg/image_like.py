@@ -477,7 +477,7 @@ class DngImage(BasicImageLike):
             raise InappropriateImageLoader() from exc
         self.md.data_max = self._array.max()
         self.bayer_array = self._array
-        self.pil_image = Image.fromarray(self.bayer_array)
+        self.pil_image = None  # Image.fromarray(self.bayer_array)
 
     def initialize_gl(self) -> None:
         """

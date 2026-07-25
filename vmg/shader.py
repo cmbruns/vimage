@@ -452,14 +452,13 @@ class SphericalDngShader(IImageShader):
     uFisheye = FisheyeUniforms()
     uRenderPass = Uniform("render_pass", GL.glUniform1i)
     uBlackLevel = Uniform("black_level", GL.glUniform3f)
-    uWhiteLevel = Uniform("white_level", GL.glUniform1f)
-    uAsShotNeutral = Uniform("as_shot_neutral", GL.glUniform3f)
-    uColorMatrix = Uniform("color_matrix", GL.glUniformMatrix3fv)
+    uWhiteLevel = Uniform("white_level", GL.glUniform3f)
+    uLsr_X_rfv = Uniform("lsr_X_rfv", GL.glUniformMatrix3fv)
     uUvBounds = Uniform("uv_bounds", GL.glUniform4f)
 
     def __init__(self):
         self.shader = None
-        # TODO dual fisheye parameters should be stored per-camera or whatever
+        # TODO dual fisheye parameters should be stored per-camera or per image
         self.df_fov_radians = radians(195.0)
         self.df_lens_rot_radians = radians(0.0)
         self.df_fov_radians_location = None
@@ -485,9 +484,8 @@ class SphericalDngShader(IImageShader):
                 self.uRenderPass,
                 self.uBlackLevel,
                 self.uWhiteLevel,
-                self.uAsShotNeutral,
-                self.uColorMatrix,
                 self.uUvBounds,
+                self.uLsr_X_rfv,
             ):
                 uniform.get_location(self.shader)
         except BaseException as exc:
@@ -508,9 +506,8 @@ class SphericalDngShader(IImageShader):
         self.uFisheye["df_fov_radians"].set(self.df_fov_radians)
         self.uFisheye["df_lens_rot_radians"].set(self.df_lens_rot_radians)
         self.uBlackLevel.set(*image.md.black_level)
-        self.uWhiteLevel.set(image.md.white_level)
-        self.uAsShotNeutral.set(*image.md.as_shot_neutral)
-        self.uColorMatrix.set(1, True, image.md.color_matrix1)
+        self.uWhiteLevel.set(*image.md.white_level)
+        self.uLsr_X_rfv.set(1, True, image.md.lsr_X_rfv)
         #
         self.uRenderPass.set(1)
         self._paint_one_pass(image)
@@ -521,14 +518,12 @@ class SphericalDngShader(IImageShader):
     def _paint_one_pass(self, image):
         is_complete = True
         for tile in image.tiles():
-            # GL.glUniformMatrix3fv(program.tile_X_img_location, 1, True, tile.tile_X_img)
             self.uViewer["tile_X_img"].set(1, True, tile.tile_X_img)
             self.uUvBounds.set(*tile.uv_bounds)
             self.uDemosaicTile.set(1, tile.demosaic_texture_id)
             self.uBayerTile.set(0, tile.bayer_texture_id)
             if not tile.paint_gl():
                 is_complete = False
-            # break  # just one tile for testing
         if is_complete and image.load_progress != LoadProgress.DISPLAYED:
             image.load_progress = LoadProgress.DISPLAYED
             image.sq.image_displayed.emit(image)  # noqa  # TODO: maybe don't hoist this here...
