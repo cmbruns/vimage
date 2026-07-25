@@ -60,14 +60,10 @@ class ImageMetadata:
         self.pcm_R_geo = numpy.eye(3, dtype=numpy.float32)
         # Dng metadata
         self.black_level = (0.0, 0.0, 0.0)
-        self.white_level = 1.0
-        self.color_matrix1 = numpy.eye(3, dtype=numpy.float32)
-        self.color_matrix2 = numpy.eye(3, dtype=numpy.float32)
-        self.as_shot_neutral = (1.0, 1.0, 1.0)
-        self.calibration_illuminant1 = LightSource.STANDARD_LIGHT_A
-        self.calibration_illuminant2 = LightSource.D65
+        self.white_level = (1.0, 1.0, 1.0)
         # Convert camera sensor reference values to linear sRGB
         self.lsr_X_rfv = numpy.eye(3, dtype=numpy.float32)
+        self.baseline_exposure = 0.0
 
     def load_tifffile_page(self, page):
         debug = True
@@ -127,11 +123,11 @@ class ImageMetadata:
         print("WhiteLevel:", self.white_level)
         asn = page.tags['AsShotNeutral'].value
         assert len(asn) == 6
-        self.as_shot_neutral = asn[0]/asn[1], asn[2]/asn[3], asn[4]/asn[5]
+        as_shot_neutral = asn[0]/asn[1], asn[2]/asn[3], asn[4]/asn[5]
         cm = page.tags['ColorMatrix1'].value
         assert len(cm) == 18
         a = numpy.array(cm, numpy.float32).reshape(9, 2)
-        self.color_matrix1 = (a[:, 0] / a[:, 1]).reshape(3, 3)
+        color_matrix1 = (a[:, 0] / a[:, 1]).reshape(3, 3)
         # TODO full dng pipeline not done
 
     def load_pil_image(self, pil_image):
@@ -293,17 +289,17 @@ class ImageMetadata:
             assert len(cm1) == 9
             self.color_matrix2 = numpy.array(cm1, dtype=numpy.float32).reshape((3, 3))
         if "EXIF:CalibrationIlluminant1" in exif:
-            self.calibration_illuminant1 = LightSource(int(exif["EXIF:CalibrationIlluminant1"]))
-            print(self.calibration_illuminant1.name)
+            calibration_illuminant1 = LightSource(int(exif["EXIF:CalibrationIlluminant1"]))
         if "EXIF:CalibrationIlluminant2" in exif:
-            self.calibration_illuminant2 = LightSource(int(exif["EXIF:CalibrationIlluminant2"]))
-            print(self.calibration_illuminant2.name)
+            calibration_illuminant2 = LightSource(int(exif["EXIF:CalibrationIlluminant2"]))
+        if "EXIF:BaselineExposure" in exif:
+            self.baseline_exposure = float(exif["EXIF:BaselineExposure"])
         # TODO: some dng might have a ForwardMatrix available...
         # Interpolate color matrix
         dng_t = calculate_dng_t(
             self.as_shot_neutral,
             self.color_matrix1, self.color_matrix2,
-            self.calibration_illuminant1, self.calibration_illuminant2,
+            calibration_illuminant1, calibration_illuminant2,
         )
         rfv_X_d50 = self.color_matrix1 * (1 - dng_t) + self.color_matrix2 * dng_t
         # ColorMatrix requires us to undo white balance first, then invert the matrix.

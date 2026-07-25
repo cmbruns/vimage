@@ -257,7 +257,7 @@ class RectangularTileShader(IImageShader):
         GL.glUniform4f(self.background_color_location, *state.background_color)
         GL.glUniformMatrix3fv(self.ndc_x_omp_location, 1, True, state.ndc_xform_omp())
         GL.glUniform1f(self.omp_scale_qwn_location, state.omp_scale_qwn())
-        self.brightness.set(state.brightness)
+        self.brightness.set(state.brightness + image.md.baseline_exposure)
         self.input_is_linear.set(image.photometric_scale == PhotometricScale.LINEAR)
         image.paint_gl(self, state)
         self.numeral_shader.paint_gl(state, image)
@@ -266,6 +266,10 @@ class RectangularTileShader(IImageShader):
 
 
 class RectangularDngShader(IImageShader):
+    uBlackLevel = Uniform("black_level", GL.glUniform3f)
+    uWhiteLevel = Uniform("white_level", GL.glUniform3f)
+    uLsr_X_rfv = Uniform("lsr_X_rfv", GL.glUniformMatrix3fv)
+
     def __init__(self):
         self.shader = None
         self.ndc_x_omp_location = None
@@ -308,6 +312,9 @@ class RectangularDngShader(IImageShader):
             for uniform in (
                     self.uBayerTile,
                     self.uDemosaicTile,
+                    self.uBlackLevel,
+                    self.uWhiteLevel,
+                    self.uLsr_X_rfv,
             ):
                 uniform.get_location(self.shader)
             self.box_shader.initialize_gl()
@@ -325,7 +332,10 @@ class RectangularDngShader(IImageShader):
         GL.glUniform4f(self.background_color_location, *state.background_color)
         GL.glUniformMatrix3fv(self.ndc_x_omp_location, 1, True, state.ndc_xform_omp())
         GL.glUniform1f(self.omp_scale_qwn_location, state.omp_scale_qwn())
-        self.brightness.set(state.brightness)
+        self.uBlackLevel.set(*image.md.black_level)
+        self.uWhiteLevel.set(*image.md.white_level)
+        self.uLsr_X_rfv.set(1, True, image.md.lsr_X_rfv)
+        self.brightness.set(state.brightness + image.md.baseline_exposure)
         image.paint_gl(self)
         self.numeral_shader.paint_gl(state, image)
         if state.show_tile_boundaries:
@@ -434,7 +444,7 @@ class SphericalShader(IImageShader):
         GL.glUniform1i(self.display_projection_location, state.display_projection.value)
         GL.glUniform1f(self.df_fov_radians_location, self.df_fov_radians)
         GL.glUniform1f(self.df_lens_rot_radians_location, self.df_lens_rot_radians)
-        self.brightness.set(state.brightness)
+        self.brightness.set(state.brightness + image.md.baseline_exposure)
         self.input_is_linear.set(image.photometric_scale == PhotometricScale.LINEAR)
         self.uRenderPass.set(1)
         image.paint_gl(self, state)
@@ -442,7 +452,6 @@ class SphericalShader(IImageShader):
             # second render pass for rear lens
             self.uRenderPass.set(2)
             image.paint_gl(self, state)
-
 
 class SphericalDngShader(IImageShader):
     uBayerTile = Sampler2DUniform("bayer_tile")
