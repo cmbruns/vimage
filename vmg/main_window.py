@@ -82,15 +82,13 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         self.imageWidgetGL.input_format_changed.connect(self.set_input_format)
         sel_rect = self.imageWidgetGL.view_state.sel_rect
         sel_rect.selection_shown.connect(self.actionCrop_to_Selection.setEnabled)
-        self.actionNext.setIcon(self.style().standardIcon(
-            QtWidgets.QStyle.SP_MediaSeekForward))  # noqa
+        self.actionNext.setIcon(QtGui.QIcon(resource_filename("vmg.images", "next_icon.png")))
         self.toolBar.widgetForAction(self.actionPrevious).setAutoRepeat(True)
         self.toolBar.widgetForAction(self.actionNext).setAutoRepeat(True)
         self.actionOpen.setShortcut(QtGui.QKeySequence.Open)
         self.actionOpen.setIcon(self.style().standardIcon(
             QtWidgets.QStyle.SP_DialogOpenButton))
-        self.actionPrevious.setIcon(self.style().standardIcon(
-            QtWidgets.QStyle.SP_MediaSeekBackward))
+        self.actionPrevious.setIcon(QtGui.QIcon(resource_filename("vmg.images", "previous_icon.png")))
         self.actionExit.setShortcut(QtGui.QKeySequence.Quit)
         self.actionSave_As.setIcon(self.style().standardIcon(
             QtWidgets.QStyle.SP_DialogSaveButton))

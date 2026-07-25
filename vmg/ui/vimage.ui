@@ -241,6 +241,10 @@
    <property name="enabled">
     <bool>false</bool>
    </property>
+   <property name="icon">
+    <iconset>
+     <normaloff>../images/next_icon.png</normaloff>../images/next_icon.png</iconset>
+   </property>
    <property name="text">
     <string>Next Image</string>
    </property>
@@ -251,6 +255,10 @@
   <action name="actionPrevious">
    <property name="enabled">
     <bool>false</bool>
+   </property>
+   <property name="icon">
+    <iconset>
+     <normaloff>../images/previous_icon.png</normaloff>../images/previous_icon.png</iconset>
    </property>
    <property name="text">
     <string>Previous Image</string>
@@ -371,6 +379,10 @@
   <action name="actionSelect_Rectangle">
    <property name="enabled">
     <bool>false</bool>
+   </property>
+   <property name="icon">
+    <iconset>
+     <normaloff>../images/box_icon.png</normaloff>../images/box_icon.png</iconset>
    </property>
    <property name="text">
     <string>Select Rectangle</string>
