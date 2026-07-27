@@ -58,7 +58,7 @@ class ImageLike(ABC):
 
     @property
     @abstractmethod
-    def size_omp(self) -> DimensionsOmp:
+    def size_opx(self) -> DimensionsOmp:
         ...
 
     @property
@@ -201,11 +201,11 @@ class RenderStateLike(ABC):
     # --- Required methods ---
 
     @abstractmethod
-    def ndc_xform_omp(self) -> NDArray[numpy.floating]:
+    def ndc_xform_opx(self) -> NDArray[numpy.floating]:
         """Return 3×3 transform from OMP to NDC."""
         ...
 
     @abstractmethod
-    def omp_scale_qwn(self) -> Float:
+    def opx_scale_qwn(self) -> Float:
         """Return scale factor for OMP → QWN."""
         ...

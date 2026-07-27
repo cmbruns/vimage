@@ -130,7 +130,7 @@ class BasicImageLike(ImageLike):
         self.sq.progress_changed.emit(progress.value, self)  # noqa
 
     @property
-    def size_omp(self) -> DimensionsOmp:
+    def size_opx(self) -> DimensionsOmp:
         return self.md.size_opx
 
     @property
@@ -212,13 +212,13 @@ class Tile(TileLike):
         self.vbo = None
         self.padded_width = tci.width + tci.left_pad + tci.right_pad
         self.padded_height = tci.height + tci.top_pad + tci.bottom_pad
-        # Convert to oriented image pixel coordinates (omp)
+        # Convert to oriented image pixel coordinates (opx)
         left_rmp = tci.left
         right_rmp = left_rmp + tci.width
         top_rmp = tci.top
         bottom_rmp = top_rmp + tci.height
-        left_omp, top_omp = omp_for_rmp((left_rmp, top_rmp), tci.image.size_raw, tci.image.orientation)
-        right_omp, bottom_omp = omp_for_rmp((right_rmp, bottom_rmp), tci.image.size_raw, tci.image.orientation)
+        left_opx, top_opx = opx_for_rmp((left_rmp, top_rmp), tci.image.size_raw, tci.image.orientation)
+        right_opx, bottom_opx = opx_for_rmp((right_rmp, bottom_rmp), tci.image.size_raw, tci.image.orientation)
         left_tc = tci.left_pad / self.padded_width
         right_tc = 1 - tci.right_pad / self.padded_width
         top_tc = tci.top_pad / self.padded_height
@@ -232,22 +232,22 @@ class Tile(TileLike):
             # swap upper right and lower left
             self.vertexes = numpy.array(
                 [
-                    # omp_x, omp_y, txc_x, txc_y
-                    [left_omp, top_omp, left_tc, top_tc],  # upper left
-                    [left_omp, bottom_omp, right_tc, top_tc],  # lower left
-                    [right_omp, top_omp, left_tc, bottom_tc],  # upper right
-                    [right_omp, bottom_omp, right_tc, bottom_tc],  # lower right
+                    # opx_x, opx_y, txc_x, txc_y
+                    [left_opx, top_opx, left_tc, top_tc],  # upper left
+                    [left_opx, bottom_opx, right_tc, top_tc],  # lower left
+                    [right_opx, top_opx, left_tc, bottom_tc],  # upper right
+                    [right_opx, bottom_opx, right_tc, bottom_tc],  # lower right
                 ],
                 dtype=numpy.float32,
             ).flatten()
         else:
             self.vertexes = numpy.array(
                 [
-                    # omp_x, omp_y, txc_x, txc_y
-                    [left_omp, top_omp, left_tc, top_tc],  # upper left
-                    [left_omp, bottom_omp, left_tc, bottom_tc],  # lower left
-                    [right_omp, top_omp, right_tc, top_tc],  # upper right
-                    [right_omp, bottom_omp, right_tc, bottom_tc],  # lower right
+                    # opx_x, opx_y, txc_x, txc_y
+                    [left_opx, top_opx, left_tc, top_tc],  # upper left
+                    [left_opx, bottom_opx, left_tc, bottom_tc],  # lower left
+                    [right_opx, top_opx, right_tc, top_tc],  # upper right
+                    [right_opx, bottom_opx, right_tc, bottom_tc],  # lower right
                 ],
                 dtype=numpy.float32,
             ).flatten()
@@ -694,54 +694,54 @@ def load_metadata(path):
         return json.loads(raw)[0]
 
 
-def omp_for_rmp(rmp: tuple[int, int], size_rmp: tuple[int, int], orientation: ExifOrientation) -> tuple[int, int]:
-    omp_x_rmp = numpy.eye(3, dtype=numpy.int32)  # default transform is identity
+def opx_for_rmp(rmp: tuple[int, int], size_rmp: tuple[int, int], orientation: ExifOrientation) -> tuple[int, int]:
+    opx_x_rmp = numpy.eye(3, dtype=numpy.int32)  # default transform is identity
     w, h = size_rmp
 
     if orientation == ExifOrientation.FLIP_HORIZONTAL:  # 2
-        omp_x_rmp = numpy.array([
+        opx_x_rmp = numpy.array([
             [-1, 0, w],
             [0, +1, 0],
             [0, 0, +1],
         ], dtype=numpy.int32)
     elif orientation == ExifOrientation.ROTATE_180:  # 3
-        omp_x_rmp = numpy.array([
+        opx_x_rmp = numpy.array([
             [-1, 0, w],
             [0, -1, h],
             [0, 0, +1],
         ], dtype=numpy.int32)
     elif orientation == ExifOrientation.FLIP_VERTICAL:  # 4
-        omp_x_rmp = numpy.array([
+        opx_x_rmp = numpy.array([
             [+1, 0, 0],
             [0, -1, h],
             [0, 0, +1],
         ], dtype=numpy.int32)
     elif orientation == ExifOrientation.FLIP_HORIZONTAL_ROTATE_90_CCW:  # 5
-        omp_x_rmp = numpy.array([
+        opx_x_rmp = numpy.array([
             [0, +1, 0],
             [+1, 0, 0],
             [0, 0, +1],
         ], dtype=numpy.int32)
     elif orientation == ExifOrientation.ROTATE_90_CW:  # 6
-        omp_x_rmp = numpy.array([
+        opx_x_rmp = numpy.array([
             [0, -1, h],
             [+1, 0, 0],
             [0, 0, +1],
         ], dtype=numpy.int32)
     elif orientation == ExifOrientation.FLIP_HORIZONTAL_ROTATE_90_CW:  # 7
-        omp_x_rmp = numpy.array([
+        opx_x_rmp = numpy.array([
             [0, -1, h],
             [-1, 0, w],
             [0, 0, +1],
         ], dtype=numpy.int32)
     elif orientation == ExifOrientation.ROTATE_90_CCW:  # 8
-        omp_x_rmp = numpy.array([
+        opx_x_rmp = numpy.array([
             [0, +1, 0],
             [-1, 0, w],
             [0, 0, +1],
         ], dtype=numpy.int32)
 
-    result = omp_x_rmp @ (*rmp, 1)
+    result = opx_x_rmp @ (*rmp, 1)
 
     assert result[2] == 1
     assert result[0] >= 0

@@ -1,5 +1,5 @@
 from OpenGL import GL
-from math import asin, atan2, cos, degrees, pi, radians, sin
+from math import acos, asin, atan2, cos, degrees, pi, radians, sin
 from typing import Optional
 
 import numpy
@@ -8,7 +8,7 @@ from PySide6 import QtCore, QtGui
 from PySide6.QtCore import QPoint, QSize, QObject, QPointF
 from PySide6.QtGui import Qt
 
-from vmg.frame import DimensionsQwn, LocationHpd, LocationUsr, LocationNic, LocationOmp, LocationGeo, \
+from vmg.frame import DimensionsQwn, LocationHpd, LocationUsr, LocationNic, LocationOpx, LocationGeo, \
     LocationPrj, LocationQwn, LocationRelative, DimensionsOmp
 from vmg.metadata import InputFormat
 from vmg.interfaces import ImageLike
@@ -39,7 +39,7 @@ class ViewState(QObject):
         self._background_color = [0.5, 0.5, 0.5, 0]
         self.brightness = 0.0  # EV
         self.asc_qwn = 1
-        self.asc_omp = 1
+        self.asc_opx = 1
         self.show_tile_boundaries = False
         self.anisotropic_filtering = True
         self.texture_wrap = GL.GL_CLAMP_TO_EDGE
@@ -55,8 +55,8 @@ class ViewState(QObject):
         self._background_color[:3] = color[:3]
 
     @property
-    def center_omp(self) -> LocationOmp:
-        return LocationOmp(*self._center_rel * self._size_omp(), 1)
+    def center_opx(self) -> LocationOpx:
+        return LocationOpx(*self._center_rel * self._size_opx(), 1)
 
     @property
     def center_rel(self) -> LocationRelative:
@@ -74,9 +74,9 @@ class ViewState(QObject):
 
     def context_menu_actions(self, qpoint: QPoint) -> list:
         result = []
-        p_omp = self.omp_for_qpoint(qpoint)
+        p_opx = self.opx_for_qpoint(qpoint)
         result.extend(self.sel_rect.context_menu_actions(
-            p_omp,
+            p_opx,
             self._input_format() != InputFormat.STANDARD_PHOTO))
         return result
 
@@ -114,27 +114,27 @@ class ViewState(QObject):
             self.view_pitch_degrees = new_pitch
             # print(f"New view direction heading={self.view_heading_degrees:.1f}° pitch={self.view_pitch_degrees:.1f}°")
         else:
-            prev_omp = self.omp_for_qwn(prev_qwn)
-            curr_omp = self.omp_for_qwn(curr_qwn)
-            d_omp = curr_omp - prev_omp
-            if self._size_omp().y == 0:
+            prev_opx = self.opx_for_qwn(prev_qwn)
+            curr_opx = self.opx_for_qwn(curr_qwn)
+            d_opx = curr_opx - prev_opx
+            if self._size_opx().y == 0:
                 return
-            d_rel = (d_omp.x / self._size_omp().x, d_omp.y / self._size_omp().y)
+            d_rel = (d_opx.x / self._size_opx().x, d_opx.y / self._size_opx().y)
             new_center = LocationRelative(self._center_rel.x + d_rel[0], self._center_rel.y + d_rel[1])
             self._center_rel[:] = new_center[:]
             self._clamp_center()
             # print(f"new way image center {self._center_rel}")
 
     @property
-    def hover_min_omp(self):
+    def hover_min_opx(self):
         hover_min_qwn = 5  # How close do we need to be to start dragging?
-        return self.omp_for_qwn(LocationQwn(hover_min_qwn, hover_min_qwn, 0)).x
+        return self.opx_for_qwn(LocationQwn(hover_min_qwn, hover_min_qwn, 0)).x
 
     @staticmethod
-    def hpd_for_ont(p_ont: LocationGeo) -> LocationHpd:
+    def hpd_for_geo(p_geo: LocationGeo) -> LocationHpd:
         return LocationHpd(
-            degrees(atan2(p_ont.x, -p_ont.z)),
-            degrees(max(-1, min(1, p_ont.y))),
+            degrees(atan2(p_geo.x, -p_geo.z)),
+            degrees(max(-1, min(1, p_geo.y))),
         )
 
     def _input_format(self) -> InputFormat:
@@ -144,7 +144,7 @@ class ViewState(QObject):
             return self.image.input_format
 
     def hpd_for_qwn(self, p_qwn: LocationQwn) -> LocationHpd:
-        return self.hpd_for_ont(self.ont_for_qwn(p_qwn))
+        return self.hpd_for_geo(self.geo_for_qwn(p_qwn))
 
     def key_press_event(self, event: QtGui.QKeyEvent) -> None:
         if self._input_format() == InputFormat.STANDARD_PHOTO:
@@ -158,9 +158,9 @@ class ViewState(QObject):
         # Rectangular selection is only valid in non-360 mode
         update_display = False
         event_consumed = False
-        p_omp = self.omp_for_qpoint(event.pos())
+        p_opx = self.opx_for_qpoint(event.pos())
         if self._input_format() == InputFormat.STANDARD_PHOTO:
-            event_consumed, update_display = self.sel_rect.mouse_move_event(event, p_omp, self.hover_min_omp)
+            event_consumed, update_display = self.sel_rect.mouse_move_event(event, p_opx, self.hover_min_opx)
         if event_consumed:
             pass
         elif self._is_dragging:
@@ -171,16 +171,16 @@ class ViewState(QObject):
             p_qwn = LocationQwn.from_qpoint(event.pos())
             if self._input_format() in (
                     InputFormat.EQUIRECTANGULAR,
-                    InputFormat.DUAL_FISHEYE,  # TODO
+                    InputFormat.DUAL_FISHEYE,
             ):
                 p_hpd = self.hpd_for_qwn(p_qwn)
                 self.request_message.emit(  # noqa
-                    f"heading = {p_hpd.heading:.1f}°  pitch = {p_hpd.pitch:.1f}°",
+                    f"image pixel = [{int(p_opx.x)}, {int(p_opx.y)}] heading = {p_hpd.heading:.1f}°  pitch = {p_hpd.pitch:.1f}°",
                     2000,
                 )
             else:
                 self.request_message.emit(  # noqa
-                    f"image pixel = [{int(p_omp.x)}, {int(p_omp.y)}]",
+                    f"image pixel = [{int(p_opx.x)}, {int(p_opx.y)}]",
                     2000,
                 )
         return update_display
@@ -188,8 +188,8 @@ class ViewState(QObject):
     def mouse_press_event(self, event):
         keep_cursor = self.sel_rect.mouse_press_event(
                 event,
-                self.omp_for_qpoint(event.pos()),
-                self.hover_min_omp,
+                self.opx_for_qpoint(event.pos()),
+                self.hover_min_opx,
         )
         self._is_dragging = True
         self._previous_mouse_position = event.pos()
@@ -200,15 +200,15 @@ class ViewState(QObject):
         self._is_dragging = False
         self._previous_mouse_position = None
         self.cursor_changed.emit(CursorHolder(Qt.OpenHandCursor))  # noqa
-        p_omp = self.omp_for_qpoint(event.pos())
-        self.sel_rect.mouse_release_event(event, p_omp)
+        p_opx = self.opx_for_qpoint(event.pos())
+        self.sel_rect.mouse_release_event(event, p_opx)
 
-    def ndc_xform_omp(self) -> numpy.ndarray:
-        s1 = 2.0 * self.asc_qwn * self.zoom / self.asc_omp
+    def ndc_xform_opx(self) -> numpy.ndarray:
+        s1 = 2.0 * self.asc_qwn * self.zoom / self.asc_opx
         w_qwn, h_qwn = self._size_qwn
         return numpy.array([
-            [s1 / w_qwn, 0, -s1 * self.center_omp.x / w_qwn],
-            [0, -s1 / h_qwn, s1 * self.center_omp.y / h_qwn],
+            [s1 / w_qwn, 0, -s1 * self.center_opx.x / w_qwn],
+            [0, -s1 / h_qwn, s1 * self.center_opx.y / h_qwn],
             [0, 0, 1],
         ], dtype=numpy.float32)
 
@@ -257,37 +257,84 @@ class ViewState(QObject):
             assert False  # What projection is this?
         return LocationUsr(*p_usr)
 
-    def omp_for_qpoint(self, qpoint: QPoint) -> LocationOmp:
-        return self.omp_for_qwn(LocationQwn.from_qpoint(qpoint))
+    def opx_for_qpoint(self, qpoint: QPoint) -> LocationOpx:
+        return self.opx_for_qwn(LocationQwn.from_qpoint(qpoint))
 
-    def omp_for_qwn(self, p_qwn: LocationQwn) -> LocationOmp:
-        p_nic = self.nic_for_qwn(p_qwn)
-        center_omp = self.center_omp
-        scale = self.asc_omp / 2
-        omp_xform_nic = numpy.array([
-            [scale, 0, center_omp.x],
-            [0, -scale, center_omp.y],
-            [0, 0, 1],
-        ], dtype=numpy.float32)
-        return LocationOmp(*omp_xform_nic @ p_nic)
+    def opx_for_qwn(self, p_qwn: LocationQwn) -> LocationOpx:
+        if self.image is None:
+            return LocationOpx(-1, -1)
+        md = self.image.md
+        if md.input_format == InputFormat.STANDARD_PHOTO:
+            p_nic = self.nic_for_qwn(p_qwn)
+            center_opx = self.center_opx
+            scale = self.asc_opx / 2
+            opx_xform_nic = numpy.array([
+                [scale, 0, center_opx.x],
+                [0, -scale, center_opx.y],
+                [0, 0, 1],
+            ], dtype=numpy.float32)
+            return LocationOpx(*opx_xform_nic @ p_nic)
+        else:
+            p_geo = self.geo_for_qwn(p_qwn)
+            p_pcm = self.image.md.pcm_R_geo @ p_geo
+            x, y, z = p_pcm
+            if md.input_format == InputFormat.EQUIRECTANGULAR:
+                lon = degrees(atan2(x, -z))
+                lat = degrees(asin(y))
+                p_otc = (
+                    md.size_opx[0] * (lon + 180) / 360,
+                    md.size_opx[1] * (-lat + 90) / 180,
+                    1,
+                )
+                return LocationOpx(*p_otc)
+            else:
+                assert md.input_format == InputFormat.DUAL_FISHEYE
+                if z <= 0:  # front lens
+                    # fisheye center in right half of image
+                    cx = 0.75
+                    cy = 0.5
+                else:  # rear lens
+                    # fisheye center in left half of image
+                    cx = 0.25
+                    cy = 0.5
+                    # Rotate 180 degrees about Y
+                    x = -x
+                    z = -z
+                rho = acos(-z)
+                d = sin(rho) / rho
+                # As if one fisheye per tile
+                x_aed = x / d
+                y_aed = y / d
+                # Virtual tile texture coordinates per fisheye ttc
+                # scale by fov
+                s = pi / md.df_fov_radians  # big fov means smaller scale
+                x_ttc = 0.5 + s * x_aed / pi
+                y_ttc = 0.5 + s * y_aed / pi
+                # Full dual fisheye image texture coordinates otc
+                x_otc = cx + (x_ttc - 0.5) / 2
+                y_otc = cy + y_ttc - 0.5
+                # image pixels opx
+                x_opx = x_otc * md.size_opx[0]
+                y_opx = y_otc * md.size_opx[1]
+                return LocationOpx(x_opx, y_opx, 1)
 
-    def omp_scale_qwn(self) -> float:
-        return self._size_omp()[1] / self._size_qwn[1] / self.zoom
+    def opx_scale_qwn(self) -> float:
+        return self._size_opx()[1] / self._size_qwn[1] / self.zoom
 
-    def omp_xform_ndc(self) -> NDArray[numpy.float32]:
-        scale = self.asc_omp / 2.0 / self.asc_qwn / self.zoom
+    def opx_xform_ndc(self) -> NDArray[numpy.float32]:
+        scale = self.asc_opx / 2.0 / self.asc_qwn / self.zoom
         w_qwn, h_qwn = self._size_qwn
         return numpy.array([
-            [scale * w_qwn, 0, self.center_omp.x],
-            [0, -scale * h_qwn, self.center_omp.y],
+            [scale * w_qwn, 0, self.center_opx.x],
+            [0, -scale * h_qwn, self.center_opx.y],
             [0, 0, 1],
         ], dtype=numpy.float32)
 
-    def ont_for_usr(self, p_usr: LocationUsr) -> LocationGeo:
-        return LocationGeo(*self.ont_rot_usr @ p_usr)
+    def geo_for_usr(self, p_usr: LocationUsr) -> LocationGeo:
+        return LocationGeo(*self.geo_rot_usr @ p_usr)
 
     @property
-    def ont_rot_usr(self) -> NDArray[numpy.float32]:
+    def geo_rot_usr(self) -> NDArray[numpy.float32]:
         c = cos(radians(self.view_heading_degrees))
         s = sin(radians(self.view_heading_degrees))
         rot_heading = numpy.array([
@@ -304,10 +351,10 @@ class ViewState(QObject):
         ], dtype=numpy.float32)
         return rot_heading @ rot_pitch
 
-    def ont_for_qwn(self, p_qwn: LocationQwn) -> LocationGeo:
+    def geo_for_qwn(self, p_qwn: LocationQwn) -> LocationGeo:
         p_prj = self.prj_for_qwn(p_qwn)
         p_usr = self.usr_for_prj(p_prj)
-        return self.ont_for_usr(p_usr)
+        return self.geo_for_usr(p_usr)
 
     def prj_for_qwn(self, p_qwn: LocationQwn) -> LocationPrj:
         p_nic = self.nic_for_qwn(p_qwn)
@@ -347,41 +394,41 @@ class ViewState(QObject):
         self._size_qwn = DimensionsQwn(width, height)
         self._update_aspect_scale()
 
-    def _size_omp(self) -> DimensionsOmp:
+    def _size_opx(self) -> DimensionsOmp:
         if self.image is None:
             return DimensionsOmp(1, 1)
-        return self.image.size_omp
+        return self.image.size_opx
 
     @QtCore.Slot()  # noqa
     def start_rect_with_no_point(self):
         self.sel_rect.begin(None)
 
     def _update_aspect_scale(self):
-        w_omp, h_omp = self._size_omp()
-        if w_omp == 0:
+        w_opx, h_opx = self._size_opx()
+        if w_opx == 0:
             return
-        if h_omp == 0:
+        if h_opx == 0:
             return
         w_qwn, h_qwn = self._size_qwn
         if self._input_format() in (InputFormat.EQUIRECTANGULAR, InputFormat.DUAL_FISHEYE):
             if 1 > w_qwn/h_qwn:
                 # window aspect is thin
                 # So use width in scaling factor
-                self.asc_omp = w_omp
+                self.asc_opx = w_opx
                 self.asc_qwn = w_qwn
             else:
                 # Use height in scaling factor
-                self.asc_omp = h_omp
+                self.asc_opx = h_opx
                 self.asc_qwn = h_qwn
         else:  # rectangular image
-            if w_omp/h_omp > w_qwn/h_qwn:
+            if w_opx/h_opx > w_qwn/h_qwn:
                 # Image aspect is wider than window aspect
                 # So use width in scaling factor
-                self.asc_omp = w_omp
+                self.asc_opx = w_opx
                 self.asc_qwn = w_qwn
             else:
                 # Use height in scaling factor
-                self.asc_omp = h_omp
+                self.asc_opx = h_opx
                 self.asc_qwn = h_qwn
 
     @property
@@ -438,12 +485,12 @@ class ViewState(QObject):
                 self.view_pitch_degrees -= dp
             else:
                 self._zoom = old_zoom
-                before_omp = self.omp_for_qwn(p_qwn)  # Before position
+                before_opx = self.opx_for_qwn(p_qwn)  # Before position
                 self._zoom = new_zoom
-                after_omp = self.omp_for_qwn(p_qwn)  # After position
-                dx = after_omp.x - before_omp.x
-                dy = after_omp.y - before_omp.y
-                if self._size_omp().x:
-                    self._center_rel = self._center_rel - (dx/self._size_omp().x, dy/self._size_omp().y)
+                after_opx = self.opx_for_qwn(p_qwn)  # After position
+                dx = after_opx.x - before_opx.x
+                dy = after_opx.y - before_opx.y
+                if self._size_opx().x:
+                    self._center_rel = self._center_rel - (dx/self._size_opx().x, dy/self._size_opx().y)
         if self._input_format() == InputFormat.STANDARD_PHOTO:
             self._clamp_center()

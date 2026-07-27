@@ -26,7 +26,7 @@ uniform mat3 tile_X_img;
 
 // 360 only
 uniform int display_projection = STEREOGRAPHIC_DISPLAY_PROJECTION;
-uniform mat3 ont_rot_obq = mat3(1);
+uniform mat3 geo_rot_obq = mat3(1);
 uniform mat3 pcm_rot_geo = mat3(1);
 uniform vec4 uv_bounds = vec4(0, 0, 1, 1);  // (u_min, v_min, u_max, v_max)
 
@@ -56,9 +56,9 @@ void main()
     vec3 p_obq = obq_for_nic(p_nic, display_projection);
     if (p_obq == INVALID_OBQ) discard;
 
-    // Convert direction to sky-up physical camera world frame (ont),
+    // Convert direction to sky-up physical camera world frame (geo),
     // then to physical camera frame 3D direction (raw)
-    vec3 p_pcm = pcm_rot_geo * ont_rot_obq * p_obq;
+    vec3 p_pcm = pcm_rot_geo * geo_rot_obq * p_obq;
 
     // Look up tile texture coordinate(s)
     vec2 p_tcr;  // Full image texture coordinate

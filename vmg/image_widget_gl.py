@@ -196,7 +196,7 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         self.view_state.reset()
         self.view_state.set_image(self.image)
         self.set_input_format(self.image.input_format)
-        w, h = self.image.size_omp
+        w, h = self.image.size_opx
         self.image_size_changed.emit(int(w), int(h))  # noqa
         self.update()
 

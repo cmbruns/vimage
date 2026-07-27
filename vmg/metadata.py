@@ -66,13 +66,15 @@ class ImageMetadata:
         self.white_level = (1.0, 1.0, 1.0)
         self.as_shot_neutral = (1.0, 1.0, 1.0)
         self.color_matrix1 = numpy.eye(3, dtype=numpy.float32)
-        self.color_matrix2 = numpy.eye(3, dtype=numpy.float32)
+        self.color_matrix2 = None
+        self.calibration_illuminant1 = LightSource.STANDARD_LIGHT_A
+        self.calibration_illuminant2 = LightSource.D65
         # Convert camera sensor reference values to linear sRGB
         self.lsr_X_wba = numpy.eye(3, dtype=numpy.float32)
         self.baseline_exposure = 0.0
 
     def load_tifffile_page(self, page):
-        debug = True
+        debug = False
         if debug:
             # print(page.dims)
             # print(page.eer_tags)
@@ -254,7 +256,7 @@ class ImageMetadata:
         with exiftool.ExifTool() as et:
             raw = et.execute("-j", file_name)
             exif = json.loads(raw)[0]
-        debug = True
+        debug = False
         if debug:
             print(json.dumps(exif, indent=2, sort_keys=True))
         w, h = exif["EXIF:ImageWidth"], exif["EXIF:ImageHeight"]
@@ -286,7 +288,6 @@ class ImageMetadata:
         if "EXIF:AsShotNeutral" in exif:
             self.as_shot_neutral = [float(x) for x in exif["EXIF:AsShotNeutral"].split()]
             assert len(self.as_shot_neutral) == 3
-            print(self.as_shot_neutral)
         if "EXIF:ColorMatrix1" in exif:
             cm1 = exif["EXIF:ColorMatrix1"].split()
             assert len(cm1) == 9
@@ -296,19 +297,30 @@ class ImageMetadata:
             assert len(cm1) == 9
             self.color_matrix2 = numpy.array(cm1, dtype=numpy.float32).reshape((3, 3))
         if "EXIF:CalibrationIlluminant1" in exif:
-            calibration_illuminant1 = LightSource(int(exif["EXIF:CalibrationIlluminant1"]))
+            ci = LightSource(int(exif["EXIF:CalibrationIlluminant1"]))
+            if ci == LightSource.UNKNOWN:
+                logger.info("Unknown calibration illuminant")
+            else:
+                self.calibration_illuminant1 = ci
         if "EXIF:CalibrationIlluminant2" in exif:
-            calibration_illuminant2 = LightSource(int(exif["EXIF:CalibrationIlluminant2"]))
+            ci = LightSource(int(exif["EXIF:CalibrationIlluminant2"]))
+            if ci == LightSource.UNKNOWN:
+                logger.info("Unknown calibration illuminant")
+            else:
+                self.calibration_illuminant2 = ci
         if "EXIF:BaselineExposure" in exif:
             self.baseline_exposure = float(exif["EXIF:BaselineExposure"])
         # TODO: some dng might have a ForwardMatrix available...
         # Interpolate color matrix
-        dng_t = calculate_dng_t(
-            self.as_shot_neutral,
-            self.color_matrix1, self.color_matrix2,
-            calibration_illuminant1, calibration_illuminant2,
-        )
-        rfv_X_d50 = self.color_matrix1 * (1 - dng_t) + self.color_matrix2 * dng_t
+        if self.color_matrix2 is None:
+            rfv_X_d50 = self.color_matrix1
+        else:
+            dng_t = calculate_dng_t(
+                self.as_shot_neutral,
+                self.color_matrix1, self.color_matrix2,
+                self.calibration_illuminant1, self.calibration_illuminant2,
+            )
+            rfv_X_d50 = self.color_matrix1 * (1 - dng_t) + self.color_matrix2 * dng_t
         # ColorMatrix requires us to undo white balance first, then invert the matrix.
         # wb_gain_matrix = numpy.diag([1/x for x in self.as_shot_neutral])
         # xyz_X_sensor = linalg.inv(color_matrix) @ wb_gain_matrix

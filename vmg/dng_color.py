@@ -49,7 +49,7 @@ def calculate_dng_t(
         color_matrix2: NDArray,
         illuminant1: LightSource = LightSource.STANDARD_LIGHT_A,
         illuminant2: LightSource = LightSource.D65,
-):
+) -> float:
     """
     Calculates the DNG matrix interpolation weight 't' from AsShotNeutral.
 
@@ -60,6 +60,9 @@ def calculate_dng_t(
       illuminant1:     DNG tag integer for CalibrationIlluminant1 (Default: 17 = Standard Illuminant A)
       illuminant2:     DNG tag integer for CalibrationIlluminant2 (Default: 21 = D65)
     """
+
+    if color_matrix2 is None:
+        return 0.0
 
     temp1 = illuminant_temps.get(illuminant1, 2856)
     temp2 = illuminant_temps.get(illuminant2, 6504)

@@ -87,14 +87,14 @@ class PanoUniforms(UniformGroup):
         self.add(Uniform("window_size", GL.glUniform2i))
         self.add(Uniform("window_zoom", GL.glUniform1f))
         self.add(Uniform("display_projection", GL.glUniform1i))
-        self.add(Uniform("ont_rot_obq", GL.glUniformMatrix3fv))
+        self.add(Uniform("geo_rot_obq", GL.glUniformMatrix3fv))
         self.add(Uniform("pcm_rot_geo", GL.glUniformMatrix3fv))
 
     def set(self, state: RenderStateLike):
         self["window_size"].set(*[int(x) for x in state.window_size])
         self["window_zoom"].set(state.zoom)
         self["display_projection"].set(state.display_projection.value)
-        self["ont_rot_obq"].set(1, True, state.ont_rot_usr)
+        self["geo_rot_obq"].set(1, True, state.geo_rot_usr)
         self["pcm_rot_geo"].set(1, True, state.pcm_rot_geo)
 
 
@@ -132,7 +132,7 @@ class NumeralShader(IImageShader):
     def __init__(self):
         self.program = None
         self.numeral_texture_id = None
-        self.uNdc_X_omp = Uniform("ndc_X_omp", GL.glUniformMatrix3fv)
+        self.uNdc_X_opx = Uniform("ndc_X_opx", GL.glUniformMatrix3fv)
         self.uTile = Sampler2DUniform("tile")
         self.uNumerals = Sampler2DUniform("numerals")
         self.uChannelCount = Uniform("channel_count", GL.glUniform1i)
@@ -178,7 +178,7 @@ class NumeralShader(IImageShader):
                            ], GL.GL_FRAGMENT_SHADER),
         )
         for u in (
-            self.uNdc_X_omp,
+            self.uNdc_X_opx,
             self.uTile,
             self.uNumerals,
             self.uChannelCount,
@@ -193,7 +193,7 @@ class NumeralShader(IImageShader):
         if self.program is None:
             self.initialize_gl()
         GL.glUseProgram(self.program)
-        self.uNdc_X_omp.set(1, True, state.ndc_xform_omp())
+        self.uNdc_X_opx.set(1, True, state.ndc_xform_opx())
         self.uNumerals.set(1, self.numeral_texture_id)
         self.uChannelCount.set(image.md.channel_count)
         self.uFormatMax.set(image.md.upper_bound)
@@ -211,11 +211,11 @@ class NumeralShader(IImageShader):
 class RectangularTileShader(IImageShader):
     def __init__(self):
         self.shader = None
-        self.ndc_x_omp_location = None
+        self.ndc_x_opx_location = None
         self.pixelFilter_location = None
-        self.sel_rect_omp_location = None
+        self.sel_rect_opx_location = None
         self.background_color_location = None
-        self.omp_scale_qwn_location = None
+        self.opx_scale_qwn_location = None
         self.tile_X_img_location = -1
         self.uv_bounds_location = -1
         self.brightness = Uniform("brightness", GL.glUniform1f)
@@ -235,11 +235,11 @@ class RectangularTileShader(IImageShader):
             GL.glAttachShader(self.shader, vertex_shader)
             GL.glAttachShader(self.shader, fragment_shader)
             GL.glLinkProgram(self.shader)
-            self.ndc_x_omp_location = GL.glGetUniformLocation(self.shader, "ndc_X_omp")
-            self.sel_rect_omp_location = GL.glGetUniformLocation(self.shader, "sel_rect_omp")
+            self.ndc_x_opx_location = GL.glGetUniformLocation(self.shader, "ndc_X_opx")
+            self.sel_rect_opx_location = GL.glGetUniformLocation(self.shader, "sel_rect_opx")
             self.background_color_location = GL.glGetUniformLocation(self.shader, "background_color")
             self.pixelFilter_location = GL.glGetUniformLocation(self.shader, "pixel_filter")
-            self.omp_scale_qwn_location = GL.glGetUniformLocation(self.shader, "omp_scale_qwn")
+            self.opx_scale_qwn_location = GL.glGetUniformLocation(self.shader, "opx_scale_qwn")
             self.brightness.get_location(self.shader)
             self.input_is_linear.get_location(self.shader)
             self.box_shader.initialize_gl()
@@ -253,10 +253,10 @@ class RectangularTileShader(IImageShader):
         self.box_shader.paint_gl(state, image)
         GL.glUseProgram(self.shader)
         GL.glUniform1i(self.pixelFilter_location, state.pixel_filter.value)
-        GL.glUniform4i(self.sel_rect_omp_location, *state.sel_rect.left_top_right_bottom)
+        GL.glUniform4i(self.sel_rect_opx_location, *state.sel_rect.left_top_right_bottom)
         GL.glUniform4f(self.background_color_location, *state.background_color)
-        GL.glUniformMatrix3fv(self.ndc_x_omp_location, 1, True, state.ndc_xform_omp())
-        GL.glUniform1f(self.omp_scale_qwn_location, state.omp_scale_qwn())
+        GL.glUniformMatrix3fv(self.ndc_x_opx_location, 1, True, state.ndc_xform_opx())
+        GL.glUniform1f(self.opx_scale_qwn_location, state.opx_scale_qwn())
         self.brightness.set(state.brightness + image.md.baseline_exposure)
         self.input_is_linear.set(image.photometric_scale == PhotometricScale.LINEAR)
         image.paint_gl(self, state)
@@ -273,11 +273,11 @@ class RectangularDngShader(IImageShader):
 
     def __init__(self):
         self.shader = None
-        self.ndc_x_omp_location = None
+        self.ndc_x_opx_location = None
         self.pixelFilter_location = None
-        self.sel_rect_omp_location = None
+        self.sel_rect_opx_location = None
         self.background_color_location = None
-        self.omp_scale_qwn_location = None
+        self.opx_scale_qwn_location = None
         self.brightness = Uniform("brightness", GL.glUniform1f)
         self.background_color = [0.5, 0.5, 0.5, 0.5]
         self.box_shader = SelectionBoxShader()
@@ -302,11 +302,11 @@ class RectangularDngShader(IImageShader):
             GL.glAttachShader(self.shader, vertex_shader)
             GL.glAttachShader(self.shader, fragment_shader)
             GL.glLinkProgram(self.shader)
-            self.ndc_x_omp_location = GL.glGetUniformLocation(self.shader, "ndc_X_omp")
-            self.sel_rect_omp_location = GL.glGetUniformLocation(self.shader, "sel_rect_omp")
+            self.ndc_x_opx_location = GL.glGetUniformLocation(self.shader, "ndc_X_opx")
+            self.sel_rect_opx_location = GL.glGetUniformLocation(self.shader, "sel_rect_opx")
             self.background_color_location = GL.glGetUniformLocation(self.shader, "background_color")
             self.pixelFilter_location = GL.glGetUniformLocation(self.shader, "pixel_filter")
-            self.omp_scale_qwn_location = GL.glGetUniformLocation(self.shader, "omp_scale_qwn")
+            self.opx_scale_qwn_location = GL.glGetUniformLocation(self.shader, "opx_scale_qwn")
             self.brightness.get_location(self.shader)
             self.tile_X_img_location = GL.glGetUniformLocation(self.shader, "tile_X_img")
             self.uv_bounds_location = GL.glGetUniformLocation(self.shader, "uv_bounds")
@@ -330,10 +330,10 @@ class RectangularDngShader(IImageShader):
         self.box_shader.paint_gl(state, image)
         GL.glUseProgram(self.shader)
         GL.glUniform1i(self.pixelFilter_location, state.pixel_filter.value)
-        GL.glUniform4i(self.sel_rect_omp_location, *state.sel_rect.left_top_right_bottom)
+        GL.glUniform4i(self.sel_rect_opx_location, *state.sel_rect.left_top_right_bottom)
         GL.glUniform4f(self.background_color_location, *state.background_color)
-        GL.glUniformMatrix3fv(self.ndc_x_omp_location, 1, True, state.ndc_xform_omp())
-        GL.glUniform1f(self.omp_scale_qwn_location, state.omp_scale_qwn())
+        GL.glUniformMatrix3fv(self.ndc_x_opx_location, 1, True, state.ndc_xform_opx())
+        GL.glUniform1f(self.opx_scale_qwn_location, state.opx_scale_qwn())
         self.uBlackLevel.set(*image.md.black_level)
         self.uWhiteLevel.set(*image.md.white_level)
         self.uAsShotNeutral.set(*image.md.as_shot_neutral)
@@ -348,10 +348,10 @@ class RectangularDngShader(IImageShader):
 class SelectionBoxShader(IImageShader):
     def __init__(self):
         self.shader = None
-        self.ndc_x_omp_location = None
-        self.sel_rect_omp_location = None
+        self.ndc_x_opx_location = None
+        self.sel_rect_opx_location = None
         self.background_color_location = None
-        self.omp_scale_qwn_location = None
+        self.opx_scale_qwn_location = None
 
     def initialize_gl(self) -> None:
         vertex_shader = compileShader(resource_string(
@@ -364,17 +364,17 @@ class SelectionBoxShader(IImageShader):
         GL.glAttachShader(self.shader, vertex_shader)
         GL.glAttachShader(self.shader, fragment_shader)
         GL.glLinkProgram(self.shader)
-        self.ndc_x_omp_location = GL.glGetUniformLocation(self.shader, "ndc_X_omp")
-        self.sel_rect_omp_location = GL.glGetUniformLocation(self.shader, "sel_rect_omp")
+        self.ndc_x_opx_location = GL.glGetUniformLocation(self.shader, "ndc_X_opx")
+        self.sel_rect_opx_location = GL.glGetUniformLocation(self.shader, "sel_rect_opx")
         self.background_color_location = GL.glGetUniformLocation(self.shader, "background_color")
-        self.omp_scale_qwn_location = GL.glGetUniformLocation(self.shader, "omp_scale_qwn")
+        self.opx_scale_qwn_location = GL.glGetUniformLocation(self.shader, "opx_scale_qwn")
 
     def paint_gl(self, state: RenderStateLike, texture) -> None:
         GL.glUseProgram(self.shader)
-        GL.glUniform4i(self.sel_rect_omp_location, *state.sel_rect.left_top_right_bottom)
+        GL.glUniform4i(self.sel_rect_opx_location, *state.sel_rect.left_top_right_bottom)
         GL.glUniform4f(self.background_color_location, *state.background_color)
-        GL.glUniformMatrix3fv(self.ndc_x_omp_location, 1, True, state.ndc_xform_omp())
-        GL.glUniform1f(self.omp_scale_qwn_location, state.omp_scale_qwn())
+        GL.glUniformMatrix3fv(self.ndc_x_opx_location, 1, True, state.ndc_xform_opx())
+        GL.glUniform1f(self.opx_scale_qwn_location, state.opx_scale_qwn())
         GL.glDrawArrays(GL.GL_TRIANGLE_STRIP, 0, 10)
 
 
@@ -383,7 +383,7 @@ class SphericalShader(IImageShader):
         self.shader = None
         self.zoom_location = None
         self.pixelFilter_location = None
-        self.ont_rot_obq_location = None
+        self.geo_rot_obq_location = None
         self.pcm_rot_geo_location = None
         self.window_size_location = None
         self.input_format_location = None
@@ -414,7 +414,7 @@ class SphericalShader(IImageShader):
         GL.glLinkProgram(self.shader)
         self.zoom_location = GL.glGetUniformLocation(self.shader, "window_zoom")
         self.pixelFilter_location = GL.glGetUniformLocation(self.shader, "pixelFilter")
-        self.ont_rot_obq_location = GL.glGetUniformLocation(self.shader, "ont_rot_obq")
+        self.geo_rot_obq_location = GL.glGetUniformLocation(self.shader, "geo_rot_obq")
         self.pcm_rot_geo_location = GL.glGetUniformLocation(self.shader, "pcm_rot_geo")
         self.window_size_location = GL.glGetUniformLocation(self.shader, "window_size")
         self.input_format_location = GL.glGetUniformLocation(self.shader, "input_format")
@@ -438,7 +438,7 @@ class SphericalShader(IImageShader):
         GL.glUseProgram(self.shader)
         GL.glUniform1f(self.zoom_location, state.zoom)
         GL.glUniform1i(self.pixelFilter_location, state.pixel_filter.value)
-        GL.glUniformMatrix3fv(self.ont_rot_obq_location, 1, True, state.ont_rot_usr)
+        GL.glUniformMatrix3fv(self.geo_rot_obq_location, 1, True, state.geo_rot_usr)
         GL.glUniformMatrix3fv(self.pcm_rot_geo_location, 1, True, image.md.pcm_R_geo)
         GL.glUniform2i(self.window_size_location, *[int(x) for x in state.window_size])
         GL.glUniform1i(self.input_format_location, image.input_format.value)
@@ -509,7 +509,7 @@ class SphericalDngShader(IImageShader):
         self.uViewer["brightness"].set(state.brightness)
         self.uViewer["pixelFilter"].set(state.pixel_filter.value)
         self.uPano["window_zoom"].set(state.zoom)
-        self.uPano["ont_rot_obq"].set(1, True, state.ont_rot_usr)
+        self.uPano["geo_rot_obq"].set(1, True, state.geo_rot_usr)
         self.uPano["pcm_rot_geo"].set(1, True, image.md.pcm_R_geo)
         self.uPano["window_size"].set(*[int(x) for x in state.window_size])
         self.uPano["display_projection"].set(state.display_projection.value)
@@ -544,7 +544,7 @@ class TileBoundaryShader(IImageShader):
     def __init__(self):
         self.program = None
         self.uViewport = Uniform("uViewportSize", GL.glUniform2f)
-        self.ndc_X_omp = Uniform("ndc_X_omp", GL.glUniformMatrix3fv)
+        self.ndc_X_opx = Uniform("ndc_X_opx", GL.glUniformMatrix3fv)
 
     def initialize_gl(self) -> None:
         self.program = compileProgram(
@@ -556,11 +556,11 @@ class TileBoundaryShader(IImageShader):
                            ["tile_boundary.frag"], GL.GL_FRAGMENT_SHADER),
         )
         self.uViewport.get_location(self.program)
-        self.ndc_X_omp.get_location(self.program)
+        self.ndc_X_opx.get_location(self.program)
 
     def paint_gl(self, state: RenderStateLike, image: ImageLike) -> None:
         GL.glUseProgram(self.program)
         self.uViewport.set(*state.window_size)
-        self.ndc_X_omp.set(1, True, state.ndc_xform_omp())
+        self.ndc_X_opx.set(1, True, state.ndc_xform_opx())
         for tile in image.tiles():
             tile.paint_boundary()

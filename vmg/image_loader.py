@@ -39,7 +39,10 @@ class ImageLoader(QtCore.QObject):
     def _is_current(self, image: ImageLike) -> bool:
         QCoreApplication.processEvents()  # drain queue, in case load was canceled
         if self.current_image is not image:
-            image.setParent(None)  # noqa  allow deletion of image maybe
+            try:
+                image.setParent(None)  # noqa  allow deletion of image maybe
+            except AttributeError:
+                pass
             logger.info(f"ceasing stale load of {image.file_name}")
             return False  # Latest file is something else
         else:

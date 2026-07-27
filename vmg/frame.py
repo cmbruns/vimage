@@ -45,7 +45,7 @@ class LocationNic(BasicVec3):
     pass
 
 
-class LocationOmp(BasicVec3):
+class LocationOpx(BasicVec3):
     pass
 
 

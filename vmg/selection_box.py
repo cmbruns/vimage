@@ -5,7 +5,7 @@ import numpy
 from PySide6 import QtCore, QtGui
 from PySide6.QtGui import Qt
 
-from vmg.frame import LocationOmp
+from vmg.frame import LocationOpx
 from vmg.resources import resource_filename
 
 
@@ -49,7 +49,7 @@ class SelectionBox(QtCore.QObject):
     def __str__(self):
         return f"(left={self.left}, top={self.top}, right={self.right}, bottom={self.bottom})"
 
-    def begin(self, p_omp: Optional[LocationOmp]):
+    def begin(self, p_omp: Optional[LocationOpx]):
         if p_omp is None:
             self.state = SelState.FINDING_FIRST_POINT
         else:
@@ -72,7 +72,7 @@ class SelectionBox(QtCore.QObject):
         self.adjusting = AdjustType.NONE
         self.selection_shown.emit(False)  # noqa
 
-    def context_menu_actions(self, p_omp: LocationOmp, is_360: bool) -> list:
+    def context_menu_actions(self, p_omp: LocationOpx, is_360: bool) -> list:
         result = []
         if not is_360:
             start_action = StartRectAction()
