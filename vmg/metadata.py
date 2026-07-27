@@ -57,6 +57,9 @@ class ImageMetadata:
         self.initial_heading_degrees = 0.0
         self.initial_pitch_degrees = 0.0
         self.initial_roll_degrees = 0.0
+        self.pose_heading_degrees = 0.0
+        self.pose_pitch_degrees = 0.0
+        self.pose_roll_degrees = 0.0
         self.pcm_R_geo = numpy.eye(3, dtype=numpy.float32)
         # Dual fisheye lens parameters
         self.df_fov_radians = radians(195.0)
@@ -196,61 +199,52 @@ class ImageMetadata:
                     desc_list = [desc]
                 else:
                     desc_list = desc
-                is_pano: Optional[bool] = None  # don't know yet
-                pose_heading = 0.0
-                pose_pitch = 0.0
-                pose_roll = 0.0
-                initial_heading = 0.0
-                initial_pitch = 0.0
-                initial_roll = 0.0
                 for d in desc_list:
                     if "PoseHeadingDegrees" in d:
-                        pose_heading = radians(float(d["PoseHeadingDegrees"]))
+                        self.pose_heading_degrees = float(d["PoseHeadingDegrees"])
                         is_pano = True
                     if "PosePitchDegrees" in d:
-                        pose_pitch = radians(float(d["PosePitchDegrees"]))
-                        is_pano = True
+                        self.pose_pitch_degrees = float(d["PosePitchDegrees"])
                     if "PoseRollDegrees" in d:
-                        pose_roll = radians(float(d["PoseRollDegrees"]))
-                        is_pano = True
+                        self.pose_roll_degrees = float(d["PoseRollDegrees"])
                     if "InitialViewHeadingDegrees" in d:
                         self.initial_heading_degrees = float(d["InitialViewHeadingDegrees"])
-                        is_pano = True
                     if "InitialViewPitchDegrees" in d:
                         self.initial_pitch_degrees = float(d["InitialViewPitchDegrees"])
-                        is_pano = True
                     if "InitialViewRollDegrees" in d:
                         self.initial_roll_degrees = float(d["InitialViewRollDegrees"])
-                        is_pano = True
                 Use360PanoReferenceConvention = False
                 if Use360PanoReferenceConvention:
-                    pose_roll = -pose_roll
-                if pose_heading != 0 or pose_pitch != 0 or pose_roll != 0:
+                    self.pose_roll_degrees = -self.pose_roll_degrees
+                if self.pose_heading_degrees != 0 or self.pose_pitch_degrees != 0 or self.pose_roll_degrees != 0:
                     logger.info(
-                        f"Pose heading, pitch, roll = ({degrees(pose_heading)}, {degrees(pose_pitch)}, {degrees(pose_roll)})")
-                # TODO: use new frame shorthands everywhere
-                # https://github.com/cmbruns/vimage/issues/74
-                # Photographer's camera pose
-                pcm_rot_geo = numpy.array([
-                    [cos(pose_roll), -sin(pose_roll), 0],
-                    [sin(pose_roll), cos(pose_roll), 0],
-                    [0, 0, 1],
-                ], dtype=numpy.float32)
-                pcm_rot_geo = pcm_rot_geo @ [
-                    [1, 0, 0],
-                    [0, cos(pose_pitch), sin(pose_pitch)],
-                    [0, -sin(pose_pitch), cos(pose_pitch)],
-                ]
-                pcm_rot_geo = pcm_rot_geo @ [
-                    [cos(pose_heading), 0, sin(pose_heading)],
-                    [0, 1, 0],
-                    [-sin(pose_heading), 0, cos(pose_heading)],
-                ]
-                # Initial View
-                # TODO incorporate IVW into pipeline separate from GEO
-                self.pcm_R_geo = pcm_rot_geo
+                        f"Pose heading, pitch, roll = ({self.pose_heading_degrees}, {self.pose_pitch_degrees}, {self.pose_roll_degrees})")
+                self._update_pcm_rot_geo()
+
             except (KeyError, TypeError):
                 pass
+
+    def _update_pcm_rot_geo(self):
+        # Photographer's camera pose
+        roll = radians(self.pose_roll_degrees)
+        pitch = radians(self.pose_pitch_degrees)
+        heading = radians(self.pose_heading_degrees)
+        pcm_rot_geo = numpy.array([
+            [cos(roll), -sin(roll), 0],
+            [sin(roll), cos(roll), 0],
+            [0, 0, 1],
+        ], dtype=numpy.float32)
+        pcm_rot_geo = pcm_rot_geo @ [
+            [1, 0, 0],
+            [0, cos(pitch), sin(pitch)],
+            [0, -sin(pitch), cos(pitch)],
+        ]
+        pcm_rot_geo = pcm_rot_geo @ [
+            [cos(heading), 0, sin(heading)],
+            [0, 1, 0],
+            [-sin(heading), 0, cos(heading)],
+        ]
+        self.pcm_R_geo = pcm_rot_geo
 
     def load_exiftool(self, file_name):
         with exiftool.ExifTool() as et:
@@ -346,50 +340,29 @@ class ImageMetadata:
                 self.input_format = InputFormat.DUAL_FISHEYE
             else:
                 self.input_format = InputFormat.EQUIRECTANGULAR
-            pose_heading = 0.0
-            pose_pitch = 0.0
-            pose_roll = 0.0
             if "EXIF:PoseHeadingDegrees" in exif:
-                pose_heading = radians(float(exif["EXIF:PoseHeadingDegrees"]))
+                self.pose_heading_degrees = float(exif["EXIF:PoseHeadingDegrees"])
             elif "EXIF:GPSImgDirection" in exif:
-                pose_heading = radians(float(exif["EXIF:GPSImgDirection"]))
+                self.pose_heading_degrees = float(exif["EXIF:GPSImgDirection"])
             if "EXIF:PosePitchDegrees" in exif:
-                pose_pitch = radians(float(exif["EXIF:PosePitchDegrees"]))
+                self.pose_pitch_degrees = float(exif["EXIF:PosePitchDegrees"])
             elif "Composite:RicohPitch" in exif:
-                pose_pitch = radians(float(exif["Composite:RicohPitch"]))
+                self.pose_pitch_degrees = float(exif["Composite:RicohPitch"])
             if "EXIF:PoseRollDegrees" in exif:
-                pose_roll = radians(float(exif["EXIF:PoseRollDegrees"]))
+                self.pose_roll_degrees = float(exif["EXIF:PoseRollDegrees"])
             elif "Composite:RicohRoll" in exif:
-                pose_roll = radians(float(exif["Composite:RicohRoll"]))
+                self.pose_roll_degrees = float(exif["Composite:RicohRoll"])
             if "EXIF:InitialViewHeadingDegrees" in exif:
                 self.initial_heading_degrees = float(exif["EXIF:InitialViewHeadingDegrees"])
             if "EXIF:InitialViewPitchDegrees" in exif:
                 self.initial_pitch_degrees = float(exif["EXIF:InitialViewPitchDegrees"])
             if "EXIF:InitialViewRollDegrees" in exif:
                 self.initial_roll_degrees = float(exif["EXIF:InitialViewRollDegrees"])
-            if pose_heading != 0 or pose_pitch != 0 or pose_roll != 0:
+            if self.pose_heading_degrees != 0 or self.pose_pitch_degrees != 0 or self.pose_roll_degrees != 0:
                 logger.info(
-                    f"Pose heading, pitch, roll = ({degrees(pose_heading)}, {degrees(pose_pitch)}, {degrees(pose_roll)})")
-                self.pcm_R_geo = self._pcm_rot_geo(pose_heading, pose_pitch, pose_roll)
+                    f"Pose heading, pitch, roll = ({self.pose_heading_degrees}, {self.pose_pitch_degrees}, {self.pose_roll_degrees})")
+                self._update_pcm_rot_geo()
 
-    @staticmethod
-    def _pcm_rot_geo(heading: float, pitch: float, roll: float):
-        pcm_rot_geo = numpy.array([
-            [cos(roll), -sin(roll), 0],
-            [sin(roll), cos(roll), 0],
-            [0, 0, 1],
-        ], dtype=numpy.float32)
-        pcm_rot_geo = pcm_rot_geo @ [
-            [1, 0, 0],
-            [0, cos(pitch), sin(pitch)],
-            [0, -sin(pitch), cos(pitch)],
-        ]
-        pcm_rot_geo = pcm_rot_geo @ [
-            [cos(heading), 0, sin(heading)],
-            [0, 1, 0],
-            [-sin(heading), 0, cos(heading)],
-        ]
-        return pcm_rot_geo
 
 
 channel_count_for_pil_mode = {

@@ -96,8 +96,12 @@ class ViewState(QObject):
         prev_qwn = LocationQwn.from_qpoint(prev)
         curr_qwn = LocationQwn.from_qpoint(curr)
         if self._input_format() in (
-                InputFormat.EQUIRECTANGULAR,  # ok
-                InputFormat.DUAL_FISHEYE,  # TODO: not quite
+                InputFormat.EQUIRECTANGULAR,
+                # This actually works for fisheye too, the pitch and heading
+                # are view state parameters the superficially resemble
+                # the EQUIRECTANGULAR format coordinates, but do not
+                # actually depend on the input format.
+                InputFormat.DUAL_FISHEYE,
         ):
             prev_hpd = self.hpd_for_qwn(prev_qwn)
             curr_hpd = self.hpd_for_qwn(curr_qwn)
