@@ -80,6 +80,10 @@ void main()
     }
     else discard;
 
+    // Compute lod before bounds clip,
+    // to avoid derivative problems near the edges.
+    float lod = textureQueryLod(demosaic_tile, p_tcr).y;
+
     vec2 p_tct = tct_for_tcr(tile_X_img, p_tcr);  // Tile texture coordinate
 
     // Clip to tile
@@ -107,9 +111,6 @@ void main()
     // Blend bayer and demosaicked depending on mipmap level
     // At high zoom the user sees the pure raw DNG mosaic.
     // At lower zoom, the user sees the demosaicked RGB interpretation.
-    // TODO: this goes wonky near tile boundaries
-    //  maybe use analytic jacobians
-    float lod = textureQueryLod(demosaic_tile, p_tcr).y;
     float demosaic_bias = clamp(lod + 10, 0.0, 4.0) * 0.25;  // Blended color between lod 0->1
 
     const bool debug = false;
