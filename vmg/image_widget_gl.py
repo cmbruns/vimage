@@ -217,30 +217,6 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
     def start_rect_with_no_point(self):
         self.view_state.sel_rect.begin(None)
 
-    @QtCore.Slot(float)
-    def update_df_fov(self, fov_deg: float):
-        fov_rad = radians(fov_deg)
-        if self.image is None:
-            return
-        if fov_rad == self.image.md.df_fov_radians:
-            return  # No change
-        self.image.md.df_fov_radians = fov_rad
-        if self.image.input_format != InputFormat.DUAL_FISHEYE:
-            return  # Wrong format, no update needed
-        self.update()  # Live update as user changes parameter
-
-    @QtCore.Slot(float)
-    def update_df_lens_rot(self, rot_deg: float):
-        rot_rad = radians(rot_deg)
-        if self.image is None:
-            return
-        if rot_rad == self.image.md.df_lens_rot_radians:
-            return  # No change
-        self.image.md.df_lens_rot_radians = rot_rad
-        if self.image.input_format != InputFormat.DUAL_FISHEYE:
-            return  # Wrong format, no update needed
-        self.update()  # Live update as user changes parameter
-
     def wheelEvent(self, event: QtGui.QWheelEvent):
         d_scale = event.angleDelta().y() / 120.0
         if d_scale == 0:

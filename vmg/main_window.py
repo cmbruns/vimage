@@ -347,10 +347,13 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         self.actionSave_As.setEnabled(True)
         self.actionSave_Current_View_As.setEnabled(True)
         self.actionCopy.setEnabled(True)
+        self.actionReset_View.setEnabled(True)
         self.actionSelect_Rectangle.setEnabled(image.input_format == InputFormat.STANDARD_PHOTO)
         self.actionSelect_None.trigger()
         self.actionZoom_In.setEnabled(True)
         self.actionZoom_Out.setEnabled(True)
+        self._check_lens_dialog()
+        self.lens_dialog.set_image(image)
         # self.imageWidgetGL.update()
 
     @QtCore.Slot(str)  # noqa
@@ -589,14 +592,15 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         )
         self.clipboard.setImage(qimage)
 
-    @QtCore.Slot()  # noqa
-    def on_actionConfigure_Dual_Fisheye_triggered(self):  # noqa
+    def _check_lens_dialog(self):
         if self.lens_dialog is None:
             self.lens_dialog = LensDialog(self)
-            l_ui = self.lens_dialog.ui
             glw = self.imageWidgetGL
-            l_ui.lensrot_doubleSpinBox.valueChanged.connect(glw.update_df_lens_rot)
-            l_ui.fov_doubleSpinBox.valueChanged.connect(glw.update_df_fov)
+            self.lens_dialog.camera_settings_changed.connect(glw.update)
+
+    @QtCore.Slot()  # noqa
+    def on_actionConfigure_Dual_Fisheye_triggered(self):  # noqa
+        self._check_lens_dialog()
         self.lens_dialog.show()
         self.lens_dialog.raise_()
         self.lens_dialog.activateWindow()

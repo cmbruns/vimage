@@ -2,14 +2,14 @@ import json
 
 import enum
 import logging
-from math import cos, radians, sin, degrees
+from math import cos, radians, sin
 from numpy import linalg
-from typing import Optional
 
 import exiftool
 import numpy
 import PIL
 from PIL import ExifTags
+from PySide6.QtCore import QObject
 
 from vmg.dng_color import LightSource, calculate_dng_t
 from vmg.exif_orientation import ExifOrientation
@@ -29,7 +29,7 @@ class PhotometricScale(enum.Enum):
     SRGB = 1
 
 
-class ImageMetadata:
+class ImageMetadata():
     """
     Sketch of class to contain image metadata.
 
@@ -219,12 +219,11 @@ class ImageMetadata:
                 if self.pose_heading_degrees != 0 or self.pose_pitch_degrees != 0 or self.pose_roll_degrees != 0:
                     logger.info(
                         f"Pose heading, pitch, roll = ({self.pose_heading_degrees}, {self.pose_pitch_degrees}, {self.pose_roll_degrees})")
-                self._update_pcm_rot_geo()
-
+                self.update_pcm_rot_geo()
             except (KeyError, TypeError):
                 pass
 
-    def _update_pcm_rot_geo(self):
+    def update_pcm_rot_geo(self):
         # Photographer's camera pose
         roll = radians(self.pose_roll_degrees)
         pitch = radians(self.pose_pitch_degrees)
@@ -361,7 +360,7 @@ class ImageMetadata:
             if self.pose_heading_degrees != 0 or self.pose_pitch_degrees != 0 or self.pose_roll_degrees != 0:
                 logger.info(
                     f"Pose heading, pitch, roll = ({self.pose_heading_degrees}, {self.pose_pitch_degrees}, {self.pose_roll_degrees})")
-                self._update_pcm_rot_geo()
+                self.update_pcm_rot_geo()
 
 
 

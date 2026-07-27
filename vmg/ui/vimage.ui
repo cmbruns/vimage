@@ -85,7 +85,6 @@
      <addaction name="actionEquirectangularInput"/>
      <addaction name="actionDual_FisheyeInput"/>
      <addaction name="separator"/>
-     <addaction name="actionConfigure_Dual_Fisheye"/>
     </widget>
     <widget class="QMenu" name="menuDebug">
      <property name="title">
@@ -193,6 +192,8 @@
     <addaction name="separator"/>
     <addaction name="actionSelect_Rectangle"/>
     <addaction name="actionSelect_None"/>
+    <addaction name="separator"/>
+    <addaction name="actionConfigure_Dual_Fisheye"/>
    </widget>
    <addaction name="menuFile"/>
    <addaction name="menuEdit"/>
@@ -490,7 +491,7 @@
   </action>
   <action name="actionConfigure_Dual_Fisheye">
    <property name="text">
-    <string>Configure Dual Fisheye...</string>
+    <string>Camera Settings...</string>
    </property>
   </action>
   <action name="actionBrightnessPlus">
