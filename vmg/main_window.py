@@ -69,7 +69,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         self.setAttribute(Qt.WA_AcceptTouchEvents, True)  # noqa
         self.image_list = []
         self.image_index = 0
-        self.image = None
+        self.pil_image = None
         self.imageWidgetGL.request_message.connect(self.statusbar.showMessage)
         self.imageWidgetGL.signal_360.connect(self.set_is_360)
         self.imageWidgetGL.image_size_changed.connect(self.set_image_size)
@@ -340,7 +340,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         if image.file_name != self._current_file_name:
             logger.info(f"ignoring stale texture loaded for {image.file_name}")
             return
-        self.image = image.pil_image
+        self.pil_image = image.pil_image
         self.imageWidgetGL.set_image(image)
         fn = image.file_name
         self.set_current_image_path(fn)
@@ -354,7 +354,6 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         self.actionZoom_Out.setEnabled(True)
         self._check_lens_dialog()
         self.lens_dialog.set_image(image)
-        # self.imageWidgetGL.update()
 
     @QtCore.Slot(str)  # noqa
     def image_load_failed(self, file_name: str):
@@ -396,7 +395,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
 
     def save_image(self, file_path: str, image=None):
         if image is None:
-            image = self.image
+            image = self.pil_image
         # TODO: cancellable separate thread save? (at least after in-memory copy is made)
         with ScopedWaitCursor():
             self.statusbar.showMessage(f"Saving image {file_path}...", 5000)
@@ -413,7 +412,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
                 logging.info(f"Saving image {file_path}")
                 in_memory_image.seek(0)
                 out.write(in_memory_image.read())
-            if image is self.image:
+            if image is self.pil_image:
                 self.set_current_image_path(file_path)
                 self.load_main_image(file_path)
             self.statusbar.showMessage(f"Saved image {file_path}", 5000)
@@ -580,9 +579,9 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         # Copy selection only, if available
         sel_rect = self.imageWidgetGL.view_state.sel_rect
         if sel_rect.is_active:
-            img = self.image.crop(sel_rect.left_top_right_bottom)
+            img = self.pil_image.crop(sel_rect.left_top_right_bottom)
         else:
-            img = self.image
+            img = self.pil_image
         temp = img.convert("RGBA")
         qimage = QtGui.QImage(
             temp.tobytes("raw", "RGBA"),
@@ -610,7 +609,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         # TODO: virtual crop, metadata only
         # TODO: what about existing image list?
         self.undo_stack.push(CropToSelection(
-            self.image,
+            self.pil_image,
             self.imageWidgetGL.view_state.sel_rect,
             self,
             self.image_list[self.image_index],
@@ -829,7 +828,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
     @QtCore.Slot()  # noqa
     def on_actionSave_As_triggered(self):  # noqa
         default_name = f"{pathlib.Path(self._current_file_name).stem}"
-        file_path = self._dialog_and_save_image(self.image, default_name=default_name)
+        file_path = self._dialog_and_save_image(self.pil_image, default_name=default_name)
         if os.path.exists(file_path):
             self.set_current_image_path(file_path)
             self.undo_stack.setClean()

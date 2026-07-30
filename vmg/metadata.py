@@ -60,7 +60,7 @@ class ImageMetadata():
         self.pose_heading_degrees = 0.0
         self.pose_pitch_degrees = 0.0
         self.pose_roll_degrees = 0.0
-        self.pcm_R_geo = numpy.eye(3, dtype=numpy.float32)
+        self._pcm_R_geo = numpy.eye(3, dtype=numpy.float32)
         # Dual fisheye lens parameters
         self.df_fov_radians = radians(195.0)
         self.df_lens_rot_radians = radians(0.0)
@@ -75,6 +75,14 @@ class ImageMetadata():
         # Convert camera sensor reference values to linear sRGB
         self.lsr_X_wba = numpy.eye(3, dtype=numpy.float32)
         self.baseline_exposure = 0.0
+
+    @property
+    def pcm_R_geo(self):
+        return self._pcm_R_geo
+
+    @pcm_R_geo.setter
+    def pcm_R_geo(self, value):
+        self._pcm_R_geo = value
 
     def load_tifffile_page(self, page):
         debug = False
@@ -361,7 +369,6 @@ class ImageMetadata():
                 logger.info(
                     f"Pose heading, pitch, roll = ({self.pose_heading_degrees}, {self.pose_pitch_degrees}, {self.pose_roll_degrees})")
                 self.update_pcm_rot_geo()
-
 
 
 channel_count_for_pil_mode = {

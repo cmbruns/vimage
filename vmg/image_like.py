@@ -477,7 +477,10 @@ class DngImage(BasicImageLike):
             raise InappropriateImageLoader() from exc
         self.md.data_max = self._array.max()
         self.bayer_array = self._array
-        self.pil_image = None  # Image.fromarray(self.bayer_array)
+        try:
+            self.pil_image = Image.fromarray(self.bayer_array)
+        except TypeError as _exc:
+            self.pil_image = None  # TODO: maybe disable cropping too...
 
     def initialize_gl(self) -> None:
         """

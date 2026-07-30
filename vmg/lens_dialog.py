@@ -13,6 +13,7 @@ class LensDialog(QtWidgets.QDialog):
         self.ui = Ui_Dialog()
         self.ui.setupUi(self)
         self.image = None
+        self.block_signals = False
 
     def closeEvent(self, event):
         event.ignore()   # prevent destruction
@@ -21,15 +22,22 @@ class LensDialog(QtWidgets.QDialog):
     camera_settings_changed = QtCore.Signal()
 
     def set_image(self, image: ImageLike):
+        self.block_signals = True
         self.image = image
         self.ui.fov_doubleSpinBox.setValue(degrees(image.md.df_fov_radians))
         self.ui.lensrot_doubleSpinBox.setValue(degrees(image.md.df_lens_rot_radians))
-        self.ui.poseRoll_doubleSpinBox.setValue(image.md.pose_roll_degrees)
-        self.ui.posePitch_doubleSpinBox.setValue(image.md.pose_pitch_degrees)
-        self.ui.poseHeading_doubleSpinBox.setValue(image.md.pose_heading_degrees)
+        roll = (image.md.pose_roll_degrees + 180) % 360 - 180
+        self.ui.poseRoll_doubleSpinBox.setValue(roll)
+        pitch = max(-90, min(90, image.md.pose_pitch_degrees))
+        self.ui.posePitch_doubleSpinBox.setValue(pitch)
+        heading = (image.md.pose_heading_degrees + 180) % 360 - 180
+        self.ui.poseHeading_doubleSpinBox.setValue(heading)
+        self.block_signals = False
 
     @QtCore.Slot(float)
     def on_fov_doubleSpinBox_valueChanged(self, value: float):
+        if self.block_signals:
+            return
         if self.image is None:
             return
         if self.image.md.input_format != InputFormat.DUAL_FISHEYE:
@@ -41,6 +49,8 @@ class LensDialog(QtWidgets.QDialog):
 
     @QtCore.Slot(float)
     def on_lensrot_doubleSpinBox_valueChanged(self, value: float):
+        if self.block_signals:
+            return
         if self.image is None:
             return
         if self.image.md.input_format != InputFormat.DUAL_FISHEYE:
@@ -52,6 +62,8 @@ class LensDialog(QtWidgets.QDialog):
 
     @QtCore.Slot(float)
     def on_poseHeading_doubleSpinBox_valueChanged(self, value: float):
+        if self.block_signals:
+            return
         if self.image is None:
             return
         if self.image.md.input_format == InputFormat.STANDARD_PHOTO:
@@ -64,6 +76,8 @@ class LensDialog(QtWidgets.QDialog):
 
     @QtCore.Slot(float)
     def on_posePitch_doubleSpinBox_valueChanged(self, value: float):
+        if self.block_signals:
+            return
         if self.image is None:
             return
         if self.image.md.input_format == InputFormat.STANDARD_PHOTO:
@@ -76,6 +90,8 @@ class LensDialog(QtWidgets.QDialog):
 
     @QtCore.Slot(float)
     def on_poseRoll_doubleSpinBox_valueChanged(self, value: float):
+        if self.block_signals:
+            return
         if self.image is None:
             return
         if self.image.md.input_format == InputFormat.STANDARD_PHOTO:
