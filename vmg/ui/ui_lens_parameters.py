@@ -69,8 +69,8 @@ class Ui_Dialog(object):
         self.poseHeading_doubleSpinBox = QDoubleSpinBox(self.groupBox_2)
         self.poseHeading_doubleSpinBox.setObjectName(u"poseHeading_doubleSpinBox")
         self.poseHeading_doubleSpinBox.setWrapping(True)
-        self.poseHeading_doubleSpinBox.setMinimum(-180.000000000000000)
-        self.poseHeading_doubleSpinBox.setMaximum(180.000000000000000)
+        self.poseHeading_doubleSpinBox.setMinimum(0.000000000000000)
+        self.poseHeading_doubleSpinBox.setMaximum(360.000000000000000)
         self.poseHeading_doubleSpinBox.setSingleStep(0.250000000000000)
 
         self.gridLayout_2.addWidget(self.poseHeading_doubleSpinBox, 2, 1, 1, 1)

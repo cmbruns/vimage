@@ -30,7 +30,7 @@ class LensDialog(QtWidgets.QDialog):
         self.ui.poseRoll_doubleSpinBox.setValue(roll)
         pitch = max(-90, min(90, image.md.pose_pitch_degrees))
         self.ui.posePitch_doubleSpinBox.setValue(pitch)
-        heading = (image.md.pose_heading_degrees + 180) % 360 - 180
+        heading = image.md.pose_heading_degrees % 360
         self.ui.poseHeading_doubleSpinBox.setValue(heading)
         self.block_signals = False
 

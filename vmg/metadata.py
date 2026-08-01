@@ -224,6 +224,10 @@ class ImageMetadata():
                 Use360PanoReferenceConvention = False
                 if Use360PanoReferenceConvention:
                     self.pose_roll_degrees = -self.pose_roll_degrees
+                # Restrict to documented XMP range
+                self.pose_roll_degrees = (self.pose_roll_degrees + 180.0) % 360.0 - 180.0
+                self.pose_pitch_degrees = max(-90.0, min(90.0, self.pose_pitch_degrees))
+                self.pose_heading_degrees = self.pose_heading_degrees % 360.0
                 if self.pose_heading_degrees != 0 or self.pose_pitch_degrees != 0 or self.pose_roll_degrees != 0:
                     logger.info(
                         f"Pose heading, pitch, roll = ({self.pose_heading_degrees}, {self.pose_pitch_degrees}, {self.pose_roll_degrees})")

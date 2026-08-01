@@ -1,5 +1,14 @@
-cmake_minimum_required(VERSION 3.5)
-project(vimage NONE)
+cmake_minimum_required(VERSION 3.12)  # Requires 3.12+ for C++20 support
+project(vimage LANGUAGES CXX)  # CXX because of binary helpers
+
+option(BUILD_BINARY_UTILS "Build binary utilities" ON)
+option(BUILD_INSTALLER "BuildInstaller" ON)
+
+if (BUILD_BINARY_UTILS)
+add_subdirectory(csrc)  # compiled helpers
+endif()
+
+if (BUILD_INSTALLER)
 
 # Remember to manually update version here every build
 # Path to the version file inside your source tree
@@ -160,3 +169,5 @@ elseif(UNIX)
 endif()
 
 include(CPack)
+
+endif(BUILD_INSTALLER)
