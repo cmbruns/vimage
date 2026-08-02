@@ -29,6 +29,7 @@ from vmg.metadata import InputFormat, PhotometricScale, ImageMetadata
 from vmg.exif_orientation import ExifOrientation
 from vmg.interfaces import ImageLike, TileLike
 from vmg.resources import resource_string
+from vmg.util import sin_from_equi8
 
 logger = logging.getLogger(__name__)
 GLenum = int
@@ -193,6 +194,12 @@ class PilImage(BasicImageLike):
         if pil_image.mode in ["P",]:  # Palette image
             pil_image = pil_image.convert("RGBA")
         self._array = numpy.array(pil_image)
+
+        do_sinusoidal = False
+        if do_sinusoidal:
+            self.md.input_format = InputFormat.SINUSOIDAL
+            sin_from_equi8(self._array, self._array)
+
         self.md.data_max = self._array.max()
         self.pil_image = pil_image  # TODO: MainWindow needs refactor
 

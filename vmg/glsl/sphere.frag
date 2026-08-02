@@ -32,6 +32,7 @@ void main()
     // Look up tile texture coordinate(s)
     vec2 p_tcr;  // Full image texture coordinate
     vec2 p_tct;  // Tile texture coordinate
+    vec2 p_img_tex;
     switch(input_format) {
         case DUAL_FISHEYE_INPUT_FORMAT:
             TexCoordPair pair = dual_fisheye_tex_coord(
@@ -55,9 +56,14 @@ void main()
             color = clip_n_filter(tile, p_tct, pixelFilter, true);
             color.a = alpha;
             break;
+        case SINUSOIDAL_INPUT_FORMAT:
+            p_img_tex = sinusoidal_tex_coord(p_raw);
+            p_tct = tct_for_tcr(tile_X_img, p_img_tex);
+            color = clip_n_filter(tile, p_tct, pixelFilter, true);
+            break;
         case EQUIRECT_INPUT_FORMAT:
         default:
-            vec2 p_img_tex = equirect_tex_coord(p_raw);
+            p_img_tex = equirect_tex_coord(p_raw);
             p_tct = tct_for_tcr(tile_X_img, p_img_tex);
             color = clip_n_filter(tile, p_tct, pixelFilter, true);
             break;

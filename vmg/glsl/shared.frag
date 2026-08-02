@@ -19,6 +19,7 @@ const int EQUIRECT_DISPLAY_PROJECTION = 3;
 const int EQUIRECT_INPUT_FORMAT = 0;
 const int DUAL_FISHEYE_INPUT_FORMAT = 1;
 const int PERSPECTIVE_INPUT_FORMAT = 2;
+const int SINUSOIDAL_INPUT_FORMAT = 3;
 
 // Colorize raw grayscale bayer mosaic texel intensity
 vec4 bayer_tint(
@@ -89,10 +90,23 @@ vec4 catrom(sampler2D image, vec2 textureCoordinate, bool wrap) {
 
 vec2 equirect_tex_coord(vec3 dir)
 {
-    float longitude = 0.5 * atan(dir.x, -dir.z) / PI + 0.5; // range [0-1]
     float r = length(dir.xz);
-    float latitude = -atan(dir.y, r) / PI + 0.5; // range [0-1]
-    vec2 tex_coord = vec2(longitude, latitude);
+    float latitude = -atan(dir.y, r); // radians range [-pi/2, +pi/2]
+    float longitude = atan(dir.x, -dir.z); // radians  range [-pi, pi]
+    float tx = 0.5 * longitude / PI + 0.5; // range [0-1]
+    float ty = latitude / PI + 0.5; // range [0-1]
+    vec2 tex_coord = vec2(tx, ty);
+    return tex_coord;
+}
+
+vec2 sinusoidal_tex_coord(vec3 dir)
+{
+    float r = length(dir.xz);
+    float latitude = -atan(dir.y, r);
+    float longitude = atan(dir.x, -dir.z); // range [0-1]
+    float tx_sinusoidal = cos(latitude) * 0.5 * longitude / PI + 0.5;
+    float ty = latitude / PI + 0.5; // range [0-1]
+    vec2 tex_coord = vec2(tx_sinusoidal, ty);
     return tex_coord;
 }
 

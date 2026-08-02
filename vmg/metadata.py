@@ -21,7 +21,8 @@ logger = logging.getLogger(__name__)
 class InputFormat(enum.Enum):
     EQUIRECTANGULAR = 0   # stitched pano
     DUAL_FISHEYE = 1      # raw fisheye pair
-    STANDARD_PHOTO = 2       # normal 2D photo
+    STANDARD_PHOTO = 2    # normal 2D photo
+    SINUSOIDAL = 3        #
 
 
 class PhotometricScale(enum.Enum):

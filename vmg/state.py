@@ -96,12 +96,13 @@ class ViewState(QObject):
         prev_qwn = LocationQwn.from_qpoint(prev)
         curr_qwn = LocationQwn.from_qpoint(curr)
         if self._input_format() in (
-                InputFormat.EQUIRECTANGULAR,
-                # This actually works for fisheye too, the pitch and heading
-                # are view state parameters the superficially resemble
-                # the EQUIRECTANGULAR format coordinates, but do not
-                # actually depend on the input format.
-                InputFormat.DUAL_FISHEYE,
+            InputFormat.EQUIRECTANGULAR,
+            # This actually works for fisheye too, the pitch and heading
+            # are view state parameters the superficially resemble
+            # the EQUIRECTANGULAR format coordinates, but do not
+            # actually depend on the input format.
+            InputFormat.DUAL_FISHEYE,
+            InputFormat.SINUSOIDAL,
         ):
             prev_hpd = self.hpd_for_qwn(prev_qwn)
             curr_hpd = self.hpd_for_qwn(curr_qwn)
@@ -176,6 +177,7 @@ class ViewState(QObject):
             if self._input_format() in (
                     InputFormat.EQUIRECTANGULAR,
                     InputFormat.DUAL_FISHEYE,
+                    InputFormat.SINUSOIDAL,
             ):
                 p_hpd = self.hpd_for_qwn(p_qwn)
                 self.request_message.emit(  # noqa
@@ -282,8 +284,12 @@ class ViewState(QObject):
             p_geo = self.geo_for_qwn(p_qwn)
             p_pcm = self.image.md.pcm_R_geo @ p_geo
             x, y, z = p_pcm
-            if md.input_format == InputFormat.EQUIRECTANGULAR:
+            if md.input_format in [
+                InputFormat.EQUIRECTANGULAR,
+                InputFormat.SINUSOIDAL,  # TODO:
+            ]:
                 lon = degrees(atan2(x, -z))
+                y = max(-1.0, min(1.0, y))
                 lat = degrees(asin(y))
                 p_otc = (
                     md.size_opx[0] * (lon + 180) / 360,
@@ -414,7 +420,11 @@ class ViewState(QObject):
         if h_opx == 0:
             return
         w_qwn, h_qwn = self._size_qwn
-        if self._input_format() in (InputFormat.EQUIRECTANGULAR, InputFormat.DUAL_FISHEYE):
+        if self._input_format() in (
+            InputFormat.EQUIRECTANGULAR,
+            InputFormat.DUAL_FISHEYE,
+            InputFormat.SINUSOIDAL,
+        ):
             if 1 > w_qwn/h_qwn:
                 # window aspect is thin
                 # So use width in scaling factor
@@ -478,6 +488,7 @@ class ViewState(QObject):
             if self._input_format() in (
                     InputFormat.EQUIRECTANGULAR,
                     InputFormat.DUAL_FISHEYE,  # TODO: close enough?
+                    InputFormat.SINUSOIDAL,
             ):
                 self._zoom = old_zoom
                 before_hpd = self.hpd_for_qwn(p_qwn)  # Before position

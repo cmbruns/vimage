@@ -61,7 +61,7 @@ if __name__ == "__main__":
 
     # Create a dummy 16x16 pixel RGB image filled with 1s
     # Ensuring C_CONTIGUOUS out of the box
-    test_image = numpy.ones((4, 8), dtype=numpy.uint8)
+    test_image = numpy.random.randint(0, 256, (8, 16), dtype=numpy.uint8)
     print(test_image)
 
     print(f"Source Array Shape: {test_image.shape}, Dtype: {test_image.dtype}")

@@ -138,6 +138,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         for proj in (
             self.actionPerspectiveInput,
             self.actionEquirectangularInput,
+            self.actionSinusoidalInput,
             self.actionDual_FisheyeInput,
         ):
             self.input_format_group.addAction(proj)
@@ -438,10 +439,12 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
     def set_input_format(self, input_format: InputFormat):
         if input_format == InputFormat.STANDARD_PHOTO:
             self.actionPerspectiveInput.setChecked(True)
-        elif input_format == InputFormat.EQUIRECTANGULAR:
-            self.actionEquirectangularInput.setChecked(True)
         elif input_format == InputFormat.DUAL_FISHEYE:
             self.actionDual_FisheyeInput.setChecked(True)
+        elif input_format == InputFormat.EQUIRECTANGULAR:
+            self.actionEquirectangularInput.setChecked(True)
+        elif input_format == InputFormat.SINUSOIDAL:
+            self.actionSinusoidalInput.setChecked(True)
         else:
             raise Exception("Unexpected InputProjection")
 
@@ -854,6 +857,12 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         else:
             vs.pixel_filter = PixelFilter.CATMULL_ROM
         self.imageWidgetGL.update()
+
+    @QtCore.Slot(bool)  # noqa
+    def on_actionSinusoidalInput_toggled(self, is_checked: bool):  # noqa
+        if is_checked:
+            if self.imageWidgetGL.set_input_format(InputFormat.SINUSOIDAL):
+                self.imageWidgetGL.update()
 
     @QtCore.Slot(bool)  # noqa
     def on_actionStereographic_toggled(self, is_checked: bool):  # noqa

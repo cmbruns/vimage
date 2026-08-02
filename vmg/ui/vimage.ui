@@ -83,6 +83,7 @@
      </property>
      <addaction name="actionPerspectiveInput"/>
      <addaction name="actionEquirectangularInput"/>
+     <addaction name="actionSinusoidalInput"/>
      <addaction name="actionDual_FisheyeInput"/>
      <addaction name="separator"/>
     </widget>
@@ -719,6 +720,14 @@
    </property>
    <property name="text">
     <string>None</string>
+   </property>
+  </action>
+  <action name="actionSinusoidalInput">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Sinusoidal</string>
    </property>
   </action>
  </widget>
