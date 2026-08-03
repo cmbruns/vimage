@@ -2,14 +2,15 @@ import json
 
 import enum
 import logging
-from math import cos, radians, sin
-from numpy import linalg
+from math import atan2, cos, degrees, radians, sin
+import struct
+
 
 import exiftool
 import numpy
+from numpy import linalg
 import PIL
 from PIL import ExifTags
-from PySide6.QtCore import QObject
 
 from vmg.dng_color import LightSource, calculate_dng_t
 from vmg.exif_orientation import ExifOrientation
@@ -30,7 +31,7 @@ class PhotometricScale(enum.Enum):
     SRGB = 1
 
 
-class ImageMetadata():
+class ImageMetadata:
     """
     Sketch of class to contain image metadata.
 
@@ -399,3 +400,60 @@ rotation_for_exif_orientation = {
     7: numpy.array([[0, -1], [-1, 0]], dtype=numpy.float32),
     8: numpy.array([[0, -1], [1, 0]], dtype=numpy.float32),
 }
+
+
+def get_roll_pitch_from_imu(imu_hex_string: str):
+    """
+    Extracts the Roll angle in degrees from a 36-character QooCam3 IMU hex string.
+    """
+    # 1. Clean the string to isolate the active hex payload
+    clean_hex = imu_hex_string.upper().replace("IMUHEX=", "")
+
+    # 2. Extract the 4 bytes controlling the Roll axis (Bytes 7 to 10)
+    # Character indices: Bytes 7-8 are chars 12-16, Bytes 9-10 are chars 16-20
+    roll_bytes_hex = clean_hex[12:20]
+    binary_roll = bytes.fromhex(roll_bytes_hex)
+
+    # 3. Unpack into two 16-bit signed integers (Little-Endian 'h')
+    # val_y is the first pair, val_x is the second pair
+    roll_y, roll_x = struct.unpack('<hh', binary_roll)
+    # Avoid division by zero errors if both values are flattened
+    if roll_x == 0 and roll_y == 0:
+        roll_radians = 0.0
+    else:
+        roll_radians = atan2(-roll_y, -roll_x)
+    roll_degrees = degrees(roll_radians) % 360
+    if roll_degrees > 180:
+        roll_degrees -= 360
+
+    pitch_bytes_hex = clean_hex[20:28]
+    binary_pitch = bytes.fromhex(pitch_bytes_hex)
+    pitch_y, pitch_x = struct.unpack('<hh', binary_pitch)
+    if pitch_x == 0 and pitch_y == 0:
+        pitch_radians = 0.0
+    elif pitch_x == 0:
+        # Compute the shallow angle against the internal gravity constant
+        pitch_radians = atan2(pitch_y, 16384)
+    else:
+        pitch_radians = atan2(pitch_y, pitch_x)
+    pitch_degrees = degrees(pitch_radians)
+
+    return roll_degrees, pitch_degrees
+
+
+if __name__ == "__main__":
+    # --- Quick Test Verification ---
+    # Testing your stable 45-degree anchor string:
+    print(f"Roll, Pitch: {get_roll_pitch_from_imu('000000000000808080800000000000000000')}°")
+    # Target Output: 45.0°
+
+    # Testing our calculated 10-degree target string:
+    print(f"Roll, Pitch: {get_roll_pitch_from_imu('00000000000085E980800000000000000000')}°")
+    # Target Output: 10.0°
+
+    for imu in ("808080807BFF0000", "40404040e3061027",
+                "2020202082e91027", "20204040a9358813",
+                "404020206290c409", "808040407BFF0000",
+                "404080807BFF0000", "52E2F00B7BFF0000",
+                ):
+        print(imu, get_roll_pitch_from_imu(f"000000000000{imu}00000000"))
