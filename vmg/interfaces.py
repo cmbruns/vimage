@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Any, Iterator
+from typing import Any, Iterator, Protocol
 
 import numpy
 from numpy.typing import NDArray
@@ -12,6 +12,7 @@ from vmg.pixel_filter import PixelFilter
 
 
 Float = float  # Make inspection stfu about "| int"
+GLint = int
 
 
 class ImageLike(ABC):
@@ -73,7 +74,7 @@ class ImageLike(ABC):
         """Create OpenGL resources in the loading thread"""
 
     @abstractmethod
-    def paint_gl(self) -> None:
+    def paint_gl(self, program, view_state) -> None:
         """Display image in the UI thread"""
 
     @abstractmethod
@@ -93,27 +94,24 @@ class ShaderProgramLike(ABC):
         """Bind program, set uniforms, and render tiles."""
 
 
-class TileLike(ABC):
+class TileLike(Protocol):
     """A rectangular region of an image backed by a GL texture."""
+    uv_bounds: tuple[Float, Float, Float, Float]
 
     @property
-    @abstractmethod
     def tile_X_img(self) -> NDArray[numpy.floating]:
         """3×3 float32 transform from tile to image space."""
         ...
 
-    @tile_X_img.setter
-    @abstractmethod
-    def tile_X_img(self, value: NDArray[numpy.floating]) -> None:
-        ...
-
-    @abstractmethod
-    def paint_gl(self) -> None:
+    def paint_gl(self, view_state: RenderStateLike) -> bool:
         """Bind textures and VBOs and issue draw calls."""
 
 
-class RenderStateLike(ABC):
+class RenderStateLike(Protocol):
     """Minimal interface for the view/controller state used by shaders."""
+
+    anisotropic_filtering: bool
+    texture_wrap: GLint
 
     # --- Required attributes ---
 
