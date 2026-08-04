@@ -337,13 +337,13 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
 
     @QtCore.Slot(ImageLike)  # noqa
     def image_texture_created(self, image: ImageLike):
-        logger.info(f"Received image texture {image.file_name}")
-        if image.file_name != self._current_file_name:
-            logger.info(f"ignoring stale texture loaded for {image.file_name}")
+        logger.info(f"Received image texture {image.md.file_name}")
+        if image.md.file_name != self._current_file_name:
+            logger.info(f"ignoring stale texture loaded for {image.md.file_name}")
             return
-        self.pil_image = image.pil_image
+        # self.pil_image = image.pil_image
         self.imageWidgetGL.set_image(image)
-        fn = image.file_name
+        fn = image.md.file_name
         self.set_current_image_path(fn)
         self.actionSave_As.setEnabled(True)
         self.actionSave_Current_View_As.setEnabled(True)
@@ -903,7 +903,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
 
     @QtCore.Slot(ImageLike)  # noqa
     def image_displayed(self, image: ImageLike):
-        if image.file_name == self._current_file_name:
+        if image.md.file_name == self._current_file_name:
             logger.debug("Image displayed")
             stem = pathlib.Path(self._current_file_name).stem
             self.progress_status.set_value(100)

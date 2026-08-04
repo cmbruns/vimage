@@ -88,6 +88,51 @@ class ImageSignaller(QtCore.QObject):
     image_displayed = QtCore.Signal(ImageLike)
 
 
+class ImageLikeNew:
+    """
+    August 2026 refactor to replace ImageLikes with one class
+    """
+    def __init__(self):
+        self.sq = ImageSignaller()
+        self.md = ImageMetadata()
+        self.tiles: list[TileLike] = []
+        self.load_progress = LoadProgress.NONE
+        self.array = None
+
+    def initialize_gl(self):
+        # TODO: Dng path
+        for tile in generate_tiles(self):
+            self.tiles.append(tile)
+
+    def load_from_file(self, file_name: str) -> None:
+        # TODO: Dng path
+        try:
+            pil_image = Image.open(file_name)
+        except PIL.UnidentifiedImageError as e:
+            raise InappropriateImageLoader() from e
+        self.md.file_name = file_name
+        self.sq.progress_changed.emit(2, self)  # noqa
+        self.md.load_pil_image(pil_image)  # Breaks exif orientation
+        # Create numpy array of image
+        self.sq.progress_changed.emit(15, self)  # noqa
+        # TODO: create a palette shader to avoid munging pixels here
+        if pil_image.mode in ["P",]:  # Palette image
+            pil_image = pil_image.convert("RGBA")
+        self.array = numpy.array(pil_image)
+
+    def paint_gl(self, program, view_state):
+        is_complete = True  # start optimistic
+        for tile in self.tiles:
+            GL.glUniformMatrix3fv(program.tile_X_img_location, 1, True, tile.tile_X_img)
+            GL.glUniform4f(program.uv_bounds_location, *tile.uv_bounds)
+            if not tile.paint_gl(view_state):
+                is_complete = False
+            if is_complete and self.load_progress != LoadProgress.DISPLAYED:
+                self.load_progress = LoadProgress.DISPLAYED
+                self.sq.image_displayed.emit(self)  # noqa
+            # break  # just one tile for testing
+
+
 class BasicImageLike(ImageLike):
     def __init__(self):
         self.sq = ImageSignaller()
@@ -163,8 +208,8 @@ class InappropriateImageLoader(OSError):
 
 class TileCreateInfo:
     """Parameters for creating a renderable image tile"""
-    def __init__(self, image: ImageLike, pad: int = 2):
-        self.image: ImageLike = image
+    def __init__(self, image: ImageLikeNew, pad: int = 2):
+        self.image: ImageLikeNew = image
         self.left: int = 0
         self.top: int = 0
         self.width: int = 0
@@ -224,13 +269,13 @@ class Tile(TileLike):
         right_rmp = left_rmp + tci.width
         top_rmp = tci.top
         bottom_rmp = top_rmp + tci.height
-        left_opx, top_opx = opx_for_rmp((left_rmp, top_rmp), tci.image.size_raw, tci.image.orientation)
-        right_opx, bottom_opx = opx_for_rmp((right_rmp, bottom_rmp), tci.image.size_raw, tci.image.orientation)
+        left_opx, top_opx = opx_for_rmp((left_rmp, top_rmp), tci.image.md.size_rpx, tci.image.md.orientation)
+        right_opx, bottom_opx = opx_for_rmp((right_rmp, bottom_rmp), tci.image.md.size_rpx, tci.image.md.orientation)
         left_tc = tci.left_pad / self.padded_width
         right_tc = 1 - tci.right_pad / self.padded_width
         top_tc = tci.top_pad / self.padded_height
         bottom_tc = 1 - tci.bottom_pad / self.padded_height
-        if tci.image.orientation in [
+        if tci.image.md.orientation in [
             ExifOrientation.FLIP_HORIZONTAL_ROTATE_90_CCW,
             ExifOrientation.ROTATE_90_CW,
             ExifOrientation.FLIP_HORIZONTAL_ROTATE_90_CW,
@@ -261,7 +306,7 @@ class Tile(TileLike):
         self.texture_id = None
         self.load_sync = None
 
-        iw, ih = tci.image.size_raw
+        iw, ih = tci.image.md.size_rpx
         self._tile_X_img = numpy.array([
             [iw / self.padded_width, 0, -(tci.left - tci.left_pad)/self.padded_width],
             [0, ih / self.padded_height, -(tci.top - tci.top_pad)/self.padded_height],
@@ -287,7 +332,7 @@ class Tile(TileLike):
             GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_SWIZZLE_B, GL.GL_RED)
         # TODO: use preferred internal format in image data...
         # row stride required for horizontal tiling
-        iw, ih = self.tci.image.size_raw
+        iw, ih = self.tci.image.md.size_rpx
         GL.glPixelStorei(GL.GL_UNPACK_ROW_LENGTH, iw)
         GL.glPixelStorei(GL.GL_UNPACK_SKIP_PIXELS, self.tci.left - self.tci.left_pad)
         GL.glPixelStorei(GL.GL_UNPACK_SKIP_ROWS, self.tci.top - self.tci.top_pad)
@@ -382,11 +427,11 @@ class Tile(TileLike):
             )
             GL.glEnableVertexAttribArray(2)
         GL.glBindVertexArray(self.vao)
-        outlines_only = False
-        if outlines_only:
-            self.paint_tile_boundary()
-        else:
-            GL.glDrawArrays(GL.GL_TRIANGLE_STRIP, 0, 4)  # Full screen quad
+        # outlines_only = False
+        # if outlines_only:
+        #     self.paint_tile_boundary()
+        # else:
+        GL.glDrawArrays(GL.GL_TRIANGLE_STRIP, 0, 4)  # Full screen quad
         return True
 
     def paint_boundary(self):
@@ -400,7 +445,7 @@ class Tile(TileLike):
 
 
 def generate_tiles(
-        image: ImageLike,
+        image: ImageLikeNew,
         tile_size: int = TILE_SIZE,
         pad: int = 2,
         tex_format=None,
@@ -409,7 +454,7 @@ def generate_tiles(
     max_texture_size = GL.glGetIntegerv(GL.GL_MAX_TEXTURE_SIZE)  # noqa
     assert max_texture_size >= tile_size
     # Loop over tiles
-    w, h = (int(x) for x in image.size_raw)
+    w, h = (int(x) for x in image.md.size_rpx)
     channel_count = image.md.channel_count
     internal_format = internal_format_for_channel_count[channel_count]
     if tex_format is None:
@@ -463,7 +508,7 @@ class DngImage(BasicImageLike):
                 # Find raw image in ricoh theta Z1
                 page = None
                 for ix, series in enumerate(dng.series):
-                    print(f"Series {ix}: Shape {series.shape}, Dtype {series.dtype}")
+                    print(f"Series {ix}: Shape {series.shape}, Dtype {series.dtype}")  # noqa
                     if series.dtype == numpy.uint16:
                         raw_page = series
                         page = raw_page.pages[0]
@@ -473,7 +518,7 @@ class DngImage(BasicImageLike):
                 # Populate metadata
                 self.md.file_name = file_name
                 self.md.photometric_scale = PhotometricScale.LINEAR
-                self.md.upper_bound = numpy.iinfo(page.dtype).max
+                self.md.upper_bound = numpy.iinfo(page.dtype).max  # noqa
                 self.md.load_exiftool(file_name)  # takes longer but life is short
                 # self.md.load_tifffile_page(page)
                 self.set_progress(LoadProgress.METADATA_LOADED)
@@ -510,14 +555,14 @@ class DngImage(BasicImageLike):
             GL.glUniform4f(program.uv_bounds_location, *tile.uv_bounds)
             program.uDemosaicTile.set(1, tile.demosaic_texture_id)
             program.uBayerTile.set(0, tile.bayer_texture_id)
-            if not tile.paint_gl():
+            if not tile.paint_gl(None):
                 is_complete = False
             if is_complete and self.load_progress != LoadProgress.DISPLAYED:
                 self.load_progress = LoadProgress.DISPLAYED
                 self.sq.image_displayed.emit(self)  # noqa
             # break  # just one tile for testing
 
-    def tiles(self) -> Iterator[DngTile]:  # TODO: protocol for dng tiles
+    def tiles(self) -> Iterator[TileLike]:  # TODO: protocol for dng tiles
         yield from super().tiles()
 
 
@@ -543,7 +588,7 @@ class DngTile(Tile):
         self.texture_id = self.bayer_texture_id
         GL.glBindTexture(GL.GL_TEXTURE_2D, self.bayer_texture_id)
         GL.glPixelStorei(GL.GL_UNPACK_ALIGNMENT, 1)  # In case width is odd
-        bayer_w, bayer_h = self.tci.image.size_raw
+        bayer_w, bayer_h = self.tci.image.md.size_rpx
         GL.glPixelStorei(GL.GL_UNPACK_ROW_LENGTH, int(bayer_w))
         GL.glPixelStorei(GL.GL_UNPACK_SKIP_PIXELS, self.tci.left - self.tci.left_pad)
         GL.glPixelStorei(GL.GL_UNPACK_SKIP_ROWS, self.tci.top - self.tci.top_pad)
@@ -658,7 +703,7 @@ class DngTile(Tile):
         GL.glFlush()  # macOS probably
         logger.debug("DNG demosaic complete")
 
-    def paint_gl(self) -> bool:
+    def paint_gl(self, _view_state) -> bool:
         """Run in ui thread"""
         if not self.is_ready_for_display():
             return False

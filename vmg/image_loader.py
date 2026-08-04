@@ -12,7 +12,7 @@ from PySide6.QtCore import QCoreApplication
 from vmg.elapsed_time import ElapsedTime
 from vmg.interfaces import ImageLike
 from vmg.offscreen_context import OffscreenContext
-from vmg.image_like import PilImage, InappropriateImageLoader, DngImage
+from vmg.image_like import ImageLikeNew, PilImage, InappropriateImageLoader, DngImage
 from vmg.texture import Texture
 
 
@@ -50,24 +50,29 @@ class ImageLoader(QtCore.QObject):
 
     @QtCore.Slot(str)  # noqa
     def load_from_file_name(self, file_name: str):
-        # TODO: Try various image loaders
-        image = None
-        for image_class in [DngImage, PilImage]:
-            try:
-                image = image_class(file_name)
-                break
-            except InappropriateImageLoader:
-                continue
+        use_new = True
+        if use_new:
+            image = ImageLikeNew()
+            image.sq.image_displayed.connect(self.on_image_displayed)
+            image.sq.progress_changed.connect(self.on_progress_changed)
+            image.load_from_file(file_name)
+        else:
+            # TODO: Try various image loaders
+            image = None
+            for image_class in [DngImage, PilImage]:
+                try:
+                    image = image_class(file_name)
+                    break
+                except InappropriateImageLoader:
+                    continue
         if image is None:
             self.load_failed.emit(file_name)
             return
-        image.sq.image_displayed.connect(self.on_image_displayed)
-        image.sq.progress_changed.connect(self.on_progress_changed)
         self.current_image = image
         if self.offscreen_context is None:
             self.image_data_is_pending = True
             logger.debug(
-                f"Deferring texture initialization for {image.file_name} until OpenGL context is ready"
+                f"Deferring texture initialization for {image.md.file_name} until OpenGL context is ready"
             )
         else:
             self.upload_image(image)  # noqa
@@ -148,7 +153,7 @@ class ImageLoader(QtCore.QObject):
     def _loaded_tile_count(self, image: ImageLike) -> int:
         """Count ready tiles; offscreen context must already be current."""
         loaded_tile_count = 0
-        for tile in image.tiles():
+        for tile in image.tiles:
             if tile.is_ready():
                 loaded_tile_count += 1
         return loaded_tile_count
@@ -171,7 +176,7 @@ class ImageLoader(QtCore.QObject):
             if not self._is_current(image):
                 return
             num_loaded_tiles = self._loaded_tile_count(image)
-            n_tiles = len(list(image.tiles()))
+            n_tiles = len(list(image.tiles))
             while num_loaded_tiles < n_tiles:
                 logger.debug("waiting for tile upload")
                 time.sleep(0.050)
@@ -180,7 +185,7 @@ class ImageLoader(QtCore.QObject):
                     return
                 num_loaded_tiles = self._loaded_tile_count(image)
             self.progress_changed.emit(90)  # noqa
-            assert image.file_name is not None
+            assert image.md.file_name is not None
             self.texture_created.emit(image)  # noqa
 
     progress_changed = QtCore.Signal(int)

@@ -200,7 +200,7 @@ class NumeralShader(IImageShader):
         self.uDataMax.set(image.md.data_max)
         self.uRotation.set(1, False, image.md.rpx_R_opx)
         self.uPixelNumerals.set(state.pixel_numerals.value)
-        for tile in image.tiles():
+        for tile in image.tiles:
             self.uTile.set(0, tile.texture_id)
             assert tile.vao is not None
             # TODO: this is for standard photos only
@@ -258,7 +258,7 @@ class RectangularTileShader(IImageShader):
         GL.glUniformMatrix3fv(self.ndc_x_opx_location, 1, True, state.ndc_xform_opx())
         GL.glUniform1f(self.opx_scale_qwn_location, state.opx_scale_qwn())
         self.brightness.set(state.brightness + image.md.baseline_exposure)
-        self.input_is_linear.set(image.photometric_scale == PhotometricScale.LINEAR)
+        self.input_is_linear.set(image.md.photometric_scale == PhotometricScale.LINEAR)
         image.paint_gl(self, state)
         self.numeral_shader.paint_gl(state, image)
         if state.show_tile_boundaries:

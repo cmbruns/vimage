@@ -147,7 +147,7 @@ class ViewState(QObject):
         if self.image is None:
             return InputFormat.STANDARD_PHOTO
         else:
-            return self.image.input_format
+            return self.image.md.input_format
 
     def hpd_for_qwn(self, p_qwn: LocationQwn) -> LocationHpd:
         return self.hpd_for_geo(self.geo_for_qwn(p_qwn))
@@ -408,7 +408,7 @@ class ViewState(QObject):
     def _size_opx(self) -> DimensionsOmp:
         if self.image is None:
             return DimensionsOmp(1, 1)
-        return self.image.size_opx
+        return self.image.md.size_opx
 
     @QtCore.Slot()  # noqa
     def start_rect_with_no_point(self):

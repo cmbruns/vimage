@@ -201,7 +201,7 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
 
     def set_input_format(self, input_format: InputFormat):
         if input_format == InputFormat.STANDARD_PHOTO:
-            if self.image and self.image.photometric_scale == PhotometricScale.LINEAR:
+            if self.image and self.image.md.photometric_scale == PhotometricScale.LINEAR:
                 self.program = self.rect_dng_shader
             else:
                 self.program = self.rect_tile_shader
@@ -223,8 +223,8 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         self.image = image
         self.view_state.reset()
         self.view_state.set_image(self.image)
-        self.set_input_format(self.image.input_format)
-        w, h = self.image.size_opx
+        self.set_input_format(self.image.md.input_format)
+        w, h = self.image.md.size_opx
         self.image_size_changed.emit(int(w), int(h))  # noqa
         self.update()
 
