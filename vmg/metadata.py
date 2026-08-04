@@ -47,7 +47,6 @@ class ImageMetadata:
         self.file_name = None
         self.size_opx = DimensionsOmp(1, 1)  # logical size, exif oriented
         self.size_rpx = (1, 1)  # raw array size
-        self.camera_model = None
         self.orientation: ExifOrientation = ExifOrientation.ROTATE_0
         self.rpx_R_opx = numpy.eye(2, dtype=numpy.float32)
         self.input_format = InputFormat.STANDARD_PHOTO
@@ -190,6 +189,7 @@ class ImageMetadata:
         self.size_opx = DimensionsOmp(*[abs(x) for x in (self.rpx_R_opx.T @ self.size_rpx)])
         w, h = self.size_opx
         model = exif.get("Model", "").lower()
+        self._update_model(exif.get("Model", ""))
         logger.debug(f"Camera model = '{model}'")
         if w != 2 * h:
             self.input_format = InputFormat.STANDARD_PHOTO  # Non-2:1 aspect is always a regular photo
@@ -259,6 +259,21 @@ class ImageMetadata:
         ]
         self.pcm_R_geo = pcm_rot_geo
 
+    def _update_model(self, model_name):
+        # Dual fisheye parameters
+        # It's OK to put whatever if the camera doesn't have fisheyes,
+        # so these string checks can be somewhat broad
+        low = model_name.lower()
+        # Inscribed fov determined by looking at a distant feature in one image
+        if "ricoh theta" in low:
+            self.inscribed_fov_radians = radians(191.2)  # "RICOH THETA Z1"
+        if "qoocam" in low:
+            self.inscribed_fov_radians = radians(196.8)  # "QooCam 3 Ultra"
+        if "qjxj01fj" in low:
+            self.inscribed_fov_radians = radians(197.6)  # "QJXJ01FJ" Xiaomi Misphere
+        if "sm-c200" in low:
+            self.inscribed_fov_radians = radians(193.8)  # "SM-C200" 2016 Gear 360
+
     def load_exiftool(self, file_name):
         with exiftool.ExifTool() as et:
             raw = et.execute("-j", file_name)
@@ -274,6 +289,11 @@ class ImageMetadata:
         self.orientation = ExifOrientation(orientation_code)
         self.rpx_R_opx = rotation_for_exif_orientation.get(orientation_code, numpy.eye(2, dtype=numpy.float32))
         self.size_opx = DimensionsOmp(*[abs(x) for x in (self.rpx_R_opx.T @ self.size_rpx)])
+        # Camera model specific values
+        if "EXIF:Model" in exif:
+            model = exif["EXIF:Model"]
+            self._update_model(model)
+        # Color adjustments, especially for DNG files
         if "EXIF:CFAPattern2" in exif:
             assert exif["EXIF:CFAPattern2"] == "0 1 1 2"  # We only know RGGB
         if "EXIF:BlackLevel" in exif:
@@ -344,11 +364,10 @@ class ImageMetadata:
         d50_X_rfv = linalg.inv(rfv_X_d50)
         rfv_X_wba = numpy.diag(self.as_shot_neutral)
         self.lsr_X_wba = lsr_X_d65 @ d65_X_d50 @ d50_X_rfv @ rfv_X_wba
-
+        # Panorama metadata
         user_comment = ""
         if "EXIF:UserComment" in exif:
             user_comment = exif["EXIF:UserComment"]
-
         w, h = self.size_opx
         if w != 2 * h:
             self.input_format = InputFormat.STANDARD_PHOTO  # Non-2:1 aspect is always a regular photo
