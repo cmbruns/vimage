@@ -141,9 +141,9 @@ class Ui_Dialog(object):
         self.label_5.setText(QCoreApplication.translate("Dialog", u"Heading", None))
         self.poseHeading_doubleSpinBox.setSuffix(QCoreApplication.translate("Dialog", u"\u00b0", None))
         self.groupBox.setTitle(QCoreApplication.translate("Dialog", u"Dual Fisheye Lens Parameters", None))
-        self.label.setText(QCoreApplication.translate("Dialog", u"field of view", None))
+        self.label.setText(QCoreApplication.translate("Dialog", u"Inscribed Field of View", None))
         self.fov_doubleSpinBox.setSuffix(QCoreApplication.translate("Dialog", u"\u00b0", None))
-        self.label_2.setText(QCoreApplication.translate("Dialog", u"interlens axial rotation", None))
+        self.label_2.setText(QCoreApplication.translate("Dialog", u"Interlens Axial Rotation", None))
         self.lensrot_doubleSpinBox.setSuffix(QCoreApplication.translate("Dialog", u"\u00b0", None))
     # retranslateUi
 

@@ -859,6 +859,14 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         self.imageWidgetGL.update()
 
     @QtCore.Slot(bool)  # noqa
+    def on_actionShow_Center_Guides_toggled(self, is_checked: bool):  # noqa
+        vs = self.imageWidgetGL.view_state
+        if is_checked == vs.show_center_guides:
+            return
+        vs.show_center_guides = is_checked
+        self.imageWidgetGL.update()
+
+    @QtCore.Slot(bool)  # noqa
     def on_actionSinusoidalInput_toggled(self, is_checked: bool):  # noqa
         if is_checked:
             if self.imageWidgetGL.set_input_format(InputFormat.SINUSOIDAL):

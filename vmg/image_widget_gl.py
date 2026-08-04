@@ -1,4 +1,5 @@
 import traceback
+from PySide6.QtGui import QPainter, QPen, QColor
 
 from typing import cast, Optional
 
@@ -83,20 +84,6 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
             tuple[Float, Float, Float, Float],
             self.palette().color(self.backgroundRole()).getRgbF())
         GL.glClearColor(*bg_color)
-        # Make transparent images transparent
-        # Framebuffer is premultiplied alpha
-        # but textures are straight alpha
-        GL.glEnable(GL.GL_BLEND)
-        # traditional glBlendFunc has poor hardware filtering of transparent pixels
-        # GL.glBlendFunc(GL.GL_SRC_ALPHA, GL.GL_ONE_MINUS_SRC_ALPHA)  # poor filtering
-        # GL.glBlendFunc(GL.GL_ONE, GL.GL_ONE_MINUS_SRC_ALPHA)  # with premultiplied alpha
-        # Use glBlendFuncSeparate to simulate premultiplied alpha, without needing to munge pixels
-        GL.glBlendFuncSeparate(
-            GL.GL_SRC_ALPHA,  # simulate premultiplied alpha on srcRGB
-            GL.GL_ONE_MINUS_SRC_ALPHA,  # blend dstRGB
-            GL.GL_ONE,  # combine srcAlpha as-is
-            GL.GL_ONE_MINUS_SRC_ALPHA  # blend dstAlpha
-        )
         self.vao = GL.glGenVertexArrays(1)  # noqa
         GL.glBindVertexArray(self.vao)
         self.rect_tile_shader.initialize_gl()
@@ -144,9 +131,48 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         logger.debug("Created shared offscreen OpenGL context")
         self.context_created.emit(offscreen_context)  # noqa
 
+    def paint_cross_lines(self):
+        # --- now draw Qt overlay ---
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing, False)
+
+        dash_length = 10
+        pattern = [dash_length, dash_length]
+
+        w = self.width()
+        h = self.height()
+        w2 = w // 2
+        h2 = h // 2
+
+        for co in [((255, 255, 255), 0), ((0, 0, 0), dash_length)]:
+            color, offset = co
+            pen = QPen(QColor(*color, 64))  # Transparent black
+            pen.setWidth(2)
+            pen.setDashPattern(pattern)
+            pen.setDashOffset(offset)
+            painter.setPen(pen)
+            # horizontal center line
+            painter.drawLine(0, h2, w2 - 10, h2)
+            painter.drawLine(w2 + 10, h2, w, h2)
+            # vertical center line
+            painter.drawLine(w2, 0, w2, h2 - 10)
+            painter.drawLine(w2, h2 + 10, w2, h)
+
+        painter.end()
+
     def paintGL(self) -> None:
         try:
             logger.debug("Starting paintGL()")
+            # Make transparent images transparent
+            # Framebuffer is premultiplied alpha
+            # but textures are straight alpha
+            GL.glEnable(GL.GL_BLEND)
+            GL.glBlendFuncSeparate(
+                GL.GL_SRC_ALPHA,  # simulate premultiplied alpha on srcRGB
+                GL.GL_ONE_MINUS_SRC_ALPHA,  # blend dstRGB
+                GL.GL_ONE,  # combine srcAlpha as-is
+                GL.GL_ONE_MINUS_SRC_ALPHA  # blend dstAlpha
+            )
             self.view_state.background_color = self.palette().color(self.backgroundRole()).getRgbF()
             GL.glClearColor(*self.view_state.background_color)
             GL.glClear(GL.GL_COLOR_BUFFER_BIT)
@@ -155,6 +181,8 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
                 return
             GL.glBindVertexArray(self.vao)
             self.program.paint_gl(self.view_state, self.image)
+            if self.view_state.show_center_guides:
+                self.paint_cross_lines()
             logger.debug("Finished paintGL()")
         except BaseException as exc:
             traceback.print_exception(exc)

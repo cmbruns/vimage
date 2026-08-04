@@ -165,14 +165,15 @@
     <addaction name="actionNext"/>
     <addaction name="separator"/>
     <addaction name="actionFull_Screen"/>
+    <addaction name="menuPixel_Values"/>
     <addaction name="actionSharp"/>
+    <addaction name="actionShow_Center_Guides"/>
     <addaction name="separator"/>
     <addaction name="menu360_Projection"/>
     <addaction name="menuInput_Projection"/>
     <addaction name="separator"/>
     <addaction name="actionView_Log"/>
     <addaction name="menuDebug"/>
-    <addaction name="menuPixel_Values"/>
    </widget>
    <widget class="QMenu" name="menuHelp">
     <property name="title">
@@ -728,6 +729,17 @@
    </property>
    <property name="text">
     <string>Sinusoidal</string>
+   </property>
+  </action>
+  <action name="actionShow_Center_Guides">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Show Center Guides</string>
+   </property>
+   <property name="shortcut">
+    <string>G</string>
    </property>
   </action>
  </widget>

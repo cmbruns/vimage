@@ -24,7 +24,7 @@ class LensDialog(QtWidgets.QDialog):
     def set_image(self, image: ImageLike):
         self.block_signals = True
         self.image = image
-        self.ui.fov_doubleSpinBox.setValue(degrees(image.md.df_fov_radians))
+        self.ui.fov_doubleSpinBox.setValue(degrees(image.md.inscribed_fov_radians))
         self.ui.lensrot_doubleSpinBox.setValue(degrees(image.md.df_lens_rot_radians))
         roll = (image.md.pose_roll_degrees + 180) % 360 - 180
         self.ui.poseRoll_doubleSpinBox.setValue(roll)
@@ -42,9 +42,9 @@ class LensDialog(QtWidgets.QDialog):
             return
         if self.image.md.input_format != InputFormat.DUAL_FISHEYE:
             return
-        if self.image.md.df_fov_radians == radians(value):
+        if self.image.md.inscribed_fov_radians == radians(value):
             return
-        self.image.md.df_fov_radians = radians(value)
+        self.image.md.inscribed_fov_radians = radians(value)
         self.camera_settings_changed.emit()
 
     @QtCore.Slot(float)

@@ -41,6 +41,7 @@ class ViewState(QObject):
         self.asc_qwn = 1
         self.asc_opx = 1
         self.show_tile_boundaries = False
+        self.show_center_guides = False
         self.anisotropic_filtering = True
         self.texture_wrap = GL.GL_CLAMP_TO_EDGE
         self.pixel_numerals = PixelNumerals.HEXADECIMAL
@@ -317,7 +318,7 @@ class ViewState(QObject):
                 y_aed = y / d
                 # Virtual tile texture coordinates per fisheye ttc
                 # scale by fov
-                s = pi / md.df_fov_radians  # big fov means smaller scale
+                s = pi / md.inscribed_fov_radians  # big fov means smaller scale
                 x_ttc = 0.5 + s * x_aed / pi
                 y_ttc = 0.5 + s * y_aed / pi
                 # Full dual fisheye image texture coordinates otc

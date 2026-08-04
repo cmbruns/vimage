@@ -1,8 +1,8 @@
-import json
-
 import enum
+import json
 import logging
 from math import atan2, cos, degrees, radians, sin
+import re
 import struct
 
 
@@ -64,7 +64,7 @@ class ImageMetadata:
         self.pose_roll_degrees = 0.0
         self._pcm_R_geo = numpy.eye(3, dtype=numpy.float32)
         # Dual fisheye lens parameters
-        self.df_fov_radians = radians(195.0)
+        self.inscribed_fov_radians = radians(195.0)
         self.df_lens_rot_radians = radians(0.0)
         # Dng metadata
         self.black_level = (0.0, 0.0, 0.0)
@@ -345,6 +345,10 @@ class ImageMetadata:
         rfv_X_wba = numpy.diag(self.as_shot_neutral)
         self.lsr_X_wba = lsr_X_d65 @ d65_X_d50 @ d50_X_rfv @ rfv_X_wba
 
+        user_comment = ""
+        if "EXIF:UserComment" in exif:
+            user_comment = exif["EXIF:UserComment"]
+
         w, h = self.size_opx
         if w != 2 * h:
             self.input_format = InputFormat.STANDARD_PHOTO  # Non-2:1 aspect is always a regular photo
@@ -359,8 +363,13 @@ class ImageMetadata:
                 self.pose_heading_degrees = float(exif["EXIF:GPSImgDirection"])
             if "EXIF:PosePitchDegrees" in exif:
                 self.pose_pitch_degrees = float(exif["EXIF:PosePitchDegrees"])
-            elif "Composite:RicohPitch" in exif:
+            elif "Composite:RicohPitch" in exif:  # Ricoh Theta Z1 raw dng
                 self.pose_pitch_degrees = float(exif["Composite:RicohPitch"])
+            elif re.search(r'\sIMUHEX=([0-9a-fA-F]{36})\s', user_comment):  # QooCam3 Ultra raw dng
+                m = re.search(r'\sIMUHEX=([0-9a-fA-F]{36})\s', user_comment)
+                assert m
+                imu_hex = m.group(1)
+                self.pose_roll_degrees, self.pose_pitch_degrees = get_roll_pitch_from_imu(imu_hex)
             if "EXIF:PoseRollDegrees" in exif:
                 self.pose_roll_degrees = float(exif["EXIF:PoseRollDegrees"])
             elif "Composite:RicohRoll" in exif:
@@ -406,12 +415,10 @@ def get_roll_pitch_from_imu(imu_hex_string: str):
     """
     Extracts the Roll angle in degrees from a 36-character QooCam3 IMU hex string.
     """
-    # 1. Clean the string to isolate the active hex payload
-    clean_hex = imu_hex_string.upper().replace("IMUHEX=", "")
 
     # 2. Extract the 4 bytes controlling the Roll axis (Bytes 7 to 10)
     # Character indices: Bytes 7-8 are chars 12-16, Bytes 9-10 are chars 16-20
-    roll_bytes_hex = clean_hex[12:20]
+    roll_bytes_hex = imu_hex_string[12:20]
     binary_roll = bytes.fromhex(roll_bytes_hex)
 
     # 3. Unpack into two 16-bit signed integers (Little-Endian 'h')
@@ -426,7 +433,7 @@ def get_roll_pitch_from_imu(imu_hex_string: str):
     if roll_degrees > 180:
         roll_degrees -= 360
 
-    pitch_bytes_hex = clean_hex[20:28]
+    pitch_bytes_hex = imu_hex_string[20:28]
     binary_pitch = bytes.fromhex(pitch_bytes_hex)
     pitch_y, pitch_x = struct.unpack('<hh', binary_pitch)
     if pitch_x == 0 and pitch_y == 0:
