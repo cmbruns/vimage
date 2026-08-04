@@ -206,13 +206,13 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
             else:
                 self.program = self.rect_tile_shader
         else:
-            if self.image and self.image.photometric_scale == PhotometricScale.LINEAR:
+            if self.image and self.image.md.photometric_scale == PhotometricScale.LINEAR:
                 self.program = self.sphere_dng_shader
             else:
                 self.program = self.sphere_shader
         if self.image is None:
             return
-        self.image.input_format = input_format
+        self.image.md.input_format = input_format
         self.signal_360.emit(input_format != InputFormat.STANDARD_PHOTO)  # noqa
         logger.info(f"input projection = {input_format}")
         self.view_state.update_input_format()

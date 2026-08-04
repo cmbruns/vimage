@@ -441,15 +441,15 @@ class SphericalShader(IImageShader):
         GL.glUniformMatrix3fv(self.geo_rot_obq_location, 1, True, state.geo_rot_usr)
         GL.glUniformMatrix3fv(self.pcm_rot_geo_location, 1, True, image.md.pcm_R_geo)
         GL.glUniform2i(self.window_size_location, *[int(x) for x in state.window_size])
-        GL.glUniform1i(self.input_format_location, image.input_format.value)
+        GL.glUniform1i(self.input_format_location, image.md.input_format.value)
         GL.glUniform1i(self.display_projection_location, state.display_projection.value)
         GL.glUniform1f(self.df_fov_radians_location, image.md.inscribed_fov_radians)
         GL.glUniform1f(self.df_lens_rot_radians_location, image.md.df_lens_rot_radians)
         self.brightness.set(state.brightness + image.md.baseline_exposure)
-        self.input_is_linear.set(image.photometric_scale == PhotometricScale.LINEAR)
+        self.input_is_linear.set(image.md.photometric_scale == PhotometricScale.LINEAR)
         self.uRenderPass.set(1)
         image.paint_gl(self, state)
-        if image.input_format == InputFormat.DUAL_FISHEYE:
+        if image.md.input_format == InputFormat.DUAL_FISHEYE:
             # second render pass for rear lens
             self.uRenderPass.set(2)
             image.paint_gl(self, state)
@@ -528,7 +528,7 @@ class SphericalDngShader(IImageShader):
 
     def _paint_one_pass(self, image):
         is_complete = True
-        for tile in image.tiles():
+        for tile in image.tiles:
             self.uViewer["tile_X_img"].set(1, True, tile.tile_X_img)
             self.uUvBounds.set(*tile.uv_bounds)
             self.uDemosaicTile.set(1, tile.demosaic_texture_id)
@@ -562,5 +562,5 @@ class TileBoundaryShader(IImageShader):
         GL.glUseProgram(self.program)
         self.uViewport.set(*state.window_size)
         self.ndc_X_opx.set(1, True, state.ndc_xform_opx())
-        for tile in image.tiles():
+        for tile in image.tiles:
             tile.paint_boundary()

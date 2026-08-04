@@ -349,7 +349,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         self.actionSave_Current_View_As.setEnabled(True)
         self.actionCopy.setEnabled(True)
         self.actionReset_View.setEnabled(True)
-        self.actionSelect_Rectangle.setEnabled(image.input_format == InputFormat.STANDARD_PHOTO)
+        self.actionSelect_Rectangle.setEnabled(image.md.input_format == InputFormat.STANDARD_PHOTO)
         self.actionSelect_None.trigger()
         self.actionZoom_In.setEnabled(True)
         self.actionZoom_Out.setEnabled(True)
