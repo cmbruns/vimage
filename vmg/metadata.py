@@ -66,6 +66,7 @@ class ImageMetadata:
         self.inscribed_fov_radians = radians(195.0)
         self.df_lens_rot_radians = radians(0.0)
         # Dng metadata
+        self.is_dng = False
         self.black_level = (0.0, 0.0, 0.0)
         self.white_level = (1.0, 1.0, 1.0)
         self.as_shot_neutral = (1.0, 1.0, 1.0)

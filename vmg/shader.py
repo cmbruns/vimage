@@ -339,7 +339,7 @@ class RectangularDngShader(IImageShader):
         self.uAsShotNeutral.set(*image.md.as_shot_neutral)
         self.uLsr_X_wba.set(1, True, image.md.lsr_X_wba)
         self.brightness.set(state.brightness + image.md.baseline_exposure)
-        image.paint_gl(self)
+        image.paint_gl(self, state)
         self.numeral_shader.paint_gl(state, image)
         if state.show_tile_boundaries:
             self.tile_boundary_shader.paint_gl(state, image)

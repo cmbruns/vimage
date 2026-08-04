@@ -12,7 +12,7 @@ from PySide6.QtCore import QCoreApplication
 from vmg.elapsed_time import ElapsedTime
 from vmg.interfaces import ImageLike
 from vmg.offscreen_context import OffscreenContext
-from vmg.image_like import ImageLikeNew, PilImage, InappropriateImageLoader, DngImage
+from vmg.image_like import ImageLikeNew, PilImage, InappropriateImageLoader, DngImage, LoadProgress
 from vmg.texture import Texture
 
 
@@ -55,7 +55,10 @@ class ImageLoader(QtCore.QObject):
             image = ImageLikeNew()
             image.sq.image_displayed.connect(self.on_image_displayed)
             image.sq.progress_changed.connect(self.on_progress_changed)
-            image.load_from_file(file_name)
+            image.set_progress(LoadProgress.OBJECT_CREATED)
+            if not image.load_from_file(file_name):
+                self.load_failed.emit(file_name)
+                return
         else:
             # TODO: Try various image loaders
             image = None

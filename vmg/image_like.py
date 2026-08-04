@@ -100,25 +100,71 @@ class ImageLikeNew:
         self.array = None
 
     def initialize_gl(self):
-        # TODO: Dng path
-        for tile in generate_tiles(self):
-            self.tiles.append(tile)
+        if self.md.is_dng:
+            for tile in generate_tiles(
+                    image=self,
+                    pad=6,
+                    tex_format=GL.GL_R16,
+                    tile_class=DngTile,
+            ):
+                self.tiles.append(tile)
+        else:
+            for tile in generate_tiles(self):
+                self.tiles.append(tile)
 
-    def load_from_file(self, file_name: str) -> None:
-        # TODO: Dng path
+    def load_from_file(self, file_name: str) -> bool:
         try:
+            # Load as a PIL Image
             pil_image = Image.open(file_name)
+            self.load_from_pil_image(pil_image, file_name)
+            return True
         except PIL.UnidentifiedImageError as e:
-            raise InappropriateImageLoader() from e
+            pass
+        try:
+            with tifffile.TiffFile(file_name) as dng:
+                self.load_from_tifffile(dng, file_name)
+                return True
+        except TiffFileError as exc:
+            pass
+        self.set_progress(LoadProgress.ERROR)
+        return False
+
+    def load_from_pil_image(self, pil_image: PIL.Image, file_name: str):
         self.md.file_name = file_name
-        self.sq.progress_changed.emit(2, self)  # noqa
-        self.md.load_pil_image(pil_image)  # Breaks exif orientation
-        # Create numpy array of image
-        self.sq.progress_changed.emit(15, self)  # noqa
+        self.set_progress(LoadProgress.FILE_OPENED)
+        self.md.load_pil_image(pil_image)
+        self.set_progress(LoadProgress.METADATA_LOADED)
         # TODO: create a palette shader to avoid munging pixels here
         if pil_image.mode in ["P",]:  # Palette image
             pil_image = pil_image.convert("RGBA")
+        self.sq.progress_changed.emit(2, self)  # noqa
         self.array = numpy.array(pil_image)
+        self.set_progress(LoadProgress.ARRAY_CREATED)
+
+    def load_from_tifffile(self, dng: tifffile.TiffFile, file_name: str):
+        self.md.file_name = file_name
+        self.set_progress(LoadProgress.FILE_OPENED)
+        root_page = dng.pages[0]
+        # Find raw image in ricoh theta Z1
+        page = None
+        for ix, series in enumerate(dng.series):
+            print(f"Series {ix}: Shape {series.shape}, Dtype {series.dtype}")  # noqa
+            if series.dtype == numpy.uint16:
+                raw_page = series
+                page = raw_page.pages[0]
+        if page is None:
+            page = root_page
+        # print(root_page.tags.get("AsShotNeutral").value)
+        # Populate metadata
+        self.md.is_dng = page.is_dng
+        self.md.photometric_scale = PhotometricScale.LINEAR
+        self.md.upper_bound = numpy.iinfo(page.dtype).max  # noqa
+        self.md.load_exiftool(file_name)  # takes longer but life is short
+        # self.md.load_tifffile_page(page)
+        self.set_progress(LoadProgress.METADATA_LOADED)
+        # Slurp the raw bytes
+        self.array = page.asarray()
+        self.set_progress(LoadProgress.ARRAY_CREATED)
 
     def paint_gl(self, program, view_state):
         is_complete = True  # start optimistic
@@ -131,6 +177,10 @@ class ImageLikeNew:
                 self.load_progress = LoadProgress.DISPLAYED
                 self.sq.image_displayed.emit(self)  # noqa
             # break  # just one tile for testing
+
+    def set_progress(self, progress: LoadProgress):
+        self.load_progress = progress
+        self.sq.progress_changed.emit(progress.value, self)  # noqa
 
 
 class BasicImageLike(ImageLike):
@@ -576,7 +626,7 @@ class DngTile(Tile):
         super().__init__(tci)
         self.bayer_texture_id = None
         self.texture_id = None  # alias for bayer_texture_id
-        self.bayer_array = tci.image.bayer_array
+        self.bayer_array = tci.image.array
         self.demosaic_texture_id = None
         self.render_vao = None
 
