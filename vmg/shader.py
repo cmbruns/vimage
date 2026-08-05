@@ -11,9 +11,8 @@ from OpenGL import GL
 from OpenGL.GL.shaders import compileProgram, compileShader
 from OpenGL.GL.EXT.texture_filter_anisotropic import GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, GL_TEXTURE_MAX_ANISOTROPY_EXT
 
-from vmg.image_like import ImageLikeNew, DngTile
-from vmg.interfaces import RenderStateLike, ImageLike
-from vmg.metadata import PhotometricScale, InputFormat
+from vmg.image_like import TiledImage, DngTile
+from vmg.interfaces import RenderStateLike, TiledImageLike, InputFormat, PhotometricScale
 from vmg.resources import resource_stream, resource_string
 from vmg.shader_exception import compile_shader
 from vmg.texture import Tile, LoadProgress
@@ -190,7 +189,7 @@ class NumeralShader(IImageShader):
         ):
             u.get_location(self.program)
 
-    def paint_gl(self, state: RenderStateLike, image: ImageLike) -> None:
+    def paint_gl(self, state: RenderStateLike, image: TiledImageLike) -> None:
         if self.program is None:
             self.initialize_gl()
         GL.glUseProgram(self.program)
@@ -250,7 +249,7 @@ class RectangularTileShader(IImageShader):
             traceback.print_exception(exc)
             raise
 
-    def paint_gl(self, state: RenderStateLike, image: ImageLike) -> None:
+    def paint_gl(self, state: RenderStateLike, image: TiledImageLike) -> None:
         GL.glUseProgram(self.shader)
         GL.glUniform1i(self.pixelFilter_location, state.pixel_filter.value)
         GL.glUniform4i(self.sel_rect_opx_location, *state.sel_rect.left_top_right_bottom)
@@ -327,7 +326,7 @@ class RectangularDngShader(IImageShader):
             traceback.print_exception(exc)
             raise
 
-    def paint_image(self, state: RenderStateLike, image: ImageLikeNew):
+    def paint_image(self, state: RenderStateLike, image: TiledImage):
         self.uBlackLevel.set(*image.md.black_level)
         self.uWhiteLevel.set(*image.md.white_level)
         self.uAsShotNeutral.set(*image.md.as_shot_neutral)
@@ -353,7 +352,7 @@ class RectangularDngShader(IImageShader):
         GL.glDrawArrays(GL.GL_TRIANGLE_STRIP, 0, 4)
         return True
 
-    def paint_gl(self, state: RenderStateLike, image: ImageLikeNew) -> None:
+    def paint_gl(self, state: RenderStateLike, image: TiledImage) -> None:
         GL.glUseProgram(self.shader)
         GL.glUniform1i(self.pixelFilter_location, state.pixel_filter.value)
         GL.glUniform4i(self.sel_rect_opx_location, *state.sel_rect.left_top_right_bottom)
@@ -448,7 +447,7 @@ class SphericalShader(IImageShader):
         for u in self.brightness, self.input_is_linear, self.uRenderPass:
             u.get_location(self.shader)
 
-    def paint_gl(self, state: RenderStateLike, image: ImageLike) -> None:
+    def paint_gl(self, state: RenderStateLike, image: TiledImageLike) -> None:
         # both nearest and catmull-rom use nearest at the moment.
         GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_NEAREST)
         GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_LINEAR_MIPMAP_NEAREST)
@@ -524,7 +523,7 @@ class SphericalDngShader(IImageShader):
             logger.error(exc)
             raise
 
-    def paint_gl(self, state: RenderStateLike, image: ImageLike) -> None:
+    def paint_gl(self, state: RenderStateLike, image: TiledImageLike) -> None:
         if self.shader is None:
             self.initialize_gl()
         GL.glUseProgram(self.shader)
@@ -561,7 +560,7 @@ class SphericalDngShader(IImageShader):
         GL.glDrawArrays(GL.GL_TRIANGLE_STRIP, 0, 4)
         return True
 
-    def _paint_one_pass(self, image: ImageLikeNew):
+    def _paint_one_pass(self, image: TiledImage):
         is_complete = True
         for tile in image.tiles:
             assert isinstance(tile, DngTile)
@@ -589,7 +588,7 @@ class TileBoundaryShader(IImageShader):
         self.uViewport.get_location(self.program)
         self.ndc_X_opx.get_location(self.program)
 
-    def paint_gl(self, state: RenderStateLike, image: ImageLike) -> None:
+    def paint_gl(self, state: RenderStateLike, image: TiledImageLike) -> None:
         GL.glUseProgram(self.program)
         self.uViewport.set(*state.window_size)
         self.ndc_X_opx.set(1, True, state.ndc_xform_opx())

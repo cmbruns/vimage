@@ -1,15 +1,15 @@
 import logging
 import time
-from typing import Optional, cast
+from typing import Optional
 
 import turbojpeg
 from PIL import Image
 from PySide6 import QtCore
 from PySide6.QtCore import QCoreApplication
 
-from vmg.interfaces import ImageLike
+from vmg.interfaces import TiledImageLike
 from vmg.offscreen_context import OffscreenContext
-from vmg.image_like import ImageLikeNew
+from vmg.image_like import TiledImage
 from vmg.load_progress import LoadProgress
 from vmg.texture import Texture
 
@@ -21,12 +21,12 @@ logger = logging.getLogger(__name__)
 class ImageLoader(QtCore.QObject):
     def __init__(self):
         super().__init__()
-        self.current_image: Optional[ImageLike] = None
+        self.current_image: Optional[TiledImageLike] = None
         self.offscreen_context = None
         self.image_data_is_pending = False
 
     load_failed = QtCore.Signal(str)
-    texture_created = QtCore.Signal(ImageLike)
+    texture_created = QtCore.Signal(TiledImageLike)
 
     @QtCore.Slot(str)  # noqa
     def cancel_load(self):
@@ -34,7 +34,7 @@ class ImageLoader(QtCore.QObject):
             return  # already canceled?
         self.current_image = None
 
-    def _is_current(self, image: ImageLike) -> bool:
+    def _is_current(self, image: TiledImageLike) -> bool:
         QCoreApplication.processEvents()  # drain queue, in case load was canceled
         if self.current_image is not image:
             try:
@@ -48,7 +48,7 @@ class ImageLoader(QtCore.QObject):
 
     @QtCore.Slot(str)  # noqa
     def load_from_file_name(self, file_name: str):
-        image = ImageLikeNew()
+        image = TiledImage()
         image.sq.image_displayed.connect(self.on_image_displayed)
         image.sq.progress_changed.connect(self.on_progress_changed)
         image.set_progress(LoadProgress.OBJECT_CREATED)
@@ -70,7 +70,7 @@ class ImageLoader(QtCore.QObject):
     @QtCore.Slot(Image.Image, str)  # noqa
     def load_from_pil_image(self, pil_image: Image.Image, file_name: str):
         """Load a PIL image without a corresponding file"""
-        image = ImageLikeNew()
+        image = TiledImage()
         image.sq.image_displayed.connect(self.on_image_displayed)
         image.sq.progress_changed.connect(self.on_progress_changed)
         image.set_progress(LoadProgress.OBJECT_CREATED)
@@ -98,7 +98,7 @@ class ImageLoader(QtCore.QObject):
                 self.upload_image(self.current_image)
 
     @staticmethod
-    def _loaded_tile_count(image: ImageLike) -> int:
+    def _loaded_tile_count(image: TiledImageLike) -> int:
         """Count ready tiles; offscreen context must already be current."""
         loaded_tile_count = 0
         for tile in image.tiles:
@@ -106,17 +106,17 @@ class ImageLoader(QtCore.QObject):
                 loaded_tile_count += 1
         return loaded_tile_count
 
-    @QtCore.Slot(ImageLike)  # noqa
-    def on_image_displayed(self, image: ImageLike):
+    @QtCore.Slot(TiledImageLike)  # noqa
+    def on_image_displayed(self, image: TiledImageLike):
         if image is self.current_image:
             self.image_displayed.emit(self.current_image)  # noqa
 
     @QtCore.Slot(Texture)  # noqa
-    def on_progress_changed(self, progress: int, image: ImageLike):
+    def on_progress_changed(self, progress: int, image: TiledImageLike):
         if image is self.current_image:
             self.progress_changed.emit(progress)  # noqa
 
-    def upload_image(self, image: ImageLike):
+    def upload_image(self, image: TiledImageLike):
         if not self._is_current(image):
             return
         with self.offscreen_context:
@@ -137,4 +137,4 @@ class ImageLoader(QtCore.QObject):
             self.texture_created.emit(image)  # noqa
 
     progress_changed = QtCore.Signal(int)
-    image_displayed = QtCore.Signal(ImageLike)
+    image_displayed = QtCore.Signal(TiledImageLike)

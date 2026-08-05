@@ -10,8 +10,7 @@ from PySide6.QtGui import Qt
 
 from vmg.frame import DimensionsQwn, LocationHpd, LocationUsr, LocationNic, LocationOpx, LocationGeo, \
     LocationPrj, LocationQwn, LocationRelative, DimensionsOmp
-from vmg.metadata import InputFormat
-from vmg.interfaces import ImageLike
+from vmg.interfaces import TiledImageLike, RenderStateLike, InputFormat
 from vmg.pixel_filter import PixelFilter, PixelNumerals
 from vmg.display_projection import DisplayProjection
 from vmg.selection_box import SelectionBox, CursorHolder
@@ -269,7 +268,7 @@ class ViewState(QObject):
 
     def opx_for_qwn(self, p_qwn: LocationQwn) -> LocationOpx:
         if self.image is None:
-            return LocationOpx(-1, -1)
+            return LocationOpx(-1, -1, 1)
         md = self.image.md
         if md.input_format == InputFormat.STANDARD_PHOTO:
             p_nic = self.nic_for_qwn(p_qwn)
@@ -393,7 +392,7 @@ class ViewState(QObject):
     def update_input_format(self) -> None:
         self._update_aspect_scale()
 
-    def set_image(self, image: ImageLike):
+    def set_image(self, image: TiledImageLike):
         if self.image is image:
             return
         # TODO: store image and delegate

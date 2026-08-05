@@ -1,3 +1,5 @@
+import enum
+
 from abc import ABC, abstractmethod
 from typing import Any, Protocol, Optional
 
@@ -6,29 +8,42 @@ from numpy.typing import NDArray
 from PIL import Image
 
 from vmg.display_projection import DisplayProjection
+from vmg.exif_orientation import ExifOrientation
 from vmg.load_progress import LoadProgress
 from vmg.pixel_filter import PixelFilter
-
+from vmg.selection_box import SelectionBox
 
 Float = float  # Make inspection stfu about "| int"
 GLint = int
 
 
 class ImageMetadataLike(Protocol):
+    channel_count: int
     file_name: Optional[str]
+    input_format: InputFormat
+    is_dng: bool
+    orientation: ExifOrientation
+    photometric_scale: PhotometricScale
+    size_rpx: tuple[int, int]
+
+    def load_exiftool(self, file_name: str) -> None:
+        ...
+
+    def load_pil_image(self, pil_image: Image.Image) -> None:
+        ...
 
 
 class ImageSignallerLike(Protocol):
     pass
 
 
-class ImageLike(Protocol):
+class TiledImageLike(Protocol):
     """A loaded image with GL lifecycle and tile emission."""
     sq: ImageSignallerLike
     md: ImageMetadataLike
     tiles: list[TileLike]
     load_progress: LoadProgress
-    array: NDArray
+    array: Optional[NDArray]
     pil_image: Optional[Image.Image]
 
     def initialize_gl(self) -> None:
@@ -43,7 +58,7 @@ class ShaderProgramLike(ABC):
         """Compile GL program."""
 
     @abstractmethod
-    def paint_gl(self, render_state: "RenderStateLike", image: ImageLike) -> None:
+    def paint_gl(self, render_state: "RenderStateLike", image: TiledImageLike) -> None:
         """Bind program, set uniforms, and render tiles."""
 
 
@@ -67,6 +82,9 @@ class RenderStateLike(Protocol):
     """Minimal interface for the view/controller state used by shaders."""
 
     anisotropic_filtering: bool
+    display_projection: DisplayProjection
+    pixel_filter: PixelFilter
+    sel_rect: SelectionBox
     show_tile_boundaries: bool
     texture_wrap: GLint
 
@@ -74,73 +92,12 @@ class RenderStateLike(Protocol):
 
     @property
     @abstractmethod
-    def brightness(self) -> Float:
-        ...
-
-    @brightness.setter
-    @abstractmethod
-    def brightness(self, value: Float) -> None:
-        ...
-
-    @property
-    @abstractmethod
-    def pixel_filter(self) -> PixelFilter:
-        ...
-
-    @pixel_filter.setter
-    @abstractmethod
-    def pixel_filter(self, value: PixelFilter) -> None:
-        ...
-
-    @property
-    @abstractmethod
-    def display_projection(self) -> DisplayProjection:
-        ...
-
-    @display_projection.setter
-    @abstractmethod
-    def display_projection(self, value: DisplayProjection) -> None:
-        ...
-
-    @property
-    @abstractmethod
-    def ont_rot_obq(self) -> NDArray[numpy.floating]:
-        """3×3 float32 pano view rotation."""
-        ...
-
-    @ont_rot_obq.setter
-    @abstractmethod
-    def ont_rot_obq(self, value: NDArray[numpy.floating]) -> None:
-        ...
-
-    @property
-    @abstractmethod
     def window_size(self) -> Any:
-        ...
-
-    @window_size.setter
-    @abstractmethod
-    def window_size(self, value: Any) -> None:
         ...
 
     @property
     @abstractmethod
     def zoom(self) -> Float:
-        ...
-
-    @zoom.setter
-    @abstractmethod
-    def zoom(self, value: Float) -> None:
-        ...
-
-    @property
-    @abstractmethod
-    def sel_rect(self) -> Any:
-        ...
-
-    @sel_rect.setter
-    @abstractmethod
-    def sel_rect(self, value: Any) -> None:
         ...
 
     @property
@@ -164,3 +121,15 @@ class RenderStateLike(Protocol):
     def opx_scale_qwn(self) -> Float:
         """Return scale factor for OMP → QWN."""
         ...
+
+
+class InputFormat(enum.Enum):
+    EQUIRECTANGULAR = 0   # stitched pano
+    DUAL_FISHEYE = 1      # raw fisheye pair
+    STANDARD_PHOTO = 2    # normal 2D photo
+    SINUSOIDAL = 3        #
+
+
+class PhotometricScale(enum.Enum):
+    LINEAR = 0
+    SRGB = 1

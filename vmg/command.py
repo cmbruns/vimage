@@ -5,7 +5,7 @@ import pathlib
 import PIL.Image
 from PySide6.QtGui import QUndoCommand
 
-from vmg.interfaces import ImageLike
+from vmg.interfaces import TiledImageLike
 from vmg.selection_box import (SelectionBox, SelState)
 
 logger = logging.getLogger(__name__)
@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 class CropToSelection(QUndoCommand):
     def __init__(
             self,
-            image: ImageLike,
+            image: TiledImageLike,
             rect: SelectionBox,
             window,  # VimageMainWindow
             file_name: str,

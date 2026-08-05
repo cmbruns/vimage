@@ -4,7 +4,6 @@ from PySide6.QtGui import QPainter, QPen, QColor
 from typing import cast, Optional
 
 from PySide6.QtWidgets import QGestureEvent, QSwipeGesture, QPinchGesture
-from math import radians
 
 import logging
 
@@ -14,8 +13,7 @@ from OpenGL import GL
 from PySide6 import QtCore, QtGui, QtOpenGLWidgets, QtWidgets
 from PySide6.QtCore import QEvent, Qt, QPoint
 
-from vmg.metadata import InputFormat, PhotometricScale
-from vmg.interfaces import ImageLike
+from vmg.interfaces import TiledImageLike, InputFormat, PhotometricScale
 from vmg.offscreen_context import OffscreenContext
 from vmg.selection_box import (CursorHolder)
 from vmg.state import ViewState
@@ -35,7 +33,7 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         self.grabGesture(Qt.GestureType.PinchGesture)
         # self.grabGesture(Qt.PanGesture)
         self.grabGesture(Qt.GestureType.SwipeGesture)
-        self.image: Optional[ImageLike] = None
+        self.image: Optional[TiledImageLike] = None
         self.setMinimumSize(10, 10)
         self.vao = None
         self.sphere_shader = SphericalShader()
@@ -131,10 +129,10 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         logger.debug("Created shared offscreen OpenGL context")
         self.context_created.emit(offscreen_context)  # noqa
 
-    def paint_cross_lines(self):
+    def paint_guide_lines(self):
         # --- now draw Qt overlay ---
         painter = QPainter(self)
-        painter.setRenderHint(QPainter.Antialiasing, False)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing, False)
 
         dash_length = 10
         pattern = [dash_length, dash_length]
@@ -144,19 +142,20 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         w2 = w // 2
         h2 = h // 2
 
-        for co in [((255, 255, 255), 0), ((0, 0, 0), dash_length)]:
+        for co in [((255, 64, 64), 0), ((128, 0, 0), dash_length)]:
             color, offset = co
             pen = QPen(QColor(*color, 64))  # Transparent black
-            pen.setWidth(2)
+            pen.setWidth(3)
             pen.setDashPattern(pattern)
             pen.setDashOffset(offset)
             painter.setPen(pen)
             # horizontal center line
-            painter.drawLine(0, h2, w2 - 10, h2)
-            painter.drawLine(w2 + 10, h2, w, h2)
+            cg = 15  # half the size of the center gap
+            painter.drawLine(0, h2, w2 - cg, h2)
+            painter.drawLine(w2 + cg, h2, w, h2)
             # vertical center line
-            painter.drawLine(w2, 0, w2, h2 - 10)
-            painter.drawLine(w2, h2 + 10, w2, h)
+            painter.drawLine(w2, 0, w2, h2 - cg)
+            painter.drawLine(w2, h2 + cg, w2, h)
 
         painter.end()
 
@@ -182,7 +181,7 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
             GL.glBindVertexArray(self.vao)
             self.program.paint_gl(self.view_state, self.image)
             if self.view_state.show_center_guides:
-                self.paint_cross_lines()
+                self.paint_guide_lines()
             logger.debug("Finished paintGL()")
         except BaseException as exc:
             traceback.print_exception(exc)
@@ -214,14 +213,15 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
             return
         self.image.md.input_format = input_format
         self.signal_360.emit(input_format != InputFormat.STANDARD_PHOTO)  # noqa
-        logger.info(f"input projection = {input_format}")
+        logger.debug(f"input projection = {input_format}")
         self.view_state.update_input_format()
         self.input_format_changed.emit(input_format)  # noqa
 
-    def set_image(self, image: ImageLike):
+    def set_image(self, image: TiledImageLike):
         logger.info("Received image data")
         self.image = image
         self.view_state.reset()
+        assert self.image is not None
         self.view_state.set_image(self.image)
         self.set_input_format(self.image.md.input_format)
         w, h = self.image.md.size_opx

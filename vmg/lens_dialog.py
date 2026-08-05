@@ -2,8 +2,7 @@ from math import radians, degrees
 
 from PySide6 import QtWidgets, QtCore
 
-from vmg.interfaces import ImageLike
-from vmg.metadata import InputFormat
+from vmg.interfaces import TiledImageLike, InputFormat
 from vmg.ui.ui_lens_parameters import Ui_Dialog
 
 
@@ -21,7 +20,7 @@ class LensDialog(QtWidgets.QDialog):
 
     camera_settings_changed = QtCore.Signal()
 
-    def set_image(self, image: ImageLike):
+    def set_image(self, image: TiledImageLike):
         self.block_signals = True
         self.image = image
         self.ui.fov_doubleSpinBox.setValue(degrees(image.md.inscribed_fov_radians))

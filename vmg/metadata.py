@@ -1,6 +1,5 @@
 from typing import Optional
 
-import enum
 import json
 import logging
 from math import atan2, cos, degrees, radians, sin
@@ -12,28 +11,17 @@ import exiftool
 import numpy
 from numpy import linalg
 import PIL
-from PIL import ExifTags
+from PIL import ExifTags, Image
 
 from vmg.dng_color import LightSource, calculate_dng_t
 from vmg.exif_orientation import ExifOrientation
 from vmg.frame import DimensionsOmp
+from vmg.interfaces import ImageMetadataLike, InputFormat, PhotometricScale
 
 logger = logging.getLogger(__name__)
 
 
-class InputFormat(enum.Enum):
-    EQUIRECTANGULAR = 0   # stitched pano
-    DUAL_FISHEYE = 1      # raw fisheye pair
-    STANDARD_PHOTO = 2    # normal 2D photo
-    SINUSOIDAL = 3        #
-
-
-class PhotometricScale(enum.Enum):
-    LINEAR = 0
-    SRGB = 1
-
-
-class ImageMetadata:
+class ImageMetadata(ImageMetadataLike):
     """
     Sketch of class to contain image metadata.
 
@@ -110,7 +98,7 @@ class ImageMetadata:
         # SIZE
         self.size_opx = DimensionsOmp(page.imagewidth, page.imagelength)
         # same, unless we find an exif orientation tag later
-        self.size_rpx = tuple(int(x) for x in self.size_opx)
+        self.size_rpx = self.size_opx[0], self.size_opx[1]
         # EXIF ORIENTATION (not tested yet)
         exif_ifd = page.tags.get("ExifTag")
         if exif_ifd:
@@ -153,7 +141,7 @@ class ImageMetadata:
         self.color_matrix1 = (a[:, 0] / a[:, 1]).reshape(3, 3)
         # TODO full dng pipeline not done
 
-    def load_pil_image(self, pil_image):
+    def load_pil_image(self, pil_image: Image.Image) -> None:
         w, h = pil_image.size
         self.size_rpx = w, h  # Unrotated dimension
         # TODO: move away from DimensionsOmp and other frame vectors

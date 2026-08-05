@@ -21,9 +21,9 @@ from PySide6 import QtCore
 import tifffile
 
 from vmg.load_progress import LoadProgress
-from vmg.metadata import PhotometricScale, ImageMetadata
+from vmg.metadata import ImageMetadata
 from vmg.exif_orientation import ExifOrientation
-from vmg.interfaces import ImageLike, TileLike
+from vmg.interfaces import TiledImageLike, TileLike, PhotometricScale
 from vmg.resources import resource_string
 
 logger = logging.getLogger(__name__)
@@ -65,11 +65,11 @@ rotation_for_exif_orientation = {
 
 
 class ImageSignaller(QtCore.QObject):
-    progress_changed = QtCore.Signal(int, ImageLike)
-    image_displayed = QtCore.Signal(ImageLike)
+    progress_changed = QtCore.Signal(int, TiledImageLike)
+    image_displayed = QtCore.Signal(TiledImageLike)
 
 
-class ImageLikeNew:
+class TiledImage(TiledImageLike):
     """
     August 2026 refactor to replace ImageLikes with one class
     """
@@ -83,6 +83,7 @@ class ImageLikeNew:
 
     def initialize_gl(self):
         if self.md.is_dng:
+            assert self.array is not None
             assert self.array.dtype == numpy.uint16
             for tile in generate_tiles(
                     image=self,
@@ -176,8 +177,8 @@ class ImageLikeNew:
 
 class TileCreateInfo:
     """Parameters for creating a renderable image tile"""
-    def __init__(self, image: ImageLikeNew, pad: int = 2):
-        self.image: ImageLikeNew = image
+    def __init__(self, image: TiledImage, pad: int = 2):
+        self.image: TiledImage = image
         self.left: int = 0
         self.top: int = 0
         self.width: int = 0
@@ -379,7 +380,7 @@ class Tile(TileLike):
 
 
 def generate_tiles(
-        image: ImageLikeNew,
+        image: TiledImage,
         tile_size: int = TILE_SIZE,
         pad: int = 2,
         tex_format=None,
@@ -393,6 +394,7 @@ def generate_tiles(
     internal_format = internal_format_for_channel_count[channel_count]
     if tex_format is None:
         tex_format = internal_format  # TODO: BGR, GL_RGB16 etc.
+    assert image.array is not None
     data_type = gl_type_for_numpy_dtype[image.array.dtype]
     top = 0
     top_pad = 0

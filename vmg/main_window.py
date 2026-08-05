@@ -22,8 +22,7 @@ from PySide6.QtWidgets import QFileDialog, QMessageBox
 from vmg.circular_combo_box import CircularComboBox
 from vmg.command import CropToSelection
 from vmg.image_loader import ImageLoader
-from vmg.interfaces import ImageLike
-from vmg.metadata import InputFormat
+from vmg.interfaces import TiledImageLike, InputFormat
 from vmg.lens_dialog import LensDialog
 from vmg.log import LogDialog
 from vmg.natural_sort import natural_sort_key
@@ -342,8 +341,8 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         self.undo_stack.clear()
         self.image_load_requested.emit(fn)  # noqa
 
-    @QtCore.Slot(ImageLike)  # noqa
-    def image_texture_created(self, image: ImageLike):
+    @QtCore.Slot(TiledImageLike)  # noqa
+    def image_texture_created(self, image: TiledImageLike):
         logger.info(f"Received image texture {image.md.file_name}")
         if image.md.file_name != self._current_file_name:
             logger.info(f"ignoring stale texture loaded for {image.md.file_name}")
@@ -910,8 +909,8 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         wgl.view_state.zoom_relative(1.0/1.10, None)
         wgl.update()
 
-    @QtCore.Slot(ImageLike)  # noqa
-    def image_displayed(self, image: ImageLike):
+    @QtCore.Slot(TiledImageLike)  # noqa
+    def image_displayed(self, image: TiledImageLike):
         if image.md.file_name == self._current_file_name:
             logger.debug("Image displayed")
             stem = pathlib.Path(self._current_file_name).stem
