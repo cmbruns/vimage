@@ -9,7 +9,7 @@ from PySide6.QtCore import QCoreApplication
 
 from vmg.interfaces import TiledImageLike
 from vmg.offscreen_context import OffscreenContext
-from vmg.image_like import TiledImage
+from vmg.tiled_image import TiledImage
 from vmg.load_progress import LoadProgress
 
 

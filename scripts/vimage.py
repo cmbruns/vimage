@@ -2,7 +2,7 @@
 file vimage.py
 
 Launches the vimage application.
-This python script is the primary entry point for pyinstaller-based packages.
+This Python script is the primary entry point for pyinstaller-based packages.
 """
 
 # Hack to make it work with pyinstaller

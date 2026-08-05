@@ -20,7 +20,7 @@ class VimageApplication(QtWidgets.QApplication):
         if event.type() == QEvent.FileOpen:
             file_name = event.file()
             if file_name.endswith("Contents/plugins/python-ce/helpers/pydev/pydevd.py"):
-                pass  # Elide strange signal when debugging in pycharm on Mac
+                pass  # Elide strange signal when debugging in PyCharm on Mac
             else:
                 self.on_file_open_event.emit(event.file())  # noqa
         return super().event(event)
@@ -61,7 +61,7 @@ class VimageApp(object):
         f.setProfile(QSurfaceFormat.CoreProfile)
         f.setVersion(4, 1)
         QSurfaceFormat.setDefaultFormat(f)
-        # Respect dark mode setting on windows
+        # Respect dark mode setting on Windows
         if platform.system() == "Windows":
             sys.argv += ['-platform', 'windows:darkmode=2']
         app = VimageApplication(sys.argv)

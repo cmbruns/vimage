@@ -133,7 +133,7 @@ class TiledImageLike(Protocol):
 class TileLike(Protocol):
     """A rectangular region of an image backed by a GL texture."""
 
-    texture_id: GLint
+    texture_id: Optional[GLint]
     uv_bounds: tuple[Float, Float, Float, Float]
     vao: Optional[GLint]
 

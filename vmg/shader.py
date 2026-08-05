@@ -10,7 +10,7 @@ from OpenGL import GL
 from OpenGL.GL.shaders import compileProgram, compileShader
 from OpenGL.GL.EXT.texture_filter_anisotropic import GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, GL_TEXTURE_MAX_ANISOTROPY_EXT
 
-from vmg.image_like import DngTile, Tile
+from vmg.tiled_image import DngTile, Tile
 from vmg.interfaces import RenderStateLike, TiledImageLike, InputFormat, PhotometricScale, TileLike, ShaderProgramLike
 from vmg.resources import resource_stream, resource_string
 from vmg.shader_exception import compile_shader
