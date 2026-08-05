@@ -16,7 +16,14 @@ from vmg.display_projection import DisplayProjection
 from vmg.selection_box import SelectionBox, CursorHolder
 
 
-class ViewState(QObject):
+class ViewStateSignaller(QObject):
+    pass  # TODO:
+
+
+class ViewState(
+    QObject,
+    # RenderStateLike,  # only during linting, not runtime
+):
     """
     Q: Is there one ViewState per gl_widget? Or one per image?
     A: One per gl_widget. So the image could change during the lifetime of this ViewState.
@@ -24,6 +31,8 @@ class ViewState(QObject):
 
     def __init__(self, window_size: QSize):
         super().__init__()
+        self._background_color = [0.5, 0.5, 0.5, 0]
+        self.brightness = 0.0  # EV
         self._size_qwn = DimensionsQwn(window_size.width(), window_size.height())
         self.display_projection = DisplayProjection.STEREOGRAPHIC
         self._zoom = 1.0  # windows per image
@@ -35,8 +44,6 @@ class ViewState(QObject):
         self.sel_rect.cursor_changed.connect(self.on_rect_cursor_changed)
         self._is_dragging = False
         self._previous_mouse_position = None
-        self._background_color = [0.5, 0.5, 0.5, 0]
-        self.brightness = 0.0  # EV
         self.asc_qwn = 1
         self.asc_opx = 1
         self.show_tile_boundaries = False
@@ -509,3 +516,6 @@ class ViewState(QObject):
                     self._center_rel = self._center_rel - (dx/self._size_opx().x, dy/self._size_opx().y)
         if self._input_format() == InputFormat.STANDARD_PHOTO:
             self._clamp_center()
+
+
+RenderStateLike.register(ViewState)

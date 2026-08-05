@@ -11,7 +11,6 @@ from vmg.interfaces import TiledImageLike
 from vmg.offscreen_context import OffscreenContext
 from vmg.image_like import TiledImage
 from vmg.load_progress import LoadProgress
-from vmg.texture import Texture
 
 
 jpeg = turbojpeg.TurboJPEG()  # TODO: cache this?
@@ -111,7 +110,7 @@ class ImageLoader(QtCore.QObject):
         if image is self.current_image:
             self.image_displayed.emit(self.current_image)  # noqa
 
-    @QtCore.Slot(Texture)  # noqa
+    @QtCore.Slot(int, TiledImageLike)  # noqa
     def on_progress_changed(self, progress: int, image: TiledImageLike):
         if image is self.current_image:
             self.progress_changed.emit(progress)  # noqa

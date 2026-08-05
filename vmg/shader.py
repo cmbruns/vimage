@@ -3,7 +3,6 @@ import traceback
 import abc
 import logging
 from PIL import Image
-from math import radians
 from typing import Callable, OrderedDict
 
 import numpy
@@ -11,11 +10,11 @@ from OpenGL import GL
 from OpenGL.GL.shaders import compileProgram, compileShader
 from OpenGL.GL.EXT.texture_filter_anisotropic import GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, GL_TEXTURE_MAX_ANISOTROPY_EXT
 
-from vmg.image_like import TiledImage, DngTile
-from vmg.interfaces import RenderStateLike, TiledImageLike, InputFormat, PhotometricScale
+from vmg.image_like import DngTile
+from vmg.interfaces import RenderStateLike, TiledImageLike, InputFormat, PhotometricScale, TileLike
 from vmg.resources import resource_stream, resource_string
 from vmg.shader_exception import compile_shader
-from vmg.texture import Tile, LoadProgress
+# from vmg.texture import Tile
 
 logger = logging.getLogger(__name__)
 
@@ -75,7 +74,7 @@ class ViewerUniforms(UniformGroup):
         self.add(Uniform("pixelFilter", GL.glUniform1i))
         self.add(Uniform("tile_X_img", GL.glUniformMatrix3fv))
 
-    def set(self, state: RenderStateLike, tile: Tile):
+    def set(self, state: RenderStateLike, tile: TileLike):
         self["brightness"].set(state.brightness)
         self["pixelFilter"].set(state.pixel_filter.value)
         self["tile_X_img"].set(1, True, tile.tile_X_img)
@@ -90,12 +89,12 @@ class PanoUniforms(UniformGroup):
         self.add(Uniform("geo_rot_obq", GL.glUniformMatrix3fv))
         self.add(Uniform("pcm_rot_geo", GL.glUniformMatrix3fv))
 
-    def set(self, state: RenderStateLike):
+    def set(self, state: RenderStateLike, image: TiledImageLike):
         self["window_size"].set(*[int(x) for x in state.window_size])
         self["window_zoom"].set(state.zoom)
         self["display_projection"].set(state.display_projection.value)
         self["geo_rot_obq"].set(1, True, state.geo_rot_usr)
-        self["pcm_rot_geo"].set(1, True, state.pcm_rot_geo)
+        self["pcm_rot_geo"].set(1, True, image.md.pcm_R_geo)
 
 
 class FisheyeUniforms(UniformGroup):
@@ -146,7 +145,7 @@ class NumeralShader(IImageShader):
 
     def initialize_gl(self) -> None:
         # Texturize numeral signed distance field
-        self.numeral_texture_id = GL.glGenTextures(1)
+        self.numeral_texture_id = GL.glGenTextures(1)  # noqa
         GL.glBindTexture(GL.GL_TEXTURE_2D, self.numeral_texture_id)
         assert len(self.numeral_array.shape) == 2  # monochrome
         GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_SWIZZLE_G, GL.GL_RED)
@@ -326,7 +325,7 @@ class RectangularDngShader(IImageShader):
             traceback.print_exception(exc)
             raise
 
-    def paint_image(self, state: RenderStateLike, image: TiledImage):
+    def paint_image(self, state: RenderStateLike, image: TiledImageLike):
         self.uBlackLevel.set(*image.md.black_level)
         self.uWhiteLevel.set(*image.md.white_level)
         self.uAsShotNeutral.set(*image.md.as_shot_neutral)
@@ -352,7 +351,7 @@ class RectangularDngShader(IImageShader):
         GL.glDrawArrays(GL.GL_TRIANGLE_STRIP, 0, 4)
         return True
 
-    def paint_gl(self, state: RenderStateLike, image: TiledImage) -> None:
+    def paint_gl(self, state: RenderStateLike, image: TiledImageLike) -> None:
         GL.glUseProgram(self.shader)
         GL.glUniform1i(self.pixelFilter_location, state.pixel_filter.value)
         GL.glUniform4i(self.sel_rect_opx_location, *state.sel_rect.left_top_right_bottom)
@@ -560,7 +559,7 @@ class SphericalDngShader(IImageShader):
         GL.glDrawArrays(GL.GL_TRIANGLE_STRIP, 0, 4)
         return True
 
-    def _paint_one_pass(self, image: TiledImage):
+    def _paint_one_pass(self, image: TiledImageLike):
         is_complete = True
         for tile in image.tiles:
             assert isinstance(tile, DngTile)

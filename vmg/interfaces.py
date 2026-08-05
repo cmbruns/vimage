@@ -1,3 +1,5 @@
+from numbers import Number
+
 import enum
 
 from abc import ABC, abstractmethod
@@ -23,8 +25,10 @@ class ImageMetadataLike(Protocol):
     input_format: InputFormat
     is_dng: bool
     orientation: ExifOrientation
+    pcm_R_geo: NDArray[numpy.float32]
     photometric_scale: PhotometricScale
     size_rpx: tuple[int, int]
+    upper_bound: Number
 
     def load_exiftool(self, file_name: str) -> None:
         ...
@@ -69,8 +73,8 @@ class TileLike(Protocol):
     def is_ready(self) -> bool:
         ...
 
-    def paint_gl(self, view_state: RenderStateLike) -> bool:
-        """Bind textures and VBOs and issue draw calls."""
+    # def paint_gl(self, view_state: RenderStateLike) -> bool:
+    #     """Bind textures and VBOs and issue draw calls."""
 
     @property
     def tile_X_img(self) -> NDArray[numpy.floating]:
@@ -82,13 +86,16 @@ class RenderStateLike(Protocol):
     """Minimal interface for the view/controller state used by shaders."""
 
     anisotropic_filtering: bool
+    brightness: Float
     display_projection: DisplayProjection
     pixel_filter: PixelFilter
     sel_rect: SelectionBox
     show_tile_boundaries: bool
     texture_wrap: GLint
 
-    # --- Required attributes ---
+    @property
+    def geo_rot_usr(self) -> NDArray[numpy.float32]:
+        ...
 
     @property
     @abstractmethod
