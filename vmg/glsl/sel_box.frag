@@ -6,23 +6,18 @@ uniform vec4 background_color = vec4(0.5);
 
 out vec4 sel_box_color;
 
-// TODO: move to shared.frag
-vec4 box_color(vec3 base_color) {
-    vec3 color = vec3(1) - base_color;
-    // but inverted can be invisible on gray backgrounds
-    if (length(color - base_color) < 0.5) {
-        if (length(base_color.rgb) > 0.5)
-            color = vec3(0);  // black box for light gray image
-        else
-            color = vec3(1);  // white box for dark gray image
-    }
-    return vec4(color, 1);
-}
+in float edge_index;
+
+const vec3 LINEAR_BLUE_STANDARD = vec3(0.013, 0.232, 1.000);
+const vec3 LINEAR_BLUE_PALE     = vec3(0.300, 0.500, 1.000);
+const vec3 LINEAR_BLUE_DARK     = vec3(0.000, 0.043, 0.900);
 
 void main()
 {
-    // sel_box_color = vec4(1, 0, 0, 1);
-    // return;
-
-    sel_box_color = box_color(background_color.rgb);
+    const int dashes_per_edge = 20;
+    int edge_step = int(fract(edge_index) * dashes_per_edge);
+    if (edge_step % 2 == 0)
+        sel_box_color = vec4(LINEAR_BLUE_PALE, 0.5);
+    else
+        sel_box_color = vec4(LINEAR_BLUE_DARK, 0.5);
 }

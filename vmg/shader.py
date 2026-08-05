@@ -11,6 +11,7 @@ from OpenGL import GL
 from OpenGL.GL.shaders import compileProgram, compileShader
 from OpenGL.GL.EXT.texture_filter_anisotropic import GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, GL_TEXTURE_MAX_ANISOTROPY_EXT
 
+from vmg.image_like import ImageLikeNew, DngTile
 from vmg.interfaces import RenderStateLike, ImageLike
 from vmg.metadata import PhotometricScale, InputFormat
 from vmg.resources import resource_stream, resource_string
@@ -250,7 +251,6 @@ class RectangularTileShader(IImageShader):
             raise
 
     def paint_gl(self, state: RenderStateLike, image: ImageLike) -> None:
-        self.box_shader.paint_gl(state, image)
         GL.glUseProgram(self.shader)
         GL.glUniform1i(self.pixelFilter_location, state.pixel_filter.value)
         GL.glUniform4i(self.sel_rect_opx_location, *state.sel_rect.left_top_right_bottom)
@@ -263,6 +263,7 @@ class RectangularTileShader(IImageShader):
         self.numeral_shader.paint_gl(state, image)
         if state.show_tile_boundaries:
             self.tile_boundary_shader.paint_gl(state, image)
+        self.box_shader.paint_gl(state, image)
 
 
 class RectangularDngShader(IImageShader):
@@ -326,23 +327,44 @@ class RectangularDngShader(IImageShader):
             traceback.print_exception(exc)
             raise
 
-    def paint_gl(self, state: RenderStateLike, image: ImageLike) -> None:
-        self.box_shader.paint_gl(state, image)
+    def paint_image(self, state: RenderStateLike, image: ImageLikeNew):
+        self.uBlackLevel.set(*image.md.black_level)
+        self.uWhiteLevel.set(*image.md.white_level)
+        self.uAsShotNeutral.set(*image.md.as_shot_neutral)
+        self.uLsr_X_wba.set(1, True, image.md.lsr_X_wba)
+        self.brightness.set(state.brightness + image.md.baseline_exposure)
+        is_complete = True  # start optimistic
+        for tile in image.tiles:
+            if not self.paint_tile(tile):
+                is_complete = False
+        if is_complete:
+            image.set_display_complete()
+
+    def paint_tile(self, tile: DngTile) -> bool:
+        assert isinstance(tile, DngTile)
+        GL.glUniformMatrix3fv(self.tile_X_img_location, 1, True, tile.tile_X_img)
+        GL.glUniform4f(self.uv_bounds_location, *tile.uv_bounds)
+        self.uDemosaicTile.set(1, tile.demosaic_texture_id)
+        self.uBayerTile.set(0, tile.bayer_texture_id)
+        if not tile.is_ready_for_display():
+            return False
+        tile.initialize_arrays()
+        GL.glBindVertexArray(tile.render_vao)
+        GL.glDrawArrays(GL.GL_TRIANGLE_STRIP, 0, 4)
+        return True
+
+    def paint_gl(self, state: RenderStateLike, image: ImageLikeNew) -> None:
         GL.glUseProgram(self.shader)
         GL.glUniform1i(self.pixelFilter_location, state.pixel_filter.value)
         GL.glUniform4i(self.sel_rect_opx_location, *state.sel_rect.left_top_right_bottom)
         GL.glUniform4f(self.background_color_location, *state.background_color)
         GL.glUniformMatrix3fv(self.ndc_x_opx_location, 1, True, state.ndc_xform_opx())
         GL.glUniform1f(self.opx_scale_qwn_location, state.opx_scale_qwn())
-        self.uBlackLevel.set(*image.md.black_level)
-        self.uWhiteLevel.set(*image.md.white_level)
-        self.uAsShotNeutral.set(*image.md.as_shot_neutral)
-        self.uLsr_X_wba.set(1, True, image.md.lsr_X_wba)
-        self.brightness.set(state.brightness + image.md.baseline_exposure)
-        image.paint_gl(self, state)
+        self.paint_image(state, image)
         self.numeral_shader.paint_gl(state, image)
         if state.show_tile_boundaries:
             self.tile_boundary_shader.paint_gl(state, image)
+        self.box_shader.paint_gl(state, image)
 
 
 class SelectionBoxShader(IImageShader):

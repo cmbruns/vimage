@@ -101,6 +101,7 @@ class ImageLikeNew:
 
     def initialize_gl(self):
         if self.md.is_dng:
+            assert self.array.dtype == numpy.uint16
             for tile in generate_tiles(
                     image=self,
                     pad=6,
@@ -176,7 +177,13 @@ class ImageLikeNew:
             if is_complete and self.load_progress != LoadProgress.DISPLAYED:
                 self.load_progress = LoadProgress.DISPLAYED
                 self.sq.image_displayed.emit(self)  # noqa
-            # break  # just one tile for testing
+            break  # just one tile for testing
+
+    def set_display_complete(self):
+        if self.load_progress == LoadProgress.DISPLAYED:
+            return  # Already done
+        self.load_progress = LoadProgress.DISPLAYED
+        self.sq.image_displayed.emit(self)  # noqa
 
     def set_progress(self, progress: LoadProgress):
         self.load_progress = progress
@@ -752,6 +759,33 @@ class DngTile(Tile):
         self.load_sync = GL.glFenceSync(GL.GL_SYNC_GPU_COMMANDS_COMPLETE, 0)
         GL.glFlush()  # macOS probably
         logger.debug("DNG demosaic complete")
+
+    def initialize_arrays(self):
+        if self.vao is not None:
+            return
+        self.render_vao = GL.glGenVertexArrays(1)  # noqa
+        self.vao = self.render_vao
+        GL.glBindVertexArray(self.render_vao)
+        GL.glBindBuffer(GL.GL_ARRAY_BUFFER, self.vbo)
+        f_size = sizeof(c_float)
+        GL.glVertexAttribPointer(  # normalized image coordinates
+            1,  # attribute index
+            2,  # size (#components)
+            GL.GL_FLOAT,  # type
+            False,  # normalized
+            f_size * 4,  # stride (bytes)
+            cast(0 * f_size, c_void_p),  # pointer offset
+        )
+        GL.glEnableVertexAttribArray(1)
+        GL.glVertexAttribPointer(  # texture coordinates
+            2,  # attribute index
+            2,  # size (#components)
+            GL.GL_FLOAT,  # type
+            False,  # normalized
+            f_size * 4,  # stride (bytes)
+            cast(2 * f_size, c_void_p),  # pointer offset
+        )
+        GL.glEnableVertexAttribArray(2)
 
     def paint_gl(self, _view_state) -> bool:
         """Run in ui thread"""

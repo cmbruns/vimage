@@ -111,6 +111,7 @@ class RenderStateLike(Protocol):
     """Minimal interface for the view/controller state used by shaders."""
 
     anisotropic_filtering: bool
+    show_tile_boundaries: bool
     texture_wrap: GLint
 
     # --- Required attributes ---

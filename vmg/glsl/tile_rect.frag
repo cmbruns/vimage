@@ -28,5 +28,5 @@ void main()
 
     // OK to do texel boundary and selection box composition in sRGB space...
     image_color = texel_boundaries(image_color, p_ttc * textureSize(tile, 0));
-    image_color = selection_box(p_opx, image_color, background_color, sel_rect_opx, opx_scale_qwn);
+    // image_color = selection_box(p_opx, image_color, background_color, sel_rect_opx, opx_scale_qwn);
 }
