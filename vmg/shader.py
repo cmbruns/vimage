@@ -14,7 +14,6 @@ from vmg.tiled_image import DngTile, Tile
 from vmg.interfaces import RenderStateLike, TiledImageLike, InputFormat, PhotometricScale, TileLike, ShaderProgramLike
 from vmg.resources import resource_stream, resource_string
 from vmg.shader_exception import compile_shader
-# from vmg.texture import Tile
 
 logger = logging.getLogger(__name__)
 
@@ -200,6 +199,7 @@ class NumeralShader(IImageShader):
         self.uRotation.set(1, False, image.md.rpx_R_opx)
         self.uPixelNumerals.set(state.pixel_numerals.value)
         for tile in image.tiles:
+            assert tile.texture_id is not None
             self.uTile.set(0, tile.texture_id)
             assert tile.vao is not None
             # TODO: this is for standard photos only
