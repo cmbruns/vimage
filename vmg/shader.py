@@ -10,8 +10,8 @@ from OpenGL import GL
 from OpenGL.GL.shaders import compileProgram, compileShader
 from OpenGL.GL.EXT.texture_filter_anisotropic import GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, GL_TEXTURE_MAX_ANISOTROPY_EXT
 
-from vmg.image_like import DngTile
-from vmg.interfaces import RenderStateLike, TiledImageLike, InputFormat, PhotometricScale, TileLike
+from vmg.image_like import DngTile, Tile
+from vmg.interfaces import RenderStateLike, TiledImageLike, InputFormat, PhotometricScale, TileLike, ShaderProgramLike
 from vmg.resources import resource_stream, resource_string
 from vmg.shader_exception import compile_shader
 # from vmg.texture import Tile
@@ -207,7 +207,7 @@ class NumeralShader(IImageShader):
             GL.glDrawArrays(GL.GL_TRIANGLE_STRIP, 0, 4)
 
 
-class RectangularTileShader(IImageShader):
+class RectangularTileShader(IImageShader, ShaderProgramLike):
     def __init__(self):
         self.shader = None
         self.ndc_x_opx_location = None
@@ -333,6 +333,7 @@ class RectangularDngShader(IImageShader):
         self.brightness.set(state.brightness + image.md.baseline_exposure)
         is_complete = True  # start optimistic
         for tile in image.tiles:
+            assert isinstance(tile, DngTile)
             if not self.paint_tile(tile):
                 is_complete = False
         if is_complete:
@@ -398,7 +399,7 @@ class SelectionBoxShader(IImageShader):
         GL.glDrawArrays(GL.GL_TRIANGLE_STRIP, 0, 10)
 
 
-class SphericalShader(IImageShader):
+class SphericalShader(IImageShader, ShaderProgramLike):
     def __init__(self):
         self.shader = None
         self.zoom_location = None
@@ -592,4 +593,5 @@ class TileBoundaryShader(IImageShader):
         self.uViewport.set(*state.window_size)
         self.ndc_X_opx.set(1, True, state.ndc_xform_opx())
         for tile in image.tiles:
+            assert isinstance(tile, Tile)
             tile.paint_boundary()

@@ -17,12 +17,13 @@ from vmg.selection_box import SelectionBox, CursorHolder
 
 
 class ViewStateSignaller(QObject):
-    pass  # TODO:
+    cursor_changed = QtCore.Signal(CursorHolder)
+    request_message = QtCore.Signal(str, int)
 
 
 class ViewState(
-    QObject,
-    # RenderStateLike,  # only during linting, not runtime
+    # QObject,
+    RenderStateLike,  # only during linting, not runtime
 ):
     """
     Q: Is there one ViewState per gl_widget? Or one per image?
@@ -31,6 +32,7 @@ class ViewState(
 
     def __init__(self, window_size: QSize):
         super().__init__()
+        self.vss = ViewStateSignaller()
         self._background_color = [0.5, 0.5, 0.5, 0]
         self.brightness = 0.0  # EV
         self._size_qwn = DimensionsQwn(window_size.width(), window_size.height())
@@ -87,17 +89,15 @@ class ViewState(
             self._input_format() != InputFormat.STANDARD_PHOTO))
         return result
 
-    cursor_changed = QtCore.Signal(CursorHolder)
-
     @QtCore.Slot(CursorHolder)  # noqa
     def on_rect_cursor_changed(self, cursor_holder: CursorHolder):
         if cursor_holder.cursor is None:
             if self._is_dragging:
-                self.cursor_changed.emit(CursorHolder(Qt.ClosedHandCursor))  # noqa
+                self.vss.cursor_changed.emit(CursorHolder(Qt.ClosedHandCursor))  # noqa
             else:
-                self.cursor_changed.emit(CursorHolder(Qt.OpenHandCursor))  # noqa
+                self.vss.cursor_changed.emit(CursorHolder(Qt.OpenHandCursor))  # noqa
         else:
-            self.cursor_changed.emit(cursor_holder)  # noqa
+            self.vss.cursor_changed.emit(cursor_holder)  # noqa
 
     def drag_relative(self, prev: QPoint, curr: QPoint):
         prev_qwn = LocationQwn.from_qpoint(prev)
@@ -187,12 +187,12 @@ class ViewState(
                     InputFormat.SINUSOIDAL,
             ):
                 p_hpd = self.hpd_for_qwn(p_qwn)
-                self.request_message.emit(  # noqa
+                self.vss.request_message.emit(  # noqa
                     f"image pixel = [{int(p_opx.x)}, {int(p_opx.y)}] heading = {p_hpd.heading:.1f}°  pitch = {p_hpd.pitch:.1f}°",
                     2000,
                 )
             else:
-                self.request_message.emit(  # noqa
+                self.vss.request_message.emit(  # noqa
                     f"image pixel = [{int(p_opx.x)}, {int(p_opx.y)}]",
                     2000,
                 )
@@ -207,12 +207,12 @@ class ViewState(
         self._is_dragging = True
         self._previous_mouse_position = event.pos()
         if not keep_cursor:
-            self.cursor_changed.emit(CursorHolder(Qt.ClosedHandCursor))  # noqa
+            self.vss.cursor_changed.emit(CursorHolder(Qt.ClosedHandCursor))  # noqa
 
     def mouse_release_event(self, event):
         self._is_dragging = False
         self._previous_mouse_position = None
-        self.cursor_changed.emit(CursorHolder(Qt.OpenHandCursor))  # noqa
+        self.vss.cursor_changed.emit(CursorHolder(Qt.OpenHandCursor))  # noqa
         p_opx = self.opx_for_qpoint(event.pos())
         self.sel_rect.mouse_release_event(event, p_opx)
 
@@ -382,8 +382,6 @@ class ViewState(
         ], dtype=numpy.float32)
         return LocationPrj(*prj_xform_nic @ p_nic)
 
-    request_message = QtCore.Signal(str, int)
-
     def reset(self) -> None:
         self._zoom = 1.0  # windows per image
         self._center_rel = LocationRelative(0.5, 0.5)
@@ -516,6 +514,3 @@ class ViewState(
                     self._center_rel = self._center_rel - (dx/self._size_opx().x, dy/self._size_opx().y)
         if self._input_format() == InputFormat.STANDARD_PHOTO:
             self._clamp_center()
-
-
-RenderStateLike.register(ViewState)
