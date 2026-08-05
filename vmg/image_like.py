@@ -177,7 +177,7 @@ class ImageLikeNew:
             if is_complete and self.load_progress != LoadProgress.DISPLAYED:
                 self.load_progress = LoadProgress.DISPLAYED
                 self.sq.image_displayed.emit(self)  # noqa
-            break  # just one tile for testing
+            # break  # just one tile for testing
 
     def set_display_complete(self):
         if self.load_progress == LoadProgress.DISPLAYED:

@@ -528,7 +528,7 @@ class SphericalDngShader(IImageShader):
         if self.shader is None:
             self.initialize_gl()
         GL.glUseProgram(self.shader)
-        self.uViewer["brightness"].set(state.brightness)
+        self.uViewer["brightness"].set(state.brightness + image.md.baseline_exposure)
         self.uViewer["pixelFilter"].set(state.pixel_filter.value)
         self.uPano["window_zoom"].set(state.zoom)
         self.uPano["geo_rot_obq"].set(1, True, state.geo_rot_usr)
@@ -548,18 +548,27 @@ class SphericalDngShader(IImageShader):
             self.uRenderPass.set(2)
             self._paint_one_pass(image)
 
-    def _paint_one_pass(self, image):
+    def paint_tile(self, tile: DngTile) -> bool:
+        assert isinstance(tile, DngTile)
+        self.uViewer["tile_X_img"].set(1, True, tile.tile_X_img)
+        self.uUvBounds.set(*tile.uv_bounds)
+        self.uDemosaicTile.set(1, tile.demosaic_texture_id)
+        self.uBayerTile.set(0, tile.bayer_texture_id)
+        if not tile.is_ready_for_display():
+            return False
+        tile.initialize_arrays()
+        GL.glBindVertexArray(tile.render_vao)
+        GL.glDrawArrays(GL.GL_TRIANGLE_STRIP, 0, 4)
+        return True
+
+    def _paint_one_pass(self, image: ImageLikeNew):
         is_complete = True
         for tile in image.tiles:
-            self.uViewer["tile_X_img"].set(1, True, tile.tile_X_img)
-            self.uUvBounds.set(*tile.uv_bounds)
-            self.uDemosaicTile.set(1, tile.demosaic_texture_id)
-            self.uBayerTile.set(0, tile.bayer_texture_id)
-            if not tile.paint_gl():
+            assert isinstance(tile, DngTile)
+            if not self.paint_tile(tile):
                 is_complete = False
-        if is_complete and image.load_progress != LoadProgress.DISPLAYED:
-            image.load_progress = LoadProgress.DISPLAYED
-            image.sq.image_displayed.emit(image)  # noqa  # TODO: maybe don't hoist this here...
+        if is_complete:
+            image.set_display_complete()
 
 
 class TileBoundaryShader(IImageShader):
