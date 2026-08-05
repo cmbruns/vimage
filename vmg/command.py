@@ -5,6 +5,7 @@ import pathlib
 import PIL.Image
 from PySide6.QtGui import QUndoCommand
 
+from vmg.interfaces import ImageLike
 from vmg.selection_box import (SelectionBox, SelState)
 
 logger = logging.getLogger(__name__)
@@ -13,22 +14,24 @@ logger = logging.getLogger(__name__)
 class CropToSelection(QUndoCommand):
     def __init__(
             self,
-            image: PIL.Image.Image,
+            image: ImageLike,
             rect: SelectionBox,
             window,  # VimageMainWindow
             file_name: str,
     ):
         super().__init__()
         self.setText("Crop to selection")
-        self.image = image.copy()
+        self.image = image
         self.bounds = (
             max(rect.left, 0),
             max(rect.top, 0),
-            min(rect.right, image.width),
-            min(rect.bottom, image.height),
+            min(rect.right, image.md.size_opx[0]),
+            min(rect.bottom, image.md.size_opx[1]),
         )
         self.window = window
         self.file_name = file_name
+        if image.pil_image is None:
+            raise AttributeError("No PIL Image available")
 
     def redo(self):
         stem = pathlib.Path(self.file_name).stem
@@ -37,7 +40,8 @@ class CropToSelection(QUndoCommand):
             f"Cropping image {stem} to "
             f"(left={el}, top={t}, right={r}, bottom={b})"
         )
-        cropped = self.image.crop(self.bounds)
+        if self.image.pil_image is not None:
+            cropped = self.image.pil_image.crop(self.bounds)
         name = f"{stem}_cropped"
         self.window.load_image_from_memory(image=cropped, name=name)
         rect = self.window.imageWidgetGL.view_state.sel_rect

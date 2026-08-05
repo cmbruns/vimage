@@ -98,6 +98,7 @@ class ImageLikeNew:
         self.tiles: list[TileLike] = []
         self.load_progress = LoadProgress.NONE
         self.array = None
+        self.pil_image = None
 
     def initialize_gl(self):
         if self.md.is_dng:
@@ -114,6 +115,13 @@ class ImageLikeNew:
                 self.tiles.append(tile)
 
     def load_from_file(self, file_name: str) -> bool:
+        # Try tifffile first, so we can get the DNG, not the thumbnail
+        try:
+            with tifffile.TiffFile(file_name) as dng:
+                self.load_from_tifffile(dng, file_name)
+                return True
+        except TiffFileError as exc:
+            pass
         try:
             # Load as a PIL Image
             pil_image = Image.open(file_name)
@@ -121,17 +129,12 @@ class ImageLikeNew:
             return True
         except PIL.UnidentifiedImageError as e:
             pass
-        try:
-            with tifffile.TiffFile(file_name) as dng:
-                self.load_from_tifffile(dng, file_name)
-                return True
-        except TiffFileError as exc:
-            pass
         self.set_progress(LoadProgress.ERROR)
         return False
 
     def load_from_pil_image(self, pil_image: PIL.Image, file_name: str):
         self.md.file_name = file_name
+        self.pil_image = pil_image
         self.set_progress(LoadProgress.FILE_OPENED)
         self.md.load_pil_image(pil_image)
         self.set_progress(LoadProgress.METADATA_LOADED)

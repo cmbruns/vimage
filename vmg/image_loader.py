@@ -83,11 +83,19 @@ class ImageLoader(QtCore.QObject):
     @QtCore.Slot(Image.Image, str)  # noqa
     def load_from_pil_image(self, pil_image: Image.Image, file_name: str):
         """Load a PIL image without a corresponding file"""
-        image_data = ImageData(file_name, parent=self)
-        self.current_image = image_data
-        self.progress_changed.emit(5)  # noqa
-        image_data.pil_image = pil_image
-        self.load_metadata(image_data)
+        image = ImageLikeNew()
+        image.sq.image_displayed.connect(self.on_image_displayed)
+        image.sq.progress_changed.connect(self.on_progress_changed)
+        image.set_progress(LoadProgress.OBJECT_CREATED)
+        image.load_from_pil_image(pil_image, file_name)
+        self.current_image = image
+        if self.offscreen_context is None:
+            self.image_data_is_pending = True
+            logger.debug(
+                f"Deferring texture initialization for {image.md.file_name} until OpenGL context is ready"
+            )
+        else:
+            self.upload_image(image)  # noqa
 
     def load_metadata(self, image_data: ImageData):
         if not self._is_current(image_data):

@@ -69,7 +69,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         self.setAttribute(Qt.WA_AcceptTouchEvents, True)  # noqa
         self.image_list = []
         self.image_index = 0
-        self.pil_image = None
+        self.image = None
         self.imageWidgetGL.request_message.connect(self.statusbar.showMessage)
         self.imageWidgetGL.signal_360.connect(self.set_is_360)
         self.imageWidgetGL.image_size_changed.connect(self.set_image_size)
@@ -81,7 +81,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         )
         self.imageWidgetGL.input_format_changed.connect(self.set_input_format)
         sel_rect = self.imageWidgetGL.view_state.sel_rect
-        sel_rect.selection_shown.connect(self.actionCrop_to_Selection.setEnabled)
+        sel_rect.selection_shown.connect(self.enableCrop_to_Selection)
         self.actionNext.setIcon(QtGui.QIcon(resource_filename("vmg.images", "next_icon.png")))
         self.toolBar.widgetForAction(self.actionPrevious).setAutoRepeat(True)
         self.toolBar.widgetForAction(self.actionNext).setAutoRepeat(True)
@@ -304,6 +304,13 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         event.acceptProposedAction()
         self.activateWindow()  # Take focus immediately after successful drop
 
+    def enableCrop_to_Selection(self):
+        enable = False
+        if self.image is not None:
+            if self.image.pil_image is not None:
+                enable = True
+        self.actionCrop_to_Selection.setEnabled(enable)
+
     def __enter__(self):
         return self
 
@@ -341,7 +348,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         if image.md.file_name != self._current_file_name:
             logger.info(f"ignoring stale texture loaded for {image.md.file_name}")
             return
-        # self.pil_image = image.pil_image
+        self.image = image
         self.imageWidgetGL.set_image(image)
         fn = image.md.file_name
         self.set_current_image_path(fn)
@@ -396,7 +403,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
 
     def save_image(self, file_path: str, image=None):
         if image is None:
-            image = self.pil_image
+            image = self.image
         # TODO: cancellable separate thread save? (at least after in-memory copy is made)
         with ScopedWaitCursor():
             self.statusbar.showMessage(f"Saving image {file_path}...", 5000)
@@ -611,8 +618,10 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
     def on_actionCrop_to_Selection_triggered(self):  # noqa
         # TODO: virtual crop, metadata only
         # TODO: what about existing image list?
+        if self.image.pil_image is None:
+            return
         self.undo_stack.push(CropToSelection(
-            self.pil_image,
+            self.image,
             self.imageWidgetGL.view_state.sel_rect,
             self,
             self.image_list[self.image_index],
