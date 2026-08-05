@@ -3,13 +3,10 @@ Intended as partial Replacement for ImageData, Texture
 """
 
 from ctypes import c_float, c_void_p, cast, sizeof
-import enum
-import json
 import logging
 from tifffile import TiffFileError
-from typing import Iterator, Optional
+from typing import Iterator
 
-import exiftool
 import numpy
 from numpy.typing import NDArray
 from OpenGL import GL
@@ -23,13 +20,11 @@ from PIL import Image
 from PySide6 import QtCore
 import tifffile
 
-# from vmg.exif_orientation import ExifOrientation
-from vmg.frame import DimensionsOmp
-from vmg.metadata import InputFormat, PhotometricScale, ImageMetadata
+from vmg.load_progress import LoadProgress
+from vmg.metadata import PhotometricScale, ImageMetadata
 from vmg.exif_orientation import ExifOrientation
 from vmg.interfaces import ImageLike, TileLike
 from vmg.resources import resource_string
-from vmg.util import sin_from_equi8
 
 logger = logging.getLogger(__name__)
 GLenum = int
@@ -37,20 +32,6 @@ GLint = int
 
 
 TILE_SIZE = 2048
-
-
-class LoadProgress(enum.Enum):
-    """Values are estimates of percent complete"""
-    NONE = 0
-    OBJECT_CREATED = 2
-    FILE_OPENED = 4
-    METADATA_LOADED = 15
-    ARRAY_CREATED = 40
-    TILES_CREATED = 65
-    TILES_UPLOADED = 90
-    DISPLAYED = 100
-    ERROR = -999
-
 
 gl_type_for_numpy_dtype = {
     numpy.dtype("int8"): GL.GL_BYTE,
@@ -120,19 +101,19 @@ class ImageLikeNew:
             with tifffile.TiffFile(file_name) as dng:
                 self.load_from_tifffile(dng, file_name)
                 return True
-        except TiffFileError as exc:
+        except TiffFileError:
             pass
         try:
             # Load as a PIL Image
             pil_image = Image.open(file_name)
             self.load_from_pil_image(pil_image, file_name)
             return True
-        except PIL.UnidentifiedImageError as e:
+        except PIL.UnidentifiedImageError:
             pass
         self.set_progress(LoadProgress.ERROR)
         return False
 
-    def load_from_pil_image(self, pil_image: PIL.Image, file_name: str):
+    def load_from_pil_image(self, pil_image: Image.Image, file_name: str):
         self.md.file_name = file_name
         self.pil_image = pil_image
         self.set_progress(LoadProgress.FILE_OPENED)
@@ -160,7 +141,7 @@ class ImageLikeNew:
             page = root_page
         # print(root_page.tags.get("AsShotNeutral").value)
         # Populate metadata
-        self.md.is_dng = page.is_dng
+        self.md.is_dng = page.is_dng  # noqa
         self.md.photometric_scale = PhotometricScale.LINEAR
         self.md.upper_bound = numpy.iinfo(page.dtype).max  # noqa
         self.md.load_exiftool(file_name)  # takes longer but life is short
@@ -193,79 +174,6 @@ class ImageLikeNew:
         self.sq.progress_changed.emit(progress.value, self)  # noqa
 
 
-class BasicImageLike(ImageLike):
-    def __init__(self):
-        self.sq = ImageSignaller()
-        self.set_progress(LoadProgress.OBJECT_CREATED)
-        logger.info("Image object created")
-        self._array = numpy.eye(1)
-        self.md = ImageMetadata()
-        self._tiles: list[TileLike] = []
-        self.load_progress = LoadProgress.NONE
-
-    @property
-    def array(self) -> NDArray:
-        return self._array
-
-    @property
-    def file_name(self) -> Optional[str]:
-        return self.md.file_name
-
-    @property
-    def input_format(self) -> InputFormat:
-        return self.md.input_format
-
-    @input_format.setter
-    def input_format(self, input_format: InputFormat) -> None:
-        self.md.input_format = input_format
-
-    @property
-    def orientation(self) -> ExifOrientation:
-        return self.md.orientation
-
-    @property
-    def photometric_scale(self) -> PhotometricScale:
-        return self.md.photometric_scale
-
-    @property
-    def raw_rot_ont(self) -> NDArray[numpy.floating]:
-        return self.md.pcm_R_geo
-
-    def set_progress(self, progress: LoadProgress):
-        self.load_progress = progress
-        self.sq.progress_changed.emit(progress.value, self)  # noqa
-
-    @property
-    def size_opx(self) -> DimensionsOmp:
-        return self.md.size_opx
-
-    @property
-    def size_raw(self) -> tuple[int, int]:
-        return self.md.size_rpx
-
-    def initialize_gl(self) -> None:
-        raise NotImplementedError
-
-    def paint_gl(self, program, view_state) -> None:
-        is_complete = True  # start optimistic
-        for tile in self.tiles():
-            GL.glUniformMatrix3fv(program.tile_X_img_location, 1, True, tile.tile_X_img)
-            GL.glUniform4f(program.uv_bounds_location, *tile.uv_bounds)
-            if not tile.paint_gl(view_state):
-                is_complete = False
-            if is_complete and self.load_progress != LoadProgress.DISPLAYED:
-                self.load_progress = LoadProgress.DISPLAYED
-                self.sq.image_displayed.emit(self)  # noqa
-            # break  # just one tile for testing
-
-    def tiles(self) -> Iterator[TileLike]:  # noqa
-        yield from self._tiles
-
-
-class InappropriateImageLoader(OSError):
-    pass
-
-
 class TileCreateInfo:
     """Parameters for creating a renderable image tile"""
     def __init__(self, image: ImageLikeNew, pad: int = 2):
@@ -281,40 +189,6 @@ class TileCreateInfo:
         self.internal_format: GLenum = GL.GL_RGBA
         self.tex_format: GLenum = self.internal_format
         self.data_type: GLenum = GL.GL_UNSIGNED_BYTE
-
-
-class PilImage(BasicImageLike):
-    def __init__(self, file_name: str):
-        super().__init__()
-        try:
-            pil_image = Image.open(file_name)
-        except PIL.UnidentifiedImageError as e:
-            raise InappropriateImageLoader() from e
-        self.md.file_name = file_name
-        self.sq.progress_changed.emit(2, self)  # noqa
-        self.md.load_pil_image(pil_image)  # Breaks exif orientation
-        # Create numpy array of image
-        self.sq.progress_changed.emit(15, self)  # noqa
-        # TODO: create a palette shader to avoid munging pixels here
-        if pil_image.mode in ["P",]:  # Palette image
-            pil_image = pil_image.convert("RGBA")
-        self._array = numpy.array(pil_image)
-
-        do_sinusoidal = False
-        if do_sinusoidal:
-            self.md.input_format = InputFormat.SINUSOIDAL
-            sin_from_equi8(self._array, self._array)
-
-        self.md.data_max = self._array.max()
-        self.pil_image = pil_image  # TODO: MainWindow needs refactor
-
-    def initialize_gl(self) -> None:
-        """
-        Construct tiles to be rendered
-        Call from loading thread with OpenGL context current
-        """
-        for tile in generate_tiles(self):
-            self._tiles.append(tile)
 
 
 class Tile(TileLike):
@@ -558,74 +432,6 @@ def generate_tiles(
         top_pad = pad
 
 
-class DngImage(BasicImageLike):
-    def __init__(self, file_name: str):
-        super().__init__()
-        try:
-            with tifffile.TiffFile(file_name) as dng:
-                self.set_progress(LoadProgress.FILE_OPENED)
-                root_page = dng.pages[0]
-                # Find raw image in ricoh theta Z1
-                page = None
-                for ix, series in enumerate(dng.series):
-                    print(f"Series {ix}: Shape {series.shape}, Dtype {series.dtype}")  # noqa
-                    if series.dtype == numpy.uint16:
-                        raw_page = series
-                        page = raw_page.pages[0]
-                if page is None:
-                    page = root_page
-                print(root_page.tags.get("AsShotNeutral").value)
-                # Populate metadata
-                self.md.file_name = file_name
-                self.md.photometric_scale = PhotometricScale.LINEAR
-                self.md.upper_bound = numpy.iinfo(page.dtype).max  # noqa
-                self.md.load_exiftool(file_name)  # takes longer but life is short
-                # self.md.load_tifffile_page(page)
-                self.set_progress(LoadProgress.METADATA_LOADED)
-                # Slurp the raw bytes
-                self._array = page.asarray()
-                self.set_progress(LoadProgress.ARRAY_CREATED)
-        except TiffFileError as exc:
-            raise InappropriateImageLoader() from exc
-        self.md.data_max = self._array.max()
-        self.bayer_array = self._array
-        try:
-            self.pil_image = Image.fromarray(self.bayer_array)
-        except TypeError as _exc:
-            self.pil_image = None  # TODO: maybe disable cropping too...
-
-    def initialize_gl(self) -> None:
-        """
-        Construct tiles to be rendered
-        Call from loading thread with OpenGL context current
-        """
-        assert self.bayer_array.dtype == numpy.uint16
-        for tile in generate_tiles(
-            image=self,
-            pad=6,
-            tex_format=GL.GL_R16,
-            tile_class=DngTile,
-        ):
-            self._tiles.append(tile)
-
-    def paint_gl(self, program, tile_X_img_location: GLint = -1, uv_bounds_location: GLint = -1) -> None:
-        is_complete = True  # start optimistic
-        for tile in self.tiles():
-            GL.glUniformMatrix3fv(program.tile_X_img_location, 1, True, tile.tile_X_img)
-            GL.glUniform4f(program.uv_bounds_location, *tile.uv_bounds)
-            program.uDemosaicTile.set(1, tile.demosaic_texture_id)
-            program.uBayerTile.set(0, tile.bayer_texture_id)
-            if not tile.paint_gl(None):
-                is_complete = False
-            if is_complete and self.load_progress != LoadProgress.DISPLAYED:
-                self.load_progress = LoadProgress.DISPLAYED
-                self.sq.image_displayed.emit(self)  # noqa
-            # break  # just one tile for testing
-
-    def tiles(self) -> Iterator[TileLike]:  # TODO: protocol for dng tiles
-        yield from super().tiles()
-
-
 class DngTile(Tile):
     # Loader thread resources:
     demosaic_framebuffer = None
@@ -828,12 +634,6 @@ class DngTile(Tile):
         GL.glBindVertexArray(self.render_vao)
         GL.glBindBuffer(GL.GL_ELEMENT_ARRAY_BUFFER, self.boundary_ebo)
         GL.glDrawElements(GL.GL_LINE_LOOP, 4, GL.GL_UNSIGNED_INT, None)
-
-
-def load_metadata(path):
-    with exiftool.ExifTool() as et:
-        raw = et.execute("-j", path)
-        return json.loads(raw)[0]
 
 
 def opx_for_rmp(rmp: tuple[int, int], size_rmp: tuple[int, int], orientation: ExifOrientation) -> tuple[int, int]:

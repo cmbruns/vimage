@@ -1,13 +1,12 @@
 from abc import ABC, abstractmethod
-from typing import Any, Iterator, Protocol
+from typing import Any, Protocol, Optional
 
 import numpy
 from numpy.typing import NDArray
+from PIL import Image
 
 from vmg.display_projection import DisplayProjection
-from vmg.exif_orientation import ExifOrientation
-from vmg.frame import DimensionsOmp
-from vmg.metadata import InputFormat, PhotometricScale
+from vmg.load_progress import LoadProgress
 from vmg.pixel_filter import PixelFilter
 
 
@@ -15,71 +14,25 @@ Float = float  # Make inspection stfu about "| int"
 GLint = int
 
 
-class ImageLike(ABC):
+class ImageMetadataLike(Protocol):
+    file_name: Optional[str]
+
+
+class ImageSignallerLike(Protocol):
+    pass
+
+
+class ImageLike(Protocol):
     """A loaded image with GL lifecycle and tile emission."""
+    sq: ImageSignallerLike
+    md: ImageMetadataLike
+    tiles: list[TileLike]
+    load_progress: LoadProgress
+    array: NDArray
+    pil_image: Optional[Image.Image]
 
-    # --- Required attributes (getter + setter) ---
-
-    @property
-    @abstractmethod
-    def array(self) -> NDArray:
-        ...
-
-    @property
-    @abstractmethod
-    def file_name(self) -> str:
-        ...
-
-    @property
-    @abstractmethod
-    def input_format(self) -> InputFormat:
-        ...
-
-    # Setter because user can manually change input format
-    @input_format.setter
-    @abstractmethod
-    def input_format(self, value: InputFormat) -> None:
-        ...
-
-    @property
-    @abstractmethod
-    def orientation(self) -> ExifOrientation:
-        ...
-
-    @property
-    @abstractmethod
-    def photometric_scale(self) -> PhotometricScale:
-        ...
-
-    @property
-    @abstractmethod
-    def raw_rot_ont(self) -> NDArray[numpy.floating]:
-        """3×3 float32 pano camera orientation matrix."""
-        ...
-
-    @property
-    @abstractmethod
-    def size_opx(self) -> DimensionsOmp:
-        ...
-
-    @property
-    @abstractmethod
-    def size_raw(self) -> tuple[int, int]:
-        ...
-
-    # --- Required methods ---
-
-    @abstractmethod
     def initialize_gl(self) -> None:
-        """Create OpenGL resources in the loading thread"""
-
-    @abstractmethod
-    def paint_gl(self, program, view_state) -> None:
-        """Display image in the UI thread"""
-
-    @abstractmethod
-    def tiles(self) -> Iterator[TileLike]:
-        """Display image in the UI thread"""
+        ...
 
 
 class ShaderProgramLike(ABC):
@@ -98,13 +51,16 @@ class TileLike(Protocol):
     """A rectangular region of an image backed by a GL texture."""
     uv_bounds: tuple[Float, Float, Float, Float]
 
-    @property
-    def tile_X_img(self) -> NDArray[numpy.floating]:
-        """3×3 float32 transform from tile to image space."""
+    def is_ready(self) -> bool:
         ...
 
     def paint_gl(self, view_state: RenderStateLike) -> bool:
         """Bind textures and VBOs and issue draw calls."""
+
+    @property
+    def tile_X_img(self) -> NDArray[numpy.floating]:
+        """3×3 float32 transform from tile to image space."""
+        ...
 
 
 class RenderStateLike(Protocol):

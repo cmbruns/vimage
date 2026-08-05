@@ -1,3 +1,5 @@
+from typing import Optional
+
 import enum
 import json
 import logging
@@ -44,7 +46,7 @@ class ImageMetadata:
     def __init__(self):
         # Reasonable defaults wherever possible
         # General metadata
-        self.file_name = None
+        self.file_name: Optional[str] = None
         self.size_opx = DimensionsOmp(1, 1)  # logical size, exif oriented
         self.size_rpx = (1, 1)  # raw array size
         self.orientation: ExifOrientation = ExifOrientation.ROTATE_0
@@ -74,7 +76,7 @@ class ImageMetadata:
         self.color_matrix2 = None
         self.calibration_illuminant1 = LightSource.STANDARD_LIGHT_A
         self.calibration_illuminant2 = LightSource.D65
-        # Convert camera sensor reference values to linear sRGB
+        # Convert camera sensor reference values to linear srgb
         self.lsr_X_wba = numpy.eye(3, dtype=numpy.float32)
         self.baseline_exposure = 0.0
 
@@ -115,12 +117,12 @@ class ImageMetadata:
             exif_tags = exif_ifd.value
             # print(exif_tags)
             if 274 in exif_tags:
-                orientation_index = exif_tags[274].value
+                _orientation_index = exif_tags[274].value
                 # print(f"orientation {orientation_index}")
                 # TODO
         w, h = self.size_opx
         # TODO: pano orientation
-        xmp_tag = page.tags.get("XMP")
+        _xmp_tag = page.tags.get("XMP")
         # print("XMP tag", xmp_tag)
         # Input format  TODO: subtler decision tree
         if w == 2 * h:
@@ -144,7 +146,7 @@ class ImageMetadata:
         # print("WhiteLevel:", self.white_level)
         asn = page.tags['AsShotNeutral'].value
         assert len(asn) == 6
-        as_shot_neutral = asn[0]/asn[1], asn[2]/asn[3], asn[4]/asn[5]
+        _as_shot_neutral = asn[0]/asn[1], asn[2]/asn[3], asn[4]/asn[5]
         cm = page.tags['ColorMatrix1'].value
         assert len(cm) == 18
         a = numpy.array(cm, numpy.float32).reshape(9, 2)
@@ -213,7 +215,7 @@ class ImageMetadata:
                 for d in desc_list:
                     if "PoseHeadingDegrees" in d:
                         self.pose_heading_degrees = float(d["PoseHeadingDegrees"])
-                        is_pano = True
+                        _is_pano = True
                     if "PosePitchDegrees" in d:
                         self.pose_pitch_degrees = float(d["PosePitchDegrees"])
                     if "PoseRollDegrees" in d:
