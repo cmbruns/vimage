@@ -64,32 +64,93 @@ app = BUNDLE(
 	    "CFBundlePackageType": "APPL",
 	    "CFBundleShortVersionString": "0.0.0",
 	    "NSHighResolutionCapable": True,
-	    'CFBundleDocumentTypes': [
-	        {
+        'CFBundleDocumentTypes': [
+            # GIF
+            {
                 'CFBundleTypeName': 'GIF Image',
                 'CFBundleTypeRole': 'Viewer',
                 'LSItemContentTypes': ['com.compuserve.gif'],
-                'LSHandlerRank': 'Default'
+                'LSHandlerRank': 'Alternate'
             },
+
+            # JPEG (.jpg, .jpeg)
             {
-                # Use EITHER LSItemContentTypes, or CFBundleTypeExtensions+CFBundleTypeMIMETypes
-                'CFBundleTypeName': 'public.jpeg',
+                'CFBundleTypeName': 'JPEG Image',
                 'CFBundleTypeRole': 'Viewer',
                 'LSItemContentTypes': ['public.jpeg'],
-                'LSHandlerRank': 'Default'
+                'LSHandlerRank': 'Alternate'
             },
+
+            # PNG
             {
-                'CFBundleTypeName': 'public.png',
+                'CFBundleTypeName': 'PNG Image',
                 'CFBundleTypeRole': 'Viewer',
                 'LSItemContentTypes': ['public.png'],
-                'LSHandlerRank': 'Default'
+                'LSHandlerRank': 'Alternate'
             },
+
+            # BMP
             {
-                'CFBundleTypeExtensions': ['heif', 'HEIF', 'heic', 'HEIC'],
-                'CFBundleTypeMIMETypes': ['image/heic'],
-                'CFBundleTypeName': ['High Efficiency Image File Format'],
+                'CFBundleTypeName': 'Bitmap Image',
                 'CFBundleTypeRole': 'Viewer',
-                'LSHandlerRank': 'Default',
+                'LSItemContentTypes': ['com.microsoft.bmp'],
+                'LSHandlerRank': 'Alternate'
+            },
+
+            # DNG
+            {
+                'CFBundleTypeName': 'Digital Negative Image',
+                'CFBundleTypeRole': 'Viewer',
+                'LSItemContentTypes': ['com.adobe.raw-image'],
+                'LSHandlerRank': 'Alternate'
+            },
+
+            # HEIC / HEIF
+            {
+                'CFBundleTypeName': 'High Efficiency Image File Format',
+                'CFBundleTypeRole': 'Viewer',
+                'LSItemContentTypes': ['public.heic', 'public.heif'],
+                'LSHandlerRank': 'Alternate'
+            },
+
+            # PBM
+            {
+                'CFBundleTypeName': 'Portable Bitmap',
+                'CFBundleTypeRole': 'Viewer',
+                'LSItemContentTypes': ['public.pbm'],
+                'LSHandlerRank': 'Alternate'
+            },
+
+            # PGM
+            {
+                'CFBundleTypeName': 'Portable Graymap',
+                'CFBundleTypeRole': 'Viewer',
+                'LSItemContentTypes': ['public.pgm'],
+                'LSHandlerRank': 'Alternate'
+            },
+
+            # PPM
+            {
+                'CFBundleTypeName': 'Portable Pixmap',
+                'CFBundleTypeRole': 'Viewer',
+                'LSItemContentTypes': ['public.ppm'],
+                'LSHandlerRank': 'Alternate'
+            },
+
+            # TIFF (.tif, .tiff)
+            {
+                'CFBundleTypeName': 'TIFF Image',
+                'CFBundleTypeRole': 'Viewer',
+                'LSItemContentTypes': ['public.tiff'],
+                'LSHandlerRank': 'Alternate'
+            },
+
+            # WebP
+            {
+                'CFBundleTypeName': 'WebP Image',
+                'CFBundleTypeRole': 'Viewer',
+                'LSItemContentTypes': ['org.webmproject.webp'],
+                'LSHandlerRank': 'Alternate'
             },
         ]
     }

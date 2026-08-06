@@ -1,0 +1,13 @@
+[Added Associations]
+image/jpeg=vimage.desktop;
+image/png=vimage.desktop;
+image/bmp=vimage.desktop;
+image/x-adobe-dng=vimage.desktop;
+image/heic=vimage.desktop;
+image/heif=vimage.desktop;
+image/gif=vimage.desktop;
+image/x-portable-bitmap=vimage.desktop;
+image/x-portable-graymap=vimage.desktop;
+image/x-portable-pixmap=vimage.desktop;
+image/tiff=vimage.desktop;
+image/webp=vimage.desktop;
