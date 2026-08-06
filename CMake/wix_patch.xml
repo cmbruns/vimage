@@ -2,36 +2,25 @@
 <CPackWiXPatch>
   <CPackWiXFragment Id="#PRODUCT">
 
-    <!-- Add to checkbox to launch program after install -->
+    <!-- Launch vimage after install -->
     <UI>
-        <UIRef Id="$(var.CPACK_WIX_UI_REF)" />
-        <Publish Dialog="ExitDialog"
-            Control="Finish"
-            Event="DoAction"
-            Value="LaunchApplication">WIXUI_EXITDIALOGOPTIONALCHECKBOX = 1 and NOT Installed</Publish>
+      <UIRef Id="$(var.CPACK_WIX_UI_REF)" />
+      <Publish Dialog="ExitDialog"
+               Control="Finish"
+               Event="DoAction"
+               Value="LaunchApplication">WIXUI_EXITDIALOGOPTIONALCHECKBOX = 1 and NOT Installed</Publish>
     </UI>
     <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT" Value="Launch vimage" />
     <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOX" Value="1"/>
     <Property Id="WixShellExecTarget" Value="[#CM_FP_vimage.exe]" />
     <CustomAction Id="LaunchApplication" BinaryKey="WixCA" DllEntry="WixShellExec" Impersonate="yes"/>
 
-    <!-- A) Register vimage as capable of opening JPEG files -->
+    <!-- JPEG: .jpg -->
     <Component Id="JpgOpenAssociation" Directory="INSTALL_ROOT" Guid="22490909-4583-4ff7-8bc4-3b79697daab3">
       <CreateFolder />
       <ProgId Id="jpgType" Description="JPEG Image">
-        <Extension Id='jpg' ContentType="image/jpeg">
-          <Verb Id='open' Command='Open' TargetProperty="FileAssociationProperty" Argument='"%1"' />
-          <MIME ContentType="image/jpeg" Default="yes" />
-          <MIME ContentType="image/pjpeg" Default="no" />
-          <MIME ContentType="image/jpg" Default="no" />
-        </Extension>
-      </ProgId>
-    </Component>
-    <Component Id="JpegOpenAssociation" Directory="INSTALL_ROOT" Guid="2d248164-f82b-48f5-bcb0-0661d9cea300">
-      <CreateFolder />
-      <ProgId Id="jpegType" Description="JPEG Image">
-        <Extension Id='jpeg' ContentType="image/jpeg">
-          <Verb Id='open' Command='Open' TargetProperty="FileAssociationProperty" Argument='"%1"' />
+        <Extension Id="jpg" ContentType="image/jpeg">
+          <Verb Id="open" Command="Open" TargetProperty="FileAssociationProperty" Argument="&quot;%1&quot;" />
           <MIME ContentType="image/jpeg" Default="yes" />
           <MIME ContentType="image/pjpeg" Default="no" />
           <MIME ContentType="image/jpg" Default="no" />
@@ -39,58 +28,310 @@
       </ProgId>
     </Component>
 
+    <!-- JPEG: .jpeg -->
+    <Component Id="JpegOpenAssociation" Directory="INSTALL_ROOT" Guid="2d248164-f82b-48f5-bcb0-0661d9cea300">
+      <CreateFolder />
+      <ProgId Id="jpegType" Description="JPEG Image">
+        <Extension Id="jpeg" ContentType="image/jpeg">
+          <Verb Id="open" Command="Open" TargetProperty="FileAssociationProperty" Argument="&quot;%1&quot;" />
+          <MIME ContentType="image/jpeg" Default="yes" />
+          <MIME ContentType="image/pjpeg" Default="no" />
+          <MIME ContentType="image/jpg" Default="no" />
+        </Extension>
+      </ProgId>
+    </Component>
+
+    <!-- PNG -->
     <Component Id="PngOpenAssociation" Directory="INSTALL_ROOT" Guid="6f2552b6-aff7-45bb-a6f8-d9a270c0d76a">
       <CreateFolder />
       <ProgId Id="pngType" Description="PNG Image">
-        <Extension Id='png' ContentType="image/png">
-          <Verb Id='open' Command='Open' TargetProperty="FileAssociationProperty" Argument='"%1"' />
+        <Extension Id="png" ContentType="image/png">
+          <Verb Id="open" Command="Open" TargetProperty="FileAssociationProperty" Argument="&quot;%1&quot;" />
           <MIME ContentType="image/png" Default="yes" />
         </Extension>
       </ProgId>
     </Component>
 
-    <!-- Make vimage the DEFAULT viewer for jpeg files; NOT WORKING YET -->
-    <Component Id="JpegDefaultAssociation" Directory="INSTALL_ROOT" Guid="fdca15ce-f870-4063-a271-367c508a0231">
+    <!-- BMP -->
+    <Component Id="BmpOpenAssociation" Directory="INSTALL_ROOT" Guid="b5c7b4b5-5c1a-4f3c-9c7a-0b1f2c3d4e5f">
       <CreateFolder />
-      <!-- TODO: this is not enough
-        Maybe try more stuff from this stackoverflow answer:
-        https://stackoverflow.com/a/909334/146574
-      -->
-      <!-- <RegistryValue Root="HKLM" Key="SOFTWARE\Classes\.jpg\OpenWithProgids"
-                     Name="vimage.jpgType" Value="" Type="string" /> -->
+      <ProgId Id="bmpType" Description="Bitmap Image">
+        <Extension Id="bmp" ContentType="image/bmp">
+          <Verb Id="open" Command="Open" TargetProperty="FileAssociationProperty" Argument="&quot;%1&quot;" />
+          <MIME ContentType="image/bmp" Default="yes" />
+        </Extension>
+      </ProgId>
     </Component>
 
-    <!-- Trick to avoid error ICE69 when using TargetFile attribute in file associations -->
+    <!-- DNG -->
+    <Component Id="DngOpenAssociation" Directory="INSTALL_ROOT" Guid="c1d2e3f4-5678-4abc-9def-0123456789ab">
+      <CreateFolder />
+      <ProgId Id="dngType" Description="Digital Negative Image">
+        <Extension Id="dng" ContentType="image/x-adobe-dng">
+          <Verb Id="open" Command="Open" TargetProperty="FileAssociationProperty" Argument="&quot;%1&quot;" />
+          <MIME ContentType="image/x-adobe-dng" Default="yes" />
+        </Extension>
+      </ProgId>
+    </Component>
+
+    <!-- HEIC -->
+    <Component Id="HeicOpenAssociation" Directory="INSTALL_ROOT" Guid="d2e3f4a5-6789-4bcd-8efa-1234567890ab">
+      <CreateFolder />
+      <ProgId Id="heicType" Description="HEIC Image">
+        <Extension Id="heic" ContentType="image/heic">
+          <Verb Id="open" Command="Open" TargetProperty="FileAssociationProperty" Argument="&quot;%1&quot;" />
+          <MIME ContentType="image/heic" Default="yes" />
+        </Extension>
+      </ProgId>
+    </Component>
+
+    <!-- HEIF -->
+    <Component Id="HeifOpenAssociation" Directory="INSTALL_ROOT" Guid="e3f4a5b6-7890-4cde-9fab-2345678901ab">
+      <CreateFolder />
+      <ProgId Id="heifType" Description="HEIF Image">
+        <Extension Id="heif" ContentType="image/heif">
+          <Verb Id="open" Command="Open" TargetProperty="FileAssociationProperty" Argument="&quot;%1&quot;" />
+          <MIME ContentType="image/heif" Default="yes" />
+        </Extension>
+      </ProgId>
+    </Component>
+
+    <!-- GIF -->
+    <Component Id="GifOpenAssociation" Directory="INSTALL_ROOT" Guid="f4a5b6c7-8901-4def-8abc-3456789012ab">
+      <CreateFolder />
+      <ProgId Id="gifType" Description="GIF Image">
+        <Extension Id="gif" ContentType="image/gif">
+          <Verb Id="open" Command="Open" TargetProperty="FileAssociationProperty" Argument="&quot;%1&quot;" />
+          <MIME ContentType="image/gif" Default="yes" />
+        </Extension>
+      </ProgId>
+    </Component>
+
+    <!-- PBM -->
+    <Component Id="PbmOpenAssociation" Directory="INSTALL_ROOT" Guid="a6b7c8d9-0123-4abc-9def-4567890123ab">
+      <CreateFolder />
+      <ProgId Id="pbmType" Description="Portable Bitmap">
+        <Extension Id="pbm" ContentType="image/x-portable-bitmap">
+          <Verb Id="open" Command="Open" TargetProperty="FileAssociationProperty" Argument="&quot;%1&quot;" />
+          <MIME ContentType="image/x-portable-bitmap" Default="yes" />
+        </Extension>
+      </ProgId>
+    </Component>
+
+    <!-- PGM -->
+    <Component Id="PgmOpenAssociation" Directory="INSTALL_ROOT" Guid="b7c8d9e0-1234-4bcd-8efa-5678901234ab">
+      <CreateFolder />
+      <ProgId Id="pgmType" Description="Portable Graymap">
+        <Extension Id="pgm" ContentType="image/x-portable-graymap">
+          <Verb Id="open" Command="Open" TargetProperty="FileAssociationProperty" Argument="&quot;%1&quot;" />
+          <MIME ContentType="image/x-portable-graymap" Default="yes" />
+        </Extension>
+      </ProgId>
+    </Component>
+
+    <!-- PPM -->
+    <Component Id="PpmOpenAssociation" Directory="INSTALL_ROOT" Guid="c8d9e0f1-2345-4cde-9fab-6789012345ab">
+      <CreateFolder />
+      <ProgId Id="ppmType" Description="Portable Pixmap">
+        <Extension Id="ppm" ContentType="image/x-portable-pixmap">
+          <Verb Id="open" Command="Open" TargetProperty="FileAssociationProperty" Argument="&quot;%1&quot;" />
+          <MIME ContentType="image/x-portable-pixmap" Default="yes" />
+        </Extension>
+      </ProgId>
+    </Component>
+
+    <!-- TIFF: .tif -->
+    <Component Id="TifOpenAssociation" Directory="INSTALL_ROOT" Guid="d9e0f1a2-3456-4def-8abc-7890123456ab">
+      <CreateFolder />
+      <ProgId Id="tifType" Description="TIFF Image">
+        <Extension Id="tif" ContentType="image/tiff">
+          <Verb Id="open" Command="Open" TargetProperty="FileAssociationProperty" Argument="&quot;%1&quot;" />
+          <MIME ContentType="image/tiff" Default="yes" />
+        </Extension>
+      </ProgId>
+    </Component>
+
+    <!-- TIFF: .tiff -->
+    <Component Id="TiffOpenAssociation" Directory="INSTALL_ROOT" Guid="e0f1a2b3-4567-4abc-9def-8901234567ab">
+      <CreateFolder />
+      <ProgId Id="tiffType" Description="TIFF Image">
+        <Extension Id="tiff" ContentType="image/tiff">
+          <Verb Id="open" Command="Open" TargetProperty="FileAssociationProperty" Argument="&quot;%1&quot;" />
+          <MIME ContentType="image/tiff" Default="yes" />
+        </Extension>
+      </ProgId>
+    </Component>
+
+    <!-- WEBP -->
+    <Component Id="WebpOpenAssociation" Directory="INSTALL_ROOT" Guid="f1a2b3c4-5678-4bcd-8efa-9012345678ab">
+      <CreateFolder />
+      <ProgId Id="webpType" Description="WebP Image">
+        <Extension Id="webp" ContentType="image/webp">
+          <Verb Id="open" Command="Open" TargetProperty="FileAssociationProperty" Argument="&quot;%1&quot;" />
+          <MIME ContentType="image/webp" Default="yes" />
+        </Extension>
+      </ProgId>
+    </Component>
+
+    <!-- Placeholder for "default viewer" registry work (still disabled) -->
+    <Component Id="JpegDefaultAssociation" Directory="INSTALL_ROOT" Guid="fdca15ce-f870-4063-a271-367c508a0231">
+      <CreateFolder />
+      <!-- TODO: default-association registry entries if/when you want hard default -->
+    </Component>
+
+    <!-- Trick to avoid ICE69 when using TargetProperty in file associations -->
     <SetProperty Id="FileAssociationProperty" Value="[INSTALL_ROOT]vimage.exe" After="CostFinalize" />
 
   </CPackWiXFragment>
 
   <CPackWiXFragment Id="#PRODUCTFEATURE">
-    <!-- B) Always allow "Open with vimage" -->
+
+    <!-- Always allow "Open with vimage" for all supported types -->
     <ComponentRef Id="JpgOpenAssociation" />
     <ComponentRef Id="JpegOpenAssociation" />
     <ComponentRef Id="PngOpenAssociation" />
+    <ComponentRef Id="BmpOpenAssociation" />
+    <ComponentRef Id="DngOpenAssociation" />
+    <ComponentRef Id="HeicOpenAssociation" />
+    <ComponentRef Id="HeifOpenAssociation" />
+    <ComponentRef Id="GifOpenAssociation" />
+    <ComponentRef Id="PbmOpenAssociation" />
+    <ComponentRef Id="PgmOpenAssociation" />
+    <ComponentRef Id="PpmOpenAssociation" />
+    <ComponentRef Id="TifOpenAssociation" />
+    <ComponentRef Id="TiffOpenAssociation" />
+    <ComponentRef Id="WebpOpenAssociation" />
 
-    <!-- Optionally make vimage the default viewer for certain image file types
-    [DISABLED at the moment; it's not working yet]
-    -->
+    <!-- Optional default file-type associations (installer asks via checkboxes) -->
     <Feature Id="FiletypesFeature"
              Title="Default File Type Associations"
-             Description="Always use vimage to open these image file types"
-             Display="expand" AllowAdvertise="no"
+             Description="Use vimage to open selected image file types by default"
+             Display="expand"
+             AllowAdvertise="no"
              InstallDefault="local"
-             Absent="disallow"
-    >
+             Absent="allow">
 
-      <!-- Jpeg default open feature -->
       <Feature Id="JpegTypesFeature"
                Title="*.jpg and *.jpeg files"
                Description="Always use vimage to open JPEG images"
                AllowAdvertise="no"
                InstallDefault="local"
                Absent="allow"
-               Level="0">  <!-- 0: disable for now... -->
+               Level="1">
+        <ComponentRef Id="JpgOpenAssociation" />
+        <ComponentRef Id="JpegOpenAssociation" />
         <ComponentRef Id="JpegDefaultAssociation" />
+      </Feature>
+
+      <Feature Id="PngFeature"
+               Title="*.png files"
+               Description="Always use vimage to open PNG images"
+               AllowAdvertise="no"
+               InstallDefault="local"
+               Absent="allow"
+               Level="1">
+        <ComponentRef Id="PngOpenAssociation" />
+      </Feature>
+
+      <Feature Id="BmpFeature"
+               Title="*.bmp files"
+               Description="Always use vimage to open BMP images"
+               AllowAdvertise="no"
+               InstallDefault="local"
+               Absent="allow"
+               Level="1">
+        <ComponentRef Id="BmpOpenAssociation" />
+      </Feature>
+
+      <Feature Id="DngFeature"
+               Title="*.dng files"
+               Description="Always use vimage to open DNG images"
+               AllowAdvertise="no"
+               InstallDefault="local"
+               Absent="allow"
+               Level="1">
+        <ComponentRef Id="DngOpenAssociation" />
+      </Feature>
+
+      <Feature Id="HeicFeature"
+               Title="*.heic files"
+               Description="Always use vimage to open HEIC images"
+               AllowAdvertise="no"
+               InstallDefault="local"
+               Absent="allow"
+               Level="1">
+        <ComponentRef Id="HeicOpenAssociation" />
+      </Feature>
+
+      <Feature Id="HeifFeature"
+               Title="*.heif files"
+               Description="Always use vimage to open HEIF images"
+               AllowAdvertise="no"
+               InstallDefault="local"
+               Absent="allow"
+               Level="1">
+        <ComponentRef Id="HeifOpenAssociation" />
+      </Feature>
+
+      <Feature Id="GifFeature"
+               Title="*.gif files"
+               Description="Always use vimage to open GIF images"
+               AllowAdvertise="no"
+               InstallDefault="local"
+               Absent="allow"
+               Level="1">
+        <ComponentRef Id="GifOpenAssociation" />
+      </Feature>
+
+      <Feature Id="PbmFeature"
+               Title="*.pbm files"
+               Description="Always use vimage to open PBM images"
+               AllowAdvertise="no"
+               InstallDefault="local"
+               Absent="allow"
+               Level="1">
+        <ComponentRef Id="PbmOpenAssociation" />
+      </Feature>
+
+      <Feature Id="PgmFeature"
+               Title="*.pgm files"
+               Description="Always use vimage to open PGM images"
+               AllowAdvertise="no"
+               InstallDefault="local"
+               Absent="allow"
+               Level="1">
+        <ComponentRef Id="PgmOpenAssociation" />
+      </Feature>
+
+      <Feature Id="PpmFeature"
+               Title="*.ppm files"
+               Description="Always use vimage to open PPM images"
+               AllowAdvertise="no"
+               InstallDefault="local"
+               Absent="allow"
+               Level="1">
+        <ComponentRef Id="PpmOpenAssociation" />
+      </Feature>
+
+      <Feature Id="TiffFeature"
+               Title="*.tif and *.tiff files"
+               Description="Always use vimage to open TIFF images"
+               AllowAdvertise="no"
+               InstallDefault="local"
+               Absent="allow"
+               Level="1">
+        <ComponentRef Id="TifOpenAssociation" />
+        <ComponentRef Id="TiffOpenAssociation" />
+      </Feature>
+
+      <Feature Id="WebpFeature"
+               Title="*.webp files"
+               Description="Always use vimage to open WebP images"
+               AllowAdvertise="no"
+               InstallDefault="local"
+               Absent="allow"
+               Level="1">
+        <ComponentRef Id="WebpOpenAssociation" />
       </Feature>
 
     </Feature>

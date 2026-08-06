@@ -13,6 +13,7 @@ a = Analysis(
     datas=[
      ("../vmg/glsl/*.vert", "vmg/glsl"),
      ("../vmg/glsl/*.frag", "vmg/glsl"),
+     ("../vmg/glsl/*.geom", "vmg/glsl"),
      ("../vmg/images/*", "vmg/images"),
      ("../vmg/git_hash.txt", "vmg"),
      ("../vmg/lib/*.dll", "vmg/lib"),

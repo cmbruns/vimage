@@ -249,7 +249,16 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
             self,
             "Save Image to File",
             default_name,
-            filter="PNG Images (*.png);;JPEG Images(*.jpg *.jpeg);;All files (*.*)",
+            filter=(
+                "PNG Images (*.png)"
+                ";;JPEG Images(*.jpg *.jpeg)"
+                ";;TIFF Images(*.tif *.tiff)"
+                ";;WEBP Images(*.webp)"
+                ";;BMP Images(*.bmp)"
+                ";;PPM Images(*.ppm *.pgm *.pbm)"
+                ";;GIF Images(*.gif)"
+                ";;All files (*.*)"
+            ),
             selectedFilter="PNG Files (*.png)",
         )
         if len(file_path) < 1:
@@ -384,14 +393,21 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
                 continue  # Skip the triggering file
             # Accept all suffixes for supported image types
             if file.suffix.lower() in (
-                ".bmp",
-                ".dng",
-                ".heic",
-                ".heif",
-                ".png",
-                ".jpg",
-                ".jpeg",
-            ):  # TODO: is_image
+                    ".bmp",
+                    ".dng",
+                    ".heic",
+                    ".heif",
+                    ".gif",
+                    ".pbm",
+                    ".pgm",
+                    ".ppm",
+                    ".png",
+                    ".jpg",
+                    ".jpeg",
+                    ".tif",
+                    ".tiff",
+                    ".webp",
+            ):
                 paths_list.append(file)
         self.set_image_list(paths_list, 0)
 
@@ -839,7 +855,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
     @QtCore.Slot()  # noqa
     def on_actionSave_As_triggered(self):  # noqa
         default_name = f"{pathlib.Path(self._current_file_name).stem}"
-        file_path = self._dialog_and_save_image(self.pil_image, default_name=default_name)
+        file_path = self._dialog_and_save_image(self.image, default_name=default_name)
         if os.path.exists(file_path):
             self.set_current_image_path(file_path)
             self.undo_stack.setClean()

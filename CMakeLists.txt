@@ -1,9 +1,10 @@
 cmake_minimum_required(VERSION 3.12)  # Requires 3.12+ for C++20 support
 project(vimage LANGUAGES CXX)  # CXX because of binary helpers
 
-option(BUILD_BINARY_UTILS "Build binary utilities" ON)
+option(BUILD_BINARY_UTILS "Build binary utilities" OFF)
 option(BUILD_INSTALLER "BuildInstaller" ON)
 
+# TODO: binary utils should be a whole separate cmake, distinct from pyinstaller
 if (BUILD_BINARY_UTILS)
 add_subdirectory(csrc)  # compiled helpers
 endif()
@@ -77,10 +78,22 @@ find_program(UIC NAMES PySide6-uic pyside6-uic
     /usr/local/bin/
 )
 add_custom_command(
-    OUTPUT "${CMAKE_SOURCE_DIR}/vmg/ui_vimage.py"
+    OUTPUT "${CMAKE_SOURCE_DIR}/vmg/ui/ui_vimage.py"
     COMMAND "${UIC}" vimage.ui -o ui_vimage.py
-    DEPENDS "${CMAKE_SOURCE_DIR}/vmg/vimage.ui"
-    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/vmg"
+    DEPENDS "${CMAKE_SOURCE_DIR}/vmg/ui/vimage.ui"
+    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/vmg/ui"
+)
+add_custom_command(
+    OUTPUT "${CMAKE_SOURCE_DIR}/vmg/ui/ui_log.py"
+    COMMAND "${UIC}" vimage.ui -o ui_vimage.py
+    DEPENDS "${CMAKE_SOURCE_DIR}/vmg/ui/log.ui"
+    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/vmg/ui"
+)
+add_custom_command(
+    OUTPUT "${CMAKE_SOURCE_DIR}/vmg/ui/ui_lens_parameters.py"
+    COMMAND "${UIC}" vimage.ui -o ui_vimage.py
+    DEPENDS "${CMAKE_SOURCE_DIR}/vmg/ui/lens_parameters_dialog.ui"
+    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/vmg/ui"
 )
 
 find_program(PYINSTALLER pyinstaller
@@ -147,8 +160,8 @@ set(CPACK_PACKAGE_DESCRIPTION "vimage desktop image file viewer")
 if (WIN32)
   set(CPACK_GENERATOR WIX)
   set(CPACK_WIX_UPGRADE_GUID F1CA83FC-4F1B-42A3-B033-4D597CAD1A37)
-  # set(CPACK_WIX_UI_REF WixUI_FeatureTree)  # To show selectable feature tree
-  set(CPACK_WIX_UI_REF WixUI_InstallDir)  # No Feature selection for now
+  set(CPACK_WIX_UI_REF WixUI_FeatureTree)  # To show selectable feature tree
+  # set(CPACK_WIX_UI_REF WixUI_InstallDir)  # No Feature selection for now
   set(CPACK_WIX_PRODUCT_ICON "${CMAKE_SOURCE_DIR}/vmg/images/vimage2.ico")
   SET(CPACK_WIX_EXTENSIONS WixUtilExtension)
   set(CPACK_WIX_PATCH_FILE "${CMAKE_SOURCE_DIR}/CMake/wix_patch.xml")
