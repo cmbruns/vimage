@@ -11,7 +11,7 @@ a = Analysis(
         ("../vmg/glsl/*.geom", "vmg/glsl"),
         ("../vmg/images/*", "vmg/images"),
         ("../vmg/git_hash.txt", "vmg"),
-        ("../vmg/lib/*.dylib", "vmg/lib"),
+        # ("../vmg/lib/*.dylib", "vmg/lib"),
     ],
     hiddenimports=["vmg.glsl", "vmg.lib"],
     hookspath=[],

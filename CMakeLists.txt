@@ -74,6 +74,7 @@ endif()
 find_program(UIC NAMES PySide6-uic pyside6-uic
   HINTS
     ${CMAKE_SOURCE_DIR}/.venv/bin/
+    ${CMAKE_SOURCE_DIR}/venv/bin/
     /Library/Frameworks/Python.framework/Versions/3.14/bin/
     /usr/local/bin/
 )
@@ -99,6 +100,7 @@ add_custom_command(
 find_program(PYINSTALLER pyinstaller
     HINTS
       ${CMAKE_SOURCE_DIR}/.venv/bin/
+      ${CMAKE_SOURCE_DIR}/venv/bin/
       /Library/Frameworks/Python.framework/Versions/3.14/bin/
       /usr/local/bin/
 )
@@ -113,7 +115,7 @@ add_custom_target(RunPyInstaller ALL
     COMMAND ${CMAKE_COMMAND} -E remove_directory "${CMAKE_BINARY_DIR}/dist"
     COMMAND ${CMAKE_COMMAND} -E remove_directory "${CMAKE_BINARY_DIR}/build"
     COMMAND ${PYINSTALLER} ${CMAKE_SOURCE_DIR}/CMake/${SPEC_FILE}
-    DEPENDS "${CMAKE_SOURCE_DIR}/CMake/${SPEC_FILE}" "${CMAKE_SOURCE_DIR}/vmg/ui_vimage.py"
+    DEPENDS "${CMAKE_SOURCE_DIR}/CMake/${SPEC_FILE}" "${CMAKE_SOURCE_DIR}/vmg/ui/ui_vimage.py"
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
     COMMENT "Running PyInstaller"
 )
