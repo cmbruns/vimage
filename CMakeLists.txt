@@ -151,10 +151,10 @@ elseif(UNIX)
   install(FILES ${CMAKE_SOURCE_DIR/CMake/resources/debian/mimetypes-vimage.xml}
     DESTINATION "share/mime/packages"
   )
-  install(FILES ${CMAKE_SOURCE_DIR}/CMake/resources/linux/debian/vimage.desktop
+  install(FILES ${CMAKE_SOURCE_DIR}/CMake/resources/debian/vimage.desktop
         DESTINATION "share/applications"
   )
-  install(FILES ${CMAKE_SOURCE_DIR}/CMake/resources/linux/debian/mimeapps.list
+  install(FILES ${CMAKE_SOURCE_DIR}/CMake/resources/debian/mimeapps.list
         DESTINATION "share/applications"
   )
 endif()
