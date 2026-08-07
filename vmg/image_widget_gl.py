@@ -1,17 +1,13 @@
-import traceback
-from PySide6.QtGui import QPainter, QPen, QColor
-
-from typing import cast, Optional
-
-from PySide6.QtWidgets import QGestureEvent, QSwipeGesture, QPinchGesture
-
 import logging
+from typing import cast, Optional
 
 import numpy
 from numpy.typing import NDArray
 from OpenGL import GL
 from PySide6 import QtCore, QtGui, QtOpenGLWidgets, QtWidgets
 from PySide6.QtCore import QEvent, Qt, QPoint
+from PySide6.QtGui import QPainter, QPen, QColor
+from PySide6.QtWidgets import QGestureEvent, QSwipeGesture, QPinchGesture
 
 from vmg.interfaces import TiledImageLike, InputFormat, PhotometricScale
 from vmg.offscreen_context import OffscreenContext
@@ -189,7 +185,7 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
             if self.view_state.show_center_guides:
                 self.paint_guide_lines()
             logger.debug("Finished paintGL()")
-        except BaseException as exc:
+        except BaseException:
             raise  # sufficient to get traceback to log, via except_hook
 
     progress_changed = QtCore.Signal(int)
@@ -235,11 +231,18 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         self.image_size_changed.emit(int(w), int(h))  # noqa
         self.update()
 
+    def center_on_point(self, qpoint: QPoint):
+        if self.view_state.center_on_point(qpoint):
+            self.update()
+
     @QtCore.Slot(QPoint)
     def show_context_menu(self, qpoint: QPoint):
         menu = QtWidgets.QMenu("Context menu", parent=self)
         menu.addSeparator()
         if self.image is not None:
+            center_point_action = QtGui.QAction(text="Center on this point")
+            center_point_action.triggered.connect(lambda: self.center_on_point(qpoint))  # noqa
+            menu.addAction(center_point_action)
             for action in self.view_state.context_menu_actions(qpoint):
                 menu.addAction(action)
         menu.addSeparator()

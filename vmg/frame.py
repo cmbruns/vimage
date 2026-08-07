@@ -3,7 +3,7 @@ from PySide6.QtCore import QPoint
 from vmg.coordinate import BasicVec2, BasicVec3
 
 
-class DimensionsOmp(BasicVec2):
+class DimensionsOpx(BasicVec2):
     pass
 
 

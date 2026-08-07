@@ -11,6 +11,7 @@ from PIL import Image
 
 from vmg.display_projection import DisplayProjection
 from vmg.exif_orientation import ExifOrientation
+from vmg.frame import DimensionsOpx
 from vmg.load_progress import LoadProgress
 from vmg.pixel_filter import PixelFilter, PixelNumerals
 from vmg.selection_box import SelectionBox
@@ -35,6 +36,7 @@ class ImageMetadataLike(Protocol):
     pcm_R_geo: NDArray[numpy.float32]
     photometric_scale: PhotometricScale
     rpx_R_opx: NDArray[numpy.float32]
+    size_opx: DimensionsOpx
     size_rpx: tuple[int, int]
     upper_bound: Number
     white_level: tuple[Float, Float, Float]

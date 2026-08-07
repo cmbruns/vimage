@@ -9,7 +9,7 @@ from PySide6.QtCore import QPoint, QSize, QObject, QPointF
 from PySide6.QtGui import Qt
 
 from vmg.frame import DimensionsQwn, LocationHpd, LocationUsr, LocationNic, LocationOpx, LocationGeo, \
-    LocationPrj, LocationQwn, LocationRelative, DimensionsOmp
+    LocationPrj, LocationQwn, LocationRelative, DimensionsOpx
 from vmg.interfaces import TiledImageLike, RenderStateLike, InputFormat
 from vmg.pixel_filter import PixelFilter, PixelNumerals
 from vmg.display_projection import DisplayProjection
@@ -70,6 +70,19 @@ class ViewState(
     @property
     def center_rel(self) -> LocationRelative:
         return self._center_rel
+
+    def center_on_point(self, qpoint: QPoint) -> bool:
+        if self.image is None:
+            return False
+        if self.image.md.input_format == InputFormat.STANDARD_PHOTO:
+            opx = self.opx_for_qpoint(qpoint)
+            w, h = self.image.md.size_opx
+            self._center_rel[:] = opx[0]/w, opx[1]/h
+        else:
+            hpd = self.hpd_for_qwn(LocationQwn.from_qpoint(qpoint))
+            self.view_heading_degrees = hpd[0]
+            self.view_pitch_degrees = hpd[1]
+        return True
 
     def _clamp_center(self):
         # TODO: we can still drag to the aspect padding...
@@ -409,9 +422,9 @@ class ViewState(
         self._size_qwn = DimensionsQwn(width, height)
         self._update_aspect_scale()
 
-    def _size_opx(self) -> DimensionsOmp:
+    def _size_opx(self) -> DimensionsOpx:
         if self.image is None:
-            return DimensionsOmp(1, 1)
+            return DimensionsOpx(1, 1)
         return self.image.md.size_opx
 
     @QtCore.Slot()  # noqa

@@ -15,7 +15,7 @@ from PIL import ExifTags, Image
 
 from vmg.dng_color import LightSource, calculate_dng_t
 from vmg.exif_orientation import ExifOrientation
-from vmg.frame import DimensionsOmp
+from vmg.frame import DimensionsOpx
 from vmg.interfaces import ImageMetadataLike, InputFormat, PhotometricScale
 
 logger = logging.getLogger(__name__)
@@ -35,7 +35,7 @@ class ImageMetadata(ImageMetadataLike):
         # Reasonable defaults wherever possible
         # General metadata
         self.file_name: Optional[str] = None
-        self.size_opx = DimensionsOmp(1, 1)  # logical size, exif oriented
+        self.size_opx = DimensionsOpx(1, 1)  # logical size, exif oriented
         self.size_rpx = (1, 1)  # raw array size
         self.orientation: ExifOrientation = ExifOrientation.ROTATE_0
         self.rpx_R_opx = numpy.eye(2, dtype=numpy.float32)
@@ -88,7 +88,7 @@ class ImageMetadata(ImageMetadataLike):
                     continue
                 # print(att)
         # SIZE
-        self.size_opx = DimensionsOmp(page.imagewidth, page.imagelength)
+        self.size_opx = DimensionsOpx(page.imagewidth, page.imagelength)
         # same, unless we find an exif orientation tag later
         self.size_rpx = self.size_opx[0], self.size_opx[1]
         # EXIF ORIENTATION (not tested yet)
@@ -137,7 +137,7 @@ class ImageMetadata(ImageMetadataLike):
         w, h = pil_image.size
         self.size_rpx = w, h  # Unrotated dimension
         # TODO: move away from DimensionsOmp and other frame vectors
-        self.size_opx = DimensionsOmp(w, h)
+        self.size_opx = DimensionsOpx(w, h)
         self.channel_count = channel_count_for_pil_mode.get(pil_image.mode, 3)
         exif0 = pil_image.getexif()
         exif = {
@@ -169,7 +169,7 @@ class ImageMetadata(ImageMetadataLike):
         self.orientation = ExifOrientation(orientation_code)
         logger.debug(f"Image EXIF orientation = {self.orientation}")
         self.rpx_R_opx = rotation_for_exif_orientation.get(orientation_code, numpy.eye(2, dtype=numpy.float32))
-        self.size_opx = DimensionsOmp(*[abs(x) for x in (self.rpx_R_opx.T @ self.size_rpx)])
+        self.size_opx = DimensionsOpx(*[abs(x) for x in (self.rpx_R_opx.T @ self.size_rpx)])
         w, h = self.size_opx
         model = exif.get("Model", "").lower()
         self._update_model(exif.get("Model", ""))
@@ -266,12 +266,12 @@ class ImageMetadata(ImageMetadataLike):
             print(json.dumps(exif, indent=2, sort_keys=True))
         w, h = exif["EXIF:ImageWidth"], exif["EXIF:ImageHeight"]
         self.size_rpx = w, h
-        self.size_opx = DimensionsOmp(w, h)
+        self.size_opx = DimensionsOpx(w, h)
         self.channel_count = exif["EXIF:SamplesPerPixel"]
         orientation_code = exif["EXIF:Orientation"]
         self.orientation = ExifOrientation(orientation_code)
         self.rpx_R_opx = rotation_for_exif_orientation.get(orientation_code, numpy.eye(2, dtype=numpy.float32))
-        self.size_opx = DimensionsOmp(*[abs(x) for x in (self.rpx_R_opx.T @ self.size_rpx)])
+        self.size_opx = DimensionsOpx(*[abs(x) for x in (self.rpx_R_opx.T @ self.size_rpx)])
         # Camera model specific values
         if "EXIF:Model" in exif:
             model = exif["EXIF:Model"]
