@@ -167,6 +167,7 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
             if self.vao is None:
                 self.initializeGL()
             logger.debug("Starting paintGL()")
+            # TODO: Should this vary by image PhotometricScale? need tests
             # Make transparent images transparent
             # Framebuffer is premultiplied alpha
             # but textures are straight alpha
@@ -189,14 +190,13 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
                 self.paint_guide_lines()
             logger.debug("Finished paintGL()")
         except BaseException as exc:
-            traceback.print_exception(exc)
+            raise  # sufficient to get traceback to log, via except_hook
 
     progress_changed = QtCore.Signal(int)
 
     request_message = QtCore.Signal(str, int)
 
     def resizeGL(self, w, h):
-        # TODO: do we ever need to check the size outside of ViewState?
         if not self._has_size:
             self._has_size = True
         self.view_state.set_window_size(w, h)
