@@ -48,6 +48,7 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         self.raw_rot_ont2 = numpy.eye(2, dtype=numpy.float32)  # For flatty images
         self.raw_rot_ont3 = numpy.eye(3, dtype=numpy.float32)  # For spherical panos
         self.offscreen_context_is_ready = False
+        self._has_size = False
 
     @QtCore.Slot(CursorHolder)
     def change_cursor(self, cursor_holder: CursorHolder):
@@ -76,6 +77,8 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
     image_size_changed = QtCore.Signal(int, int)
 
     def initializeGL(self) -> None:
+        if not self._has_size:
+            return
         logger.debug("Starting initializeGL()...")
         # Use native-like background color
         bg_color = cast(
@@ -161,6 +164,8 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
 
     def paintGL(self) -> None:
         try:
+            if self.vao is None:
+                self.initializeGL()
             logger.debug("Starting paintGL()")
             # Make transparent images transparent
             # Framebuffer is premultiplied alpha
@@ -192,6 +197,8 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
 
     def resizeGL(self, w, h):
         # TODO: do we ever need to check the size outside of ViewState?
+        if not self._has_size:
+            self._has_size = True
         self.view_state.set_window_size(w, h)
 
     @staticmethod
