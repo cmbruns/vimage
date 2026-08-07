@@ -18,7 +18,7 @@ uniform vec3 white_level = vec3(1);
 uniform vec3 as_shot_neutral = vec3(1);
 uniform mat3 lsr_X_wba = mat3(1);
 
-in vec2 p_omp;
+in vec2 p_opx;
 in vec2 p_ttc;
 
 out vec4 color;
@@ -65,5 +65,5 @@ void main()
 
     // OK to do texel boundary and selection box composition in sRGB space...
     color = texel_boundaries(color, p_ttc * textureSize(bayer_tile, 0));
-    color = selection_box(p_omp, color, background_color, sel_rect_omp, omp_scale_qwn);
+    color = selection_box(p_opx, color, background_color, sel_rect_omp, omp_scale_qwn);
 }
