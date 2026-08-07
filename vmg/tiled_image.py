@@ -116,13 +116,13 @@ class TiledImage(TiledImageLike):
 
     def load_from_pil_image(self, pil_image: Image.Image, file_name: str):
         self.md.file_name = file_name
+        # TODO: create a palette shader to avoid munging pixels here
+        if pil_image.mode in ["P", ]:  # Palette image
+            pil_image = pil_image.convert("RGBA")
         self.pil_image = pil_image
         self.set_progress(LoadProgress.FILE_OPENED)
         self.md.load_pil_image(pil_image)
         self.set_progress(LoadProgress.METADATA_LOADED)
-        # TODO: create a palette shader to avoid munging pixels here
-        if pil_image.mode in ["P",]:  # Palette image
-            pil_image = pil_image.convert("RGBA")
         self.sq.progress_changed.emit(2, self)  # noqa
         self.array = numpy.array(pil_image)
         self.set_progress(LoadProgress.ARRAY_CREATED)
