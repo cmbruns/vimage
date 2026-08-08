@@ -2,7 +2,7 @@ from typing import Optional
 
 import json
 import logging
-from math import atan2, cos, degrees, radians, sin
+from math import asin, atan2, cos, degrees, radians, sin
 import re
 import struct
 
@@ -10,8 +10,10 @@ import struct
 import exiftool
 import numpy
 from numpy import linalg
+from numpy.typing import NDArray
 import PIL
 from PIL import ExifTags, Image
+from tifffile import TiffPage
 
 from vmg.dng_color import LightSource, calculate_dng_t
 from vmg.exif_orientation import ExifOrientation
@@ -19,6 +21,35 @@ from vmg.frame import DimensionsOpx
 from vmg.interfaces import ImageMetadataLike, InputFormat, PhotometricScale
 
 logger = logging.getLogger(__name__)
+
+
+tiff_key_t = int | str
+
+
+class TiffKeys:
+    """
+    Search both the selected page and the root page (IFD 0) for tags
+    """
+    def __init__(self, page, root_page):
+        self.page = page
+        self.root_page = root_page
+
+    def __contains__(self, key: tiff_key_t) -> bool:
+        result = key in self.page.tags
+        if not result:
+            result = key in self.root_page.tags
+        return result
+
+    def __getitem__(self, key: tiff_key_t):
+        if key in self.page.tags:
+            return self.page.tags[key].value
+        return self.root_page.tags[key].value
+
+    def get(self, key: tiff_key_t, default: Optional[tiff_key_t] = None):
+        try:
+            return self[key].value
+        except KeyError:
+            return default
 
 
 class ImageMetadata(ImageMetadataLike):
@@ -56,7 +87,7 @@ class ImageMetadata(ImageMetadataLike):
         self.inscribed_fov_radians = radians(195.0)
         self.df_lens_rot_radians = radians(0.0)
         # Dng metadata
-        self.is_dng = False
+        self.is_cfa = False
         self.black_level = (0.0, 0.0, 0.0)
         self.white_level = (1.0, 1.0, 1.0)
         self.as_shot_neutral = (1.0, 1.0, 1.0)
@@ -68,7 +99,8 @@ class ImageMetadata(ImageMetadataLike):
         self.lsr_X_wba = numpy.eye(3, dtype=numpy.float32)
         self.baseline_exposure = 0.0
 
-    def load_tifffile_page(self, page):
+    def load_tifffile_page(self, page: TiffPage, root_page: TiffPage):
+        tk = TiffKeys(page, root_page)
         debug = False
         if debug:
             # print(page.dims)
@@ -83,55 +115,113 @@ class ImageMetadata(ImageMetadataLike):
             # print(page.photometric)  # 32803?
             # print(page.resolution)
             # print(page.size)
+            print("*** PAGE ATTRIBUTES ***:")
             for att in dir(page):
                 if att.startswith("_"):
                     continue
-                # print(att)
+                print(att)
         # SIZE
         self.size_opx = DimensionsOpx(page.imagewidth, page.imagelength)
         # same, unless we find an exif orientation tag later
         self.size_rpx = self.size_opx[0], self.size_opx[1]
-        # EXIF ORIENTATION (not tested yet)
-        exif_ifd = page.tags.get("ExifTag")
-        if exif_ifd:
-            exif_tags = exif_ifd.value
-            # print(exif_tags)
-            if 274 in exif_tags:
-                _orientation_index = exif_tags[274].value
-                # print(f"orientation {orientation_index}")
-                # TODO
+        self.channel_count = page.samplesperpixel
+        self.upper_bound = numpy.iinfo(page.dtype).max
+        xmp = {}
+        if "XMP" in tk:
+            xmp = tk["XMP"]
+        elif "XMLPacket" in tk:
+            xmp = tk["XMLPacket"]
+        if len(xmp) > 0:
+            logger.info("Found XMP metadata")
+        exif = {}
+        if "ExifTag" in tk:
+            exif = tk["ExifTag"]
+        if debug:
+            print("*** EXIF ATTRIBUTES ***:")
+            for item in exif:
+                print(item)
+        if "Model" in tk:
+            model = tk['Model']
+            self._update_model(model)
+        if 'CFAPattern' in tk:
+            cfa = list(tk['CFAPattern'])
+            assert cfa == [0, 1, 1, 2]
+            self.is_cfa = True
+            self.photometric_scale = PhotometricScale.LINEAR
+        user_comment = ""
+        if "UserComment" in exif:
+            user_comment = exif["UserComment"].decode()
+        if "Orientation" in exif:
+            orientation_code = int(exif["Orientation"])
+            self.orientation = ExifOrientation(orientation_code)
+            self.rpx_R_opx = rotation_for_exif_orientation[orientation_code]
+        # black level, white level
+        if "BlackLevel" in tk:
+            self._parse_black_level(tk["BlackLevel"])
+        if "WhiteLevel" in tk:
+            self._parse_white_level(tk["WhiteLevel"])
+        if 'AsShotNeutral' in tk:
+            asn = tk['AsShotNeutral']
+            assert len(asn) == 6
+            self.as_shot_neutral = asn[0]/asn[1], asn[2]/asn[3], asn[4]/asn[5]
+        if "ColorMatrix1" in tk:
+            cm1 = tk['ColorMatrix1']
+            assert len(cm1) == 18
+            a = numpy.array(cm1, numpy.float32).reshape(9, 2)
+            self.color_matrix1 = (a[:, 0] / a[:, 1]).reshape(3, 3)
+        if "ColorMatrix2" in tk:
+            cm2 = tk['ColorMatrix2']
+            assert len(cm2) == 18
+            a = numpy.array(cm2, numpy.float32).reshape(9, 2)
+            self.color_matrix2 = (a[:, 0] / a[:, 1]).reshape(3, 3)
+        if 'CalibrationIlluminant1' in tk:
+            cal1 = tk['CalibrationIlluminant1']
+            cal1 = LightSource(int(cal1))
+            if cal1 == LightSource.UNKNOWN:
+                logger.info("Unknown calibration illuminant")
+            else:
+                self.calibration_illuminant1 = cal1
+        if 'CalibrationIlluminant2' in tk:
+            cal2 = tk['CalibrationIlluminant2']
+            cal2 = LightSource(int(cal2))
+            if cal2 == LightSource.UNKNOWN:
+                logger.info("Unknown calibration illuminant")
+            else:
+                self.calibration_illuminant2 = cal2
+        if "BaselineExposure" in tk:
+            exp = tk['BaselineExposure']
+            self.baseline_exposure = exp[0] / exp[1]
+        self._compute_forward_matrix()
+        # Panorama metadata
         w, h = self.size_opx
-        # TODO: pano orientation
-        _xmp_tag = page.tags.get("XMP")
-        # print("XMP tag", xmp_tag)
-        # Input format  TODO: subtler decision tree
+        # TODO: GPano orientation, if we find a tiff that has some
         if w == 2 * h:
-            self.input_format = InputFormat.DUAL_FISHEYE
+            if self.is_cfa:
+                self.input_format = InputFormat.DUAL_FISHEYE
+            else:
+                self.input_format = InputFormat.EQUIRECTANGULAR
+            if re.search(r'\sIMUHEX=([0-9a-fA-F]{36})\s', user_comment):  # QooCam3 Ultra raw dng
+                m = re.search(r'\sIMUHEX=([0-9a-fA-F]{36})\s', user_comment)
+                assert m
+                imu_hex = m.group(1)
+                self.pose_roll_degrees, self.pose_pitch_degrees = get_roll_pitch_from_imu(imu_hex)
+            if "ricoh" in model.lower():
+                if "MakerNote" in exif:
+                    maker_note = exif["MakerNote"]
+                    if maker_note.startswith(b'Ricoh'):
+                        roll, pitch, heading = parse_ricoh_makernote(maker_note)
+                        if roll is not None:
+                            self.pose_roll_degrees = roll
+                        if pitch is not None:
+                            self.pose_pitch_degrees = pitch
+                        if heading is not None:
+                            self.pose_heading_degrees = heading
+            if self.pose_heading_degrees != 0 or self.pose_pitch_degrees != 0 or self.pose_roll_degrees != 0:
+                logger.info(
+                    f"Pose heading, pitch, roll = ({self.pose_heading_degrees}, {self.pose_pitch_degrees}, {self.pose_roll_degrees})")
+                self.update_pcm_rot_geo()
         else:
             self.input_format = InputFormat.STANDARD_PHOTO
-        self.upper_bound = numpy.iinfo(page.dtype).max
-        self.channel_count = page.samplesperpixel
-        # black level, white level
-        for tag in page.tags.values():
-            if tag.code == 50714:  # BlackLevel
-                try:
-                    self.black_level = tuple(b for b in tag.value)
-                except TypeError:
-                    assert tag.value % 1 == 0  # Whole number
-                    self.black_level = tag.value
-            elif tag.code == 50717:  # WhiteLevel
-                assert tag.value % 1 == 0
-                self.white_level = int(tag.value)
-        # print("BlackLevel:", self.black_level)
-        # print("WhiteLevel:", self.white_level)
-        asn = page.tags['AsShotNeutral'].value
-        assert len(asn) == 6
-        _as_shot_neutral = asn[0]/asn[1], asn[2]/asn[3], asn[4]/asn[5]
-        cm = page.tags['ColorMatrix1'].value
-        assert len(cm) == 18
-        a = numpy.array(cm, numpy.float32).reshape(9, 2)
-        self.color_matrix1 = (a[:, 0] / a[:, 1]).reshape(3, 3)
-        # TODO full dng pipeline not done
 
     def load_pil_image(self, pil_image: Image.Image) -> None:
         w, h = pil_image.size
@@ -257,6 +347,40 @@ class ImageMetadata(ImageMetadataLike):
         if "sm-c200" in low:
             self.inscribed_fov_radians = radians(193.8)  # "SM-C200" 2016 Gear 360
 
+    def _parse_black_level(self, value):
+        # If it's a string, convert it to numbers
+        try:  # Is it a string?
+            bk = [float(x) for x in value.split()]
+            value = bk
+        except AttributeError:
+            pass
+
+        # If it's a rational, convert it to float
+        try:
+            if len(value) == 2:
+                bk = value[0] / value[1]
+                value = [bk] * 3
+        except TypeError:
+            value = [float(value)] * 3
+
+        # Normalize
+        value = [float(x) / self.upper_bound for x in value]
+
+        # Convert CFA RGGB to RGB
+        if len(value) == 4:
+            value = [value[0], 0.5 * (value[1] + value[2]), value[3]]
+
+        assert len(value) == 3
+
+        self.black_level = value
+
+    def _parse_white_level(self, value: str):
+        try:
+            white = [float(x) / self.upper_bound for x in value.split()]
+        except AttributeError:
+            white = [float(value) / self.upper_bound] * 3
+        self.white_level = white
+
     def load_exiftool(self, file_name):
         with exiftool.ExifTool() as et:
             raw = et.execute("-j", file_name)
@@ -280,21 +404,9 @@ class ImageMetadata(ImageMetadataLike):
         if "EXIF:CFAPattern2" in exif:
             assert exif["EXIF:CFAPattern2"] == "0 1 1 2"  # We only know RGGB
         if "EXIF:BlackLevel" in exif:
-            try:
-                black = [float(x)/self.upper_bound for x in exif["EXIF:BlackLevel"].split()]
-            except AttributeError:
-                black = [float(exif["EXIF:BlackLevel"])/self.upper_bound] * 3
-            if len(black) == 4:
-                # average the two green channels
-                black = black[0], 0.5 * (black[1] + black[2]), black[3]
-            assert len(black) == 3
-            self.black_level = black
+            self._parse_black_level(exif["EXIF:BlackLevel"])
         if "EXIF:WhiteLevel" in exif:
-            try:
-                white = [float(x)/self.upper_bound for x in exif["EXIF:WhiteLevel"].split()]
-            except AttributeError:
-                white = [float(exif["EXIF:WhiteLevel"])/self.upper_bound] * 3
-            self.white_level = white
+            self._parse_white_level(exif["EXIF:WhiteLevel"])
         if "EXIF:AsShotNeutral" in exif:
             self.as_shot_neutral = [float(x) for x in exif["EXIF:AsShotNeutral"].split()]
             assert len(self.as_shot_neutral) == 3
@@ -321,32 +433,7 @@ class ImageMetadata(ImageMetadataLike):
         if "EXIF:BaselineExposure" in exif:
             self.baseline_exposure = float(exif["EXIF:BaselineExposure"])
         # TODO: some dng might have a ForwardMatrix available...
-        # Interpolate color matrix
-        if self.color_matrix2 is None:
-            rfv_X_d50 = self.color_matrix1
-        else:
-            dng_t = calculate_dng_t(
-                self.as_shot_neutral,
-                self.color_matrix1, self.color_matrix2,
-                self.calibration_illuminant1, self.calibration_illuminant2,
-            )
-            rfv_X_d50 = self.color_matrix1 * (1 - dng_t) + self.color_matrix2 * dng_t
-        # ColorMatrix requires us to undo white balance first, then invert the matrix.
-        # wb_gain_matrix = numpy.diag([1/x for x in self.as_shot_neutral])
-        # xyz_X_sensor = linalg.inv(color_matrix) @ wb_gain_matrix
-        lsr_X_d65 = numpy.array([
-            [+3.2404542, -1.5371385, -0.4985314],
-            [-0.9692660,  1.8760108,  0.0415560],
-            [+0.0556434, -0.2040259,  1.0572252],
-        ])
-        d65_X_d50 = numpy.array([  # Bradford
-            [+0.9555766, -0.0230393,  0.0631636],
-            [-0.0283858,  1.0099416,  0.0210077],
-            [+0.0123140, -0.0205076,  1.3299115]
-        ])
-        d50_X_rfv = linalg.inv(rfv_X_d50)
-        rfv_X_wba = numpy.diag(self.as_shot_neutral)
-        self.lsr_X_wba = lsr_X_d65 @ d65_X_d50 @ d50_X_rfv @ rfv_X_wba
+        self._compute_forward_matrix()
         # Panorama metadata
         user_comment = ""
         if "EXIF:UserComment" in exif:
@@ -387,6 +474,34 @@ class ImageMetadata(ImageMetadataLike):
                     f"Pose heading, pitch, roll = ({self.pose_heading_degrees}, {self.pose_pitch_degrees}, {self.pose_roll_degrees})")
                 self.update_pcm_rot_geo()
 
+    def _compute_forward_matrix(self):
+        # Interpolate color matrix
+        if self.color_matrix2 is None:
+            rfv_X_d50 = self.color_matrix1
+        else:
+            dng_t = calculate_dng_t(
+                self.as_shot_neutral,
+                self.color_matrix1, self.color_matrix2,
+                self.calibration_illuminant1, self.calibration_illuminant2,
+            )
+            rfv_X_d50 = self.color_matrix1 * (1 - dng_t) + self.color_matrix2 * dng_t
+        # ColorMatrix requires us to undo white balance first, then invert the matrix.
+        # wb_gain_matrix = numpy.diag([1/x for x in self.as_shot_neutral])
+        # xyz_X_sensor = linalg.inv(color_matrix) @ wb_gain_matrix
+        lsr_X_d65 = numpy.array([
+            [+3.2404542, -1.5371385, -0.4985314],
+            [-0.9692660,  1.8760108,  0.0415560],
+            [+0.0556434, -0.2040259,  1.0572252],
+        ])
+        d65_X_d50 = numpy.array([  # Bradford
+            [+0.9555766, -0.0230393,  0.0631636],
+            [-0.0283858,  1.0099416,  0.0210077],
+            [+0.0123140, -0.0205076,  1.3299115]
+        ])
+        d50_X_rfv = linalg.inv(rfv_X_d50)
+        rfv_X_wba = numpy.diag(self.as_shot_neutral)
+        self.lsr_X_wba = lsr_X_d65 @ d65_X_d50 @ d50_X_rfv @ rfv_X_wba
+
 
 channel_count_for_pil_mode = {
     "1": 1,      # bilevel
@@ -401,7 +516,7 @@ channel_count_for_pil_mode = {
     "F": 1,      # 32‑bit float
 }
 
-rotation_for_exif_orientation = {
+rotation_for_exif_orientation: dict[int, NDArray[numpy.float32]] = {
     1: numpy.array([[1, 0], [0, 1]], dtype=numpy.float32),
     2: numpy.array([[-1, 0], [0, 1]], dtype=numpy.float32),
     3: numpy.array([[-1, 0], [0, -1]], dtype=numpy.float32),
@@ -448,6 +563,63 @@ def get_roll_pitch_from_imu(imu_hex_string: str):
     pitch_degrees = degrees(pitch_radians)
 
     return roll_degrees, pitch_degrees
+
+
+def parse_ricoh_makernote(makernote_bytes: bytes):
+    # 1. Determine Endianness and Base Offset
+    # Ricoh usually uses Little Endian ("<").
+    # The sub-IFD usually starts after the text header "RICOH\x00\x00\x00" (8 bytes)
+    # or similar variations. Let's find where the IFD structure actually begins.
+
+    header_offset = 0
+    if makernote_bytes.startswith(b'Ricoh'):
+        header_offset = 8  # Skip "RICOH\x00\x00\x00"
+
+    endian = '>'
+
+    # 2. Read the number of fields in this directory (First 2 bytes)
+    num_fields = struct.unpack(f'{endian}H', makernote_bytes[header_offset:header_offset + 2])[0]
+
+    roll = None
+    pitch = None
+    heading = None
+
+    # 3. Loop through each 12-byte tag entry
+    for i in range(num_fields):
+        # Calculate where this specific entry starts
+        entry_start = header_offset + 2 + (i * 12)
+        entry_bytes = makernote_bytes[entry_start:entry_start + 12]
+
+        # Unpack the 12-byte layout
+        tag, data_type, count, val_or_offset = struct.unpack(f'{endian}HHI4s', entry_bytes)
+
+        # 4. Check if it matches your Accelerometer tag (0x0003)
+        if tag == 0x0003:
+            # Since the data is a rational64s (16 bytes), val_or_offset is a pointer
+            _data_offset0 = struct.unpack(f'{endian}I', val_or_offset)[0]
+            data_offset = 836  # determined empirically
+
+            # NOTE: Depending on how tifffile sliced the MakerNote,
+            # this offset might be relative to the START of the maker note
+            # or relative to the start of the sub-IFD table. Let's try relative to MakerNote start:
+            raw_data = makernote_bytes[data_offset:data_offset + 16]
+
+            # Unpack 4 signed 32-bit integers (2 numerators, 2 denominators)
+            n1, d1, n2, d2 = struct.unpack(f'{endian}iiii', raw_data)
+
+            # Safe division
+            roll = n1 / d1 if d1 != 0 else 0.0
+            if roll > 180.0:
+                roll -= 360.0
+            pitch = n2 / d2 if d2 != 0 else 0.0
+
+            # Heading at 0x0004
+            data_offset2 = data_offset + 16
+            raw_data2 = makernote_bytes[data_offset2:data_offset2 + 8]
+            n3, d3 = struct.unpack(f'{endian}II', raw_data2)
+            heading = n3 / d3 if d3 != 0 else 0.0
+
+            return roll, pitch, heading
 
 
 if __name__ == "__main__":

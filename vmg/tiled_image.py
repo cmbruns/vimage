@@ -82,7 +82,7 @@ class TiledImage(TiledImageLike):
         self.pil_image = None
 
     def initialize_gl(self):
-        if self.md.is_dng:
+        if self.md.is_cfa:
             assert self.array is not None
             assert self.array.dtype == numpy.uint16
             for tile in generate_tiles(
@@ -134,7 +134,7 @@ class TiledImage(TiledImageLike):
         # Find raw image in ricoh theta Z1
         page = None
         for ix, series in enumerate(dng.series):
-            print(f"Series {ix}: Shape {series.shape}, Dtype {series.dtype}")  # noqa
+            # print(f"Series {ix}: Shape {series.shape}, Dtype {series.dtype}")  # noqa
             if series.dtype == numpy.uint16:
                 raw_page = series
                 page = raw_page.pages[0]
@@ -142,11 +142,10 @@ class TiledImage(TiledImageLike):
             page = root_page
         # print(root_page.tags.get("AsShotNeutral").value)
         # Populate metadata
-        self.md.is_dng = page.is_dng  # noqa
         self.md.photometric_scale = PhotometricScale.LINEAR
         self.md.upper_bound = numpy.iinfo(page.dtype).max  # noqa
-        self.md.load_exiftool(file_name)  # takes longer but life is short
-        # self.md.load_tifffile_page(page)
+        # self.md.load_exiftool(file_name)  # takes longer but life is short
+        self.md.load_tifffile_page(page, root_page)
         self.set_progress(LoadProgress.METADATA_LOADED)
         # Slurp the raw bytes
         self.array = page.asarray()

@@ -1,3 +1,4 @@
+import tifffile
 from numbers import Number
 
 import enum
@@ -30,7 +31,7 @@ class ImageMetadataLike(Protocol):
     file_name: Optional[str]
     input_format: InputFormat
     inscribed_fov_radians: Float
-    is_dng: bool
+    is_cfa: bool
     lsr_X_wba: NDArray[numpy.float32]
     orientation: ExifOrientation
     pcm_R_geo: NDArray[numpy.float32]
@@ -45,6 +46,9 @@ class ImageMetadataLike(Protocol):
         ...
 
     def load_pil_image(self, pil_image: Image.Image) -> None:
+        ...
+
+    def load_tifffile_page(self, page: tifffile.TiffPage) -> None:
         ...
 
 
