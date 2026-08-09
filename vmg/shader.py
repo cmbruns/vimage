@@ -207,6 +207,88 @@ class NumeralShader(IImageShader):
             GL.glDrawArrays(GL.GL_TRIANGLE_STRIP, 0, 4)
 
 
+class NumeralSphereShader(IImageShader):
+    """Paints numeric intensity values onto very zoomed in pixels"""
+    def __init__(self):
+        self.program = None
+        self.numeral_texture_id = None
+        self.uNdc_X_opx = Uniform("ndc_X_opx", GL.glUniformMatrix3fv)
+        self.uTile = Sampler2DUniform("tile")
+        self.uNumerals = Sampler2DUniform("numerals")
+        self.uChannelCount = Uniform("channel_count", GL.glUniform1i)
+        self.uFormatMax = Uniform("format_max", GL.glUniform1f)
+        self.uDataMax = Uniform("data_max", GL.glUniform1f)
+        self.uRotation = Uniform("rotation", GL.glUniformMatrix2fv)
+        self.uPixelNumerals = Uniform("pixel_numerals", GL.glUniform1i)
+        with resource_stream("vmg.images", "hex_digits_df.png") as df:
+            numeral_pil = Image.open(df)
+            self.numeral_array = numpy.array(numeral_pil)
+
+    def initialize_gl(self) -> None:
+        # Texturize numeral signed distance field
+        self.numeral_texture_id = GL.glGenTextures(1)  # noqa
+        GL.glBindTexture(GL.GL_TEXTURE_2D, self.numeral_texture_id)
+        assert len(self.numeral_array.shape) == 2  # monochrome
+        GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_SWIZZLE_G, GL.GL_RED)
+        GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_SWIZZLE_B, GL.GL_RED)
+        h, w = self.numeral_array.shape
+        GL.glTexImage2D(
+            GL.GL_TEXTURE_2D,
+            0,
+            GL.GL_RED,
+            w, h,
+            0,
+            GL.GL_RED,
+            GL.GL_UNSIGNED_BYTE,
+            self.numeral_array,
+        )
+        GL.glGenerateMipmap(GL.GL_TEXTURE_2D)
+        GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_LINEAR)
+        GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_LINEAR_MIPMAP_LINEAR)
+        GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_S, GL.GL_CLAMP_TO_BORDER)
+        GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_T, GL.GL_CLAMP_TO_BORDER)
+
+        self.program = compileProgram(
+            compile_shader("vmg.glsl",
+                           ["sphere.vert"], GL.GL_VERTEX_SHADER),
+            compile_shader("vmg.glsl",
+                           [
+                               "shared.frag",
+                               "numeral_sphere.frag",
+                           ], GL.GL_FRAGMENT_SHADER),
+        )
+        for u in (
+            self.uNdc_X_opx,
+            self.uTile,
+            self.uNumerals,
+            self.uChannelCount,
+            self.uFormatMax,
+            self.uDataMax,
+            self.uRotation,
+            self.uPixelNumerals,
+        ):
+            u.get_location(self.program)
+
+    def paint_gl(self, state: RenderStateLike, image: TiledImageLike) -> None:
+        if self.program is None:
+            self.initialize_gl()
+        GL.glUseProgram(self.program)
+        self.uNdc_X_opx.set(1, True, state.ndc_xform_opx())
+        self.uNumerals.set(1, self.numeral_texture_id)
+        self.uChannelCount.set(image.md.channel_count)
+        self.uFormatMax.set(image.md.upper_bound)
+        self.uDataMax.set(image.md.data_max)
+        self.uRotation.set(1, False, image.md.rpx_R_opx)
+        self.uPixelNumerals.set(state.pixel_numerals.value)
+        for tile in image.tiles:
+            assert tile.texture_id is not None
+            self.uTile.set(0, tile.texture_id)
+            assert tile.vao is not None
+            # TODO: this is for standard photos only
+            GL.glBindVertexArray(tile.vao)
+            GL.glDrawArrays(GL.GL_TRIANGLE_STRIP, 0, 4)
+
+
 class RectangularTileShader(IImageShader, ShaderProgramLike):
     def __init__(self):
         self.shader = None
@@ -417,6 +499,7 @@ class SphericalShader(IImageShader, ShaderProgramLike):
         # TODO dual fisheye parameters should be stored per-camera or whatever
         self.df_fov_radians_location = None
         self.df_lens_rot_radians_location = None
+        self.numeral_shader = NumeralSphereShader()
 
     def initialize_gl(self) -> None:
         try:
@@ -446,6 +529,7 @@ class SphericalShader(IImageShader, ShaderProgramLike):
         self.df_lens_rot_radians_location = GL.glGetUniformLocation(self.shader, "df_lens_rot_radians")
         for u in self.brightness, self.input_is_linear, self.uRenderPass:
             u.get_location(self.shader)
+        self.numeral_shader.initialize_gl()
 
     def paint_gl(self, state: RenderStateLike, image: TiledImageLike) -> None:
         # both nearest and catmull-rom use nearest at the moment.

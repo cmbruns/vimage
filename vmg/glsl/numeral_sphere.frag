@@ -4,6 +4,9 @@ uniform sampler2D tile;
 uniform sampler2D numerals;
 
 uniform int display_projection = STEREOGRAPHIC_DISPLAY_PROJECTION;
+uniform mat3 geo_rot_usr = mat3(1);
+uniform mat3 pcm_rot_geo = mat3(1);
+uniform mat3 tile_X_img;
 
 uniform int input_format = EQUIRECT_INPUT_FORMAT;
 uniform float df_fov_radians = radians(195.0);
@@ -22,14 +25,14 @@ out vec4 fragColor;
 void main()
 {
     // Convert normalized image screen coordinates (nic) to
-    // app-view-modified world 3D coordinates (obq)
-    vec3 p_obq = obq_for_nic(p_nic, display_projection);
-    if (p_obq == INVALID_OBQ) discard;
+    // app-view-modified world 3D coordinates (usr)
+    vec3 p_usr = usr_for_nic(p_nic, display_projection);
+    if (p_usr == INVALID_USR) discard;
 
     // Convert direction to sky-up world frame (geo), then to camera frame (raw)
-    vec3 p_pcm = pcm_rot_geo * geo_rot_obq * p_obq;
+    vec3 p_pcm = pcm_rot_geo * geo_rot_usr * p_usr;
 
-    TexCoordAlpha tca = tcr_for_pcm(
+    TexCoordAlpha tca = rtc_for_pcm(
             p_pcm,
             input_format,
             df_fov_radians,
@@ -37,6 +40,8 @@ void main()
             render_pass);
 
     if (tca.alpha == 0.0) discard;
+
+    vec2 p_ttc = ttc_for_rtc(tile_X_img, tca.p_rtc);
 
     fragColor = numeral_color(
             p_ttc,
