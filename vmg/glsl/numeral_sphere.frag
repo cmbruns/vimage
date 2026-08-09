@@ -3,16 +3,20 @@
 uniform sampler2D tile;
 uniform sampler2D numerals;
 
+uniform mat3 tile_X_img;
+
+// pano related
 uniform int display_projection = STEREOGRAPHIC_DISPLAY_PROJECTION;
 uniform mat3 geo_rot_usr = mat3(1);
 uniform mat3 pcm_rot_geo = mat3(1);
-uniform mat3 tile_X_img;
 
+// input format related
 uniform int input_format = EQUIRECT_INPUT_FORMAT;
 uniform float df_fov_radians = radians(195.0);
 uniform float df_lens_rot_radians = 0.0;
 uniform int render_pass = 1;  // for tiled dual fisheye
 
+// numeral related
 uniform int   channel_count = 3;  // set from host
 uniform float format_max = 255;
 uniform float data_max = 255;
