@@ -122,13 +122,6 @@ class PanoUniforms(UniformGroup):
         self["df_lens_rot_radians"].set(image.md.df_lens_rot_radians)
 
 
-class FisheyeUniforms(UniformGroup):
-    def __init__(self):
-        super().__init__()
-        self.add(Uniform("df_fov_radians", GL.glUniform1f))
-        self.add(Uniform("df_lens_rot_radians", GL.glUniform1f))
-
-
 class DemosaicShader(IImageShader):
     def __init__(self):
         self.program = None
@@ -541,7 +534,6 @@ class SphericalDngShader(IImageShader):
     uDemosaicTile = Sampler2DUniform("demosaic_tile")
     uViewer = ViewerUniforms()
     uPano = PanoUniforms()
-    uFisheye = FisheyeUniforms()
     uRenderPass = Uniform("render_pass", GL.glUniform1i)
     uBlackLevel = Uniform("black_level", GL.glUniform3f)
     uWhiteLevel = Uniform("white_level", GL.glUniform3f)
@@ -568,7 +560,6 @@ class SphericalDngShader(IImageShader):
             for uniform in (
                 self.uViewer,
                 self.uPano,
-                self.uFisheye,
                 self.uBayerTile,
                 self.uDemosaicTile,
                 self.uUvBounds,
@@ -589,13 +580,7 @@ class SphericalDngShader(IImageShader):
         GL.glUseProgram(self.shader)
         self.uViewer["brightness"].set(state.brightness + image.md.baseline_exposure)
         self.uViewer["pixelFilter"].set(state.pixel_filter.value)
-        self.uPano["window_zoom"].set(state.zoom)
-        self.uPano["geo_rot_usr"].set(1, True, state.geo_rot_usr)
-        self.uPano["pcm_rot_geo"].set(1, True, image.md.pcm_R_geo)
-        self.uPano["window_size"].set(*[int(x) for x in state.window_size])
-        self.uPano["display_projection"].set(state.display_projection.value)
-        self.uFisheye["df_fov_radians"].set(image.md.inscribed_fov_radians)
-        self.uFisheye["df_lens_rot_radians"].set(image.md.df_lens_rot_radians)
+        self.uPano.set(state, image)
         self.uBlackLevel.set(*image.md.black_level)
         self.uWhiteLevel.set(*image.md.white_level)
         self.uAsShotNeutral.set(*image.md.as_shot_neutral)
