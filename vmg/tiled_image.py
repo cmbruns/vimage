@@ -25,6 +25,7 @@ from vmg.metadata import ImageMetadata
 from vmg.exif_orientation import ExifOrientation
 from vmg.interfaces import TiledImageLike, TileLike, PhotometricScale
 from vmg.resources import resource_string
+from vmg.shader_exception import compile_shader
 
 logger = logging.getLogger(__name__)
 GLenum = int
@@ -520,16 +521,6 @@ class DngTile(Tile):
         if self.demosaic_framebuffer is None:
             self.demosaic_framebuffer = GL.glGenFramebuffers(1)  # noqa
             self.demosaic_vao = GL.glGenVertexArrays(1)  # noqa
-            self.demosaic_program = compileProgram(
-                compileShader(
-                    resource_string("vmg.glsl", "demosaic.vert"),
-                    GL.GL_VERTEX_SHADER),
-                compileShader(
-                    resource_string("vmg.glsl", "demosaic.frag"),
-                    GL.GL_FRAGMENT_SHADER),
-            )
-        GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, self.demosaic_framebuffer)
-
         # Create demosaic color texture
         self.demosaic_texture_id = GL.glGenTextures(1)  # noqa
         GL.glBindTexture(GL.GL_TEXTURE_2D, self.demosaic_texture_id)
@@ -568,6 +559,16 @@ class DngTile(Tile):
         GL.glClearColor(0.0, 0.0, 0.0, 0.0)
         GL.glClear(GL.GL_COLOR_BUFFER_BIT)
         GL.glBindTexture(GL.GL_TEXTURE_2D, self.bayer_texture_id)
+
+        if self.demosaic_program is None:
+            self.demosaic_program = compileProgram(
+                compile_shader("vmg.glsl",
+                               ["demosaic.vert"],
+                               GL.GL_VERTEX_SHADER),
+                compile_shader("vmg.glsl",
+                               ["demosaic.frag"],
+                               GL.GL_FRAGMENT_SHADER),
+            )
         GL.glUseProgram(self.demosaic_program)
         GL.glDrawArrays(GL.GL_TRIANGLE_STRIP, 0, 4)
 

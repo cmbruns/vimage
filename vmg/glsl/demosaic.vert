@@ -1,4 +1,4 @@
-#version 410
+#version 410 core
 
 // host side draw call should be "glDrawArrays(GL_TRIANGLE_STRIP, 0, 4)"
 const vec4 SCREEN_QUAD[4] = vec4[4](

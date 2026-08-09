@@ -19,7 +19,7 @@ a = Analysis(
      ("../vmg/git_hash.txt", "vmg"),
      # ("../vmg/lib/*.so", "vmg/lib"),
     ],
-    hiddenimports=["vmg.glsl", "vmg.lib"],
+    hiddenimports=["vmg.glsl", "vmg.lib", "imagecodecs"],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],

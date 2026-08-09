@@ -1,4 +1,4 @@
-#version 410
+#version 410 core
 
 uniform sampler2D bayer;
 in vec2 tex_coord;
