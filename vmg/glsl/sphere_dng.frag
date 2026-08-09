@@ -60,25 +60,16 @@ void main()
     // then to physical camera frame 3D direction (raw)
     vec3 p_pcm = pcm_rot_geo * geo_rot_obq * p_obq;
 
-    // Look up tile texture coordinate(s)
-    vec2 p_tcr;  // Full image texture coordinate
-    // Always dual fisheye with DNG as far as we know
-    TexCoordPair pair = dual_fisheye_tex_coord(
+    TexCoordAlpha tca = tcr_for_pcm(
             p_pcm,
-            df_fov_radians,  // fisheye field of view
-            df_lens_rot_radians);  // lens rotation offset
-    float alpha = 1.0;
-    if (render_pass == 1) {
-        alpha = 1.0;  // first pass fully overwrites every valid pixel
-        p_tcr = pair.front_tc;
-        if (pair.front_bias <= 0) discard;
-    }
-    else if (render_pass == 2)  {
-        alpha = 1.0 - pair.front_bias;  // blend second pass
-        p_tcr = pair.rear_tc;
-        if (pair.front_bias >= 1) discard;
-    }
-    else discard;
+            DUAL_FISHEYE_INPUT_FORMAT,
+            df_fov_radians,
+            df_lens_rot_radians,
+            render_pass);
+
+    if (tca.alpha == 0.0) discard;
+
+    vec2 p_tcr = tca.p_tcr;
 
     // Compute lod before bounds clip,
     // to avoid derivative problems near the edges.
@@ -123,7 +114,7 @@ void main()
 
     // Raw sensor color "sns"
     color = mix(bayer_color, demosaic_color, demosaic_bias);
-    color.a = alpha;
+    color.a = tca.alpha;
 
     // black level sns -> bkc
     color.rgb = max(color.rgb - black_level, vec3(0));
