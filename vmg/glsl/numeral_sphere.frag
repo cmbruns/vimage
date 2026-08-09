@@ -20,8 +20,8 @@ uniform int render_pass = 1;  // for tiled dual fisheye
 uniform int   channel_count = 3;  // set from host
 uniform float format_max = 255;
 uniform float data_max = 255;
-uniform mat2 rotation = mat2(1);
 uniform int pixel_numerals = NUMERALS_HEXADECIMAL;
+uniform mat2 rotation = mat2(1);
 
 in vec2 p_nic;
 out vec4 fragColor;

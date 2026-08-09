@@ -85,13 +85,11 @@ class NumeralUniforms(UniformGroup):
         self.add(Uniform("channel_count", GL.glUniform1i))
         self.add(Uniform("data_max", GL.glUniform1f))
         self.add(Uniform("format_max", GL.glUniform1f))
-        self.add(Uniform("ndc_X_opx", GL.glUniformMatrix3fv))
         self.add(Uniform("pixel_numerals", GL.glUniform1i))
         self.add(Uniform("rotation", GL.glUniformMatrix2fv))
 
     def set(self, state: RenderStateLike, image: TiledImageLike):
         # state
-        self["ndc_X_opx"].set(1, True, state.ndc_xform_opx())
         self["pixel_numerals"].set(state.pixel_numerals.value)
         # image
         self["channel_count"].set(image.md.channel_count)
@@ -108,6 +106,10 @@ class PanoUniforms(UniformGroup):
         self.add(Uniform("display_projection", GL.glUniform1i))
         self.add(Uniform("geo_rot_usr", GL.glUniformMatrix3fv))
         self.add(Uniform("pcm_rot_geo", GL.glUniformMatrix3fv))
+        self.add(Uniform("input_format", GL.glUniform1i))
+        self.add(Uniform("df_fov_radians", GL.glUniform1f))
+        self.add(Uniform("df_lens_rot_radians", GL.glUniform1f))
+        # NOT render_pass, because it's set with a different cadence
 
     def set(self, state: RenderStateLike, image: TiledImageLike):
         self["window_size"].set(*[int(x) for x in state.window_size])
@@ -115,6 +117,9 @@ class PanoUniforms(UniformGroup):
         self["display_projection"].set(state.display_projection.value)
         self["geo_rot_usr"].set(1, True, state.geo_rot_usr)
         self["pcm_rot_geo"].set(1, True, image.md.pcm_R_geo)
+        self["input_format"].set(image.md.input_format.value)
+        self["df_fov_radians"].set(image.md.inscribed_fov_radians)
+        self["df_lens_rot_radians"].set(image.md.df_lens_rot_radians)
 
 
 class FisheyeUniforms(UniformGroup):
@@ -153,8 +158,8 @@ class NumeralShader(IImageShader):
         self.numeral_texture_id = None
         self.uTile = Sampler2DUniform("tile")
         self.uNumerals = Sampler2DUniform("numerals")
+        self.uNdc_X_opx = Uniform("ndc_X_opx", GL.glUniformMatrix3fv)
         self.uNumeralData = NumeralUniforms()
-
         with resource_stream("vmg.images", "hex_digits_df.png") as df:
             numeral_pil = Image.open(df)
             self.numeral_array = numpy.array(numeral_pil)
@@ -195,6 +200,7 @@ class NumeralShader(IImageShader):
         for u in (
             self.uTile,
             self.uNumerals,
+            self.uNdc_X_opx,
             self.uNumeralData,
         ):
             u.get_location(self.program)
@@ -203,6 +209,7 @@ class NumeralShader(IImageShader):
         if self.program is None:
             self.initialize_gl()
         GL.glUseProgram(self.program)
+        self.uNdc_X_opx.set(1, True, state.ndc_xform_opx())
         self.uNumerals.set(1, self.numeral_texture_id)
         self.uNumeralData.set(state, image)
         for tile in image.tiles:
@@ -219,14 +226,9 @@ class NumeralSphereShader(IImageShader):
     def __init__(self):
         self.program = None
         self.numeral_texture_id = None
-        self.uNdc_X_opx = Uniform("ndc_X_opx", GL.glUniformMatrix3fv)
         self.uTile = Sampler2DUniform("tile")
         self.uNumerals = Sampler2DUniform("numerals")
-        self.uChannelCount = Uniform("channel_count", GL.glUniform1i)
-        self.uFormatMax = Uniform("format_max", GL.glUniform1f)
-        self.uDataMax = Uniform("data_max", GL.glUniform1f)
-        self.uRotation = Uniform("rotation", GL.glUniformMatrix2fv)
-        self.uPixelNumerals = Uniform("pixel_numerals", GL.glUniform1i)
+        self.uNumeralData = NumeralUniforms()
         with resource_stream("vmg.images", "hex_digits_df.png") as df:
             numeral_pil = Image.open(df)
             self.numeral_array = numpy.array(numeral_pil)
@@ -265,14 +267,9 @@ class NumeralSphereShader(IImageShader):
                            ], GL.GL_FRAGMENT_SHADER),
         )
         for u in (
-            self.uNdc_X_opx,
             self.uTile,
             self.uNumerals,
-            self.uChannelCount,
-            self.uFormatMax,
-            self.uDataMax,
-            self.uRotation,
-            self.uPixelNumerals,
+            self.uNumeralData,
         ):
             u.get_location(self.program)
 
@@ -280,13 +277,8 @@ class NumeralSphereShader(IImageShader):
         if self.program is None:
             self.initialize_gl()
         GL.glUseProgram(self.program)
-        self.uNdc_X_opx.set(1, True, state.ndc_xform_opx())
         self.uNumerals.set(1, self.numeral_texture_id)
-        self.uChannelCount.set(image.md.channel_count)
-        self.uFormatMax.set(image.md.upper_bound)
-        self.uDataMax.set(image.md.data_max)
-        self.uRotation.set(1, False, image.md.rpx_R_opx)
-        self.uPixelNumerals.set(state.pixel_numerals.value)
+        self.uNumeralData.set(state, image)
         for tile in image.tiles:
             assert tile.texture_id is not None
             self.uTile.set(0, tile.texture_id)
@@ -491,21 +483,13 @@ class SelectionBoxShader(IImageShader):
 class SphericalShader(IImageShader, ShaderProgramLike):
     def __init__(self):
         self.shader = None
-        self.zoom_location = None
+        self.uPano = PanoUniforms()
         self.pixelFilter_location = None
-        self.geo_rot_usr_location = None
-        self.pcm_rot_geo_location = None
-        self.window_size_location = None
-        self.input_format_location = None
-        self.display_projection_location = None
         self.tile_X_img_location = None
         self.uv_bounds_location = None
         self.brightness = Uniform("brightness", GL.glUniform1f)
         self.input_is_linear = Uniform("input_is_linear", GL.glUniform1i)
         self.uRenderPass = Uniform("render_pass", GL.glUniform1i)
-        # TODO dual fisheye parameters should be stored per-camera or whatever
-        self.df_fov_radians_location = None
-        self.df_lens_rot_radians_location = None
         self.numeral_shader = NumeralSphereShader()
 
     def initialize_gl(self) -> None:
@@ -523,18 +507,10 @@ class SphericalShader(IImageShader, ShaderProgramLike):
         GL.glAttachShader(self.shader, vertex_shader)
         GL.glAttachShader(self.shader, fragment_shader)
         GL.glLinkProgram(self.shader)
-        self.zoom_location = GL.glGetUniformLocation(self.shader, "window_zoom")
         self.pixelFilter_location = GL.glGetUniformLocation(self.shader, "pixelFilter")
-        self.geo_rot_usr_location = GL.glGetUniformLocation(self.shader, "geo_rot_usr")
-        self.pcm_rot_geo_location = GL.glGetUniformLocation(self.shader, "pcm_rot_geo")
-        self.window_size_location = GL.glGetUniformLocation(self.shader, "window_size")
-        self.input_format_location = GL.glGetUniformLocation(self.shader, "input_format")
-        self.display_projection_location = GL.glGetUniformLocation(self.shader, "display_projection")
         self.tile_X_img_location = GL.glGetUniformLocation(self.shader, "tile_X_img")
         self.uv_bounds_location = GL.glGetUniformLocation(self.shader, "uv_bounds")
-        self.df_fov_radians_location = GL.glGetUniformLocation(self.shader, "df_fov_radians")
-        self.df_lens_rot_radians_location = GL.glGetUniformLocation(self.shader, "df_lens_rot_radians")
-        for u in self.brightness, self.input_is_linear, self.uRenderPass:
+        for u in self.brightness, self.input_is_linear, self.uRenderPass, self.uPano:
             u.get_location(self.shader)
         self.numeral_shader.initialize_gl()
 
@@ -548,15 +524,8 @@ class SphericalShader(IImageShader, ShaderProgramLike):
         GL.glTexParameterf(GL.GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, f_largest)
 
         GL.glUseProgram(self.shader)
-        GL.glUniform1f(self.zoom_location, state.zoom)
+        self.uPano.set(state, image)
         GL.glUniform1i(self.pixelFilter_location, state.pixel_filter.value)
-        GL.glUniformMatrix3fv(self.geo_rot_usr_location, 1, True, state.geo_rot_usr)
-        GL.glUniformMatrix3fv(self.pcm_rot_geo_location, 1, True, image.md.pcm_R_geo)
-        GL.glUniform2i(self.window_size_location, *[int(x) for x in state.window_size])
-        GL.glUniform1i(self.input_format_location, image.md.input_format.value)
-        GL.glUniform1i(self.display_projection_location, state.display_projection.value)
-        GL.glUniform1f(self.df_fov_radians_location, image.md.inscribed_fov_radians)
-        GL.glUniform1f(self.df_lens_rot_radians_location, image.md.df_lens_rot_radians)
         self.brightness.set(state.brightness + image.md.baseline_exposure)
         self.input_is_linear.set(image.md.photometric_scale == PhotometricScale.LINEAR)
         self.uRenderPass.set(1)
