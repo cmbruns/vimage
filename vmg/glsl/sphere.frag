@@ -29,7 +29,7 @@ void main()
     // Convert direction to sky-up world frame (geo), then to camera frame (raw)
     vec3 p_pcm = pcm_rot_geo * geo_rot_obq * p_obq;
 
-    TexCoordAlpha tca = tcr_for_pcm(
+    TexCoordAlpha tca = rtc_for_pcm(
             p_pcm,
             input_format,
             df_fov_radians,
@@ -38,14 +38,14 @@ void main()
 
     if (tca.alpha == 0.0) discard;
 
-    vec2 p_tct = tct_for_tcr(tile_X_img, tca.p_tcr);
-    color = clip_n_filter(tile, p_tct, pixelFilter, true);
+    vec2 p_ttc = ttc_for_rtc(tile_X_img, tca.p_rtc);
+    color = clip_n_filter(tile, p_ttc, pixelFilter, true);
     color.a = tca.alpha;
 
-    if (p_tct.x < uv_bounds[0]
-        || p_tct.y < uv_bounds[1]
-        || p_tct.x > uv_bounds[2]
-        || p_tct.y > uv_bounds[3])
+    if (p_ttc.x < uv_bounds[0]
+        || p_ttc.y < uv_bounds[1]
+        || p_ttc.x > uv_bounds[2]
+        || p_ttc.y > uv_bounds[3])
     {
         discard;
     }
@@ -59,5 +59,5 @@ void main()
     color = srgb_from_linear(brightened);
 
     // OK to do overlays like texel boundaries and bounding box in srgb space
-    color = texel_boundaries(color, p_tct * textureSize(tile, 0));
+    color = texel_boundaries(color, p_ttc * textureSize(tile, 0));
 }

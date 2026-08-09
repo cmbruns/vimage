@@ -35,7 +35,7 @@ struct TexCoordPair {
 };
 
 struct TexCoordAlpha {
-    vec2 p_tcr;  // full image texture coordinate
+    vec2 p_rtc;  // full image texture coordinate
     float alpha;  // blending parameter
 };
 
@@ -494,7 +494,7 @@ vec3 stereographic_xyz(vec2 xy) {  // conformal
 }
 
 // Full image texture coordinates from camera direction
-TexCoordAlpha tcr_for_pcm(
+TexCoordAlpha rtc_for_pcm(
         vec3 p_pcm,
         int input_format,
         float df_fov_radians,
@@ -511,7 +511,7 @@ TexCoordAlpha tcr_for_pcm(
                     df_lens_rot_radians);  // lens rotation offset
             if (render_pass == 1) {
                 result.alpha = 1.0;  // first pass fully overwrites every valid pixel
-                result.p_tcr = pair.front_tc;
+                result.p_rtc = pair.front_tc;
                 if (pair.front_bias <= 0) {
                     result.alpha = 0.0;
                     return result;
@@ -519,7 +519,7 @@ TexCoordAlpha tcr_for_pcm(
             }
             else if (render_pass == 2)  {
                 result.alpha = 1.0 - pair.front_bias;  // blend second pass
-                result.p_tcr = pair.rear_tc;
+                result.p_rtc = pair.rear_tc;
                 if (pair.front_bias >= 1) {
                     result.alpha = 0.0;
                     return result;
@@ -531,21 +531,21 @@ TexCoordAlpha tcr_for_pcm(
             }
             break;
         case SINUSOIDAL_INPUT_FORMAT:
-            result.p_tcr = sinusoidal_tex_coord(p_pcm);
+            result.p_rtc = sinusoidal_tex_coord(p_pcm);
             break;
         case EQUIRECT_INPUT_FORMAT:
         default:
-            result.p_tcr = equirect_tex_coord(p_pcm);
+            result.p_rtc = equirect_tex_coord(p_pcm);
             break;
     }
     return result;
 }
 
 // computes tile texture coordinate for a full image texture coordinate
-vec2 tct_for_tcr(mat3 tile_X_img, vec2 tcr)
+vec2 ttc_for_rtc(mat3 tile_X_img, vec2 rtc)
 {
-    tcr = tcr - floor(tcr); // Shift to range 0-1
-    return (tile_X_img * vec3(tcr, 1)).xy;
+    rtc = rtc - floor(rtc); // Shift to range 0-1
+    return (tile_X_img * vec3(rtc, 1)).xy;
 }
 
 vec4 texel_boundaries(vec4 baseColor, vec2 texelCoord) {

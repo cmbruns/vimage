@@ -60,7 +60,7 @@ void main()
     // then to physical camera frame 3D direction (raw)
     vec3 p_pcm = pcm_rot_geo * geo_rot_obq * p_obq;
 
-    TexCoordAlpha tca = tcr_for_pcm(
+    TexCoordAlpha tca = rtc_for_pcm(
             p_pcm,
             DUAL_FISHEYE_INPUT_FORMAT,
             df_fov_radians,
@@ -69,33 +69,33 @@ void main()
 
     if (tca.alpha == 0.0) discard;
 
-    vec2 p_tcr = tca.p_tcr;
+    vec2 p_rtc = tca.p_rtc;
 
     // Compute lod before bounds clip,
     // to avoid derivative problems near the edges.
-    float lod = textureQueryLod(demosaic_tile, p_tcr).y;
+    float lod = textureQueryLod(demosaic_tile, p_rtc).y;
 
-    vec2 p_tct = tct_for_tcr(tile_X_img, p_tcr);  // Tile texture coordinate
+    vec2 p_ttc = ttc_for_rtc(tile_X_img, p_rtc);  // Tile texture coordinate
 
     // Clip to tile
-    if (   p_tct.x < uv_bounds[0]
-        || p_tct.y < uv_bounds[1]
-        || p_tct.x > uv_bounds[2]
-        || p_tct.y > uv_bounds[3])
+    if (   p_ttc.x < uv_bounds[0]
+        || p_ttc.y < uv_bounds[1]
+        || p_ttc.x > uv_bounds[2]
+        || p_ttc.y > uv_bounds[3])
         discard;
 
     // TODO: allow manual front/rear bias adjustment
 
-    vec4 demosaic_color = clip_n_filter(demosaic_tile, p_tct, pixelFilter, true);
+    vec4 demosaic_color = clip_n_filter(demosaic_tile, p_ttc, pixelFilter, true);
     // TODO: should bayer_color have a sharp transition along the seam?
-    vec4 bayer_color = texture(bayer_tile, p_tct);
+    vec4 bayer_color = texture(bayer_tile, p_ttc);
 
     // For Bayer mosaic we need to know the parity of this texel
     //   in the full image, not just the tile.
     // What's the upper left of the full image in tile coordinates?
-    vec3 ul_full_tct = tile_X_img * vec3(0, 0, 1);
-    vec2 tile_offset_texels = -ul_full_tct.xy * textureSize(bayer_tile, 0);
-    vec2 this_texel_in_tile = p_tct * textureSize(bayer_tile, 0);
+    vec3 ul_full_ttc = tile_X_img * vec3(0, 0, 1);
+    vec2 tile_offset_texels = -ul_full_ttc.xy * textureSize(bayer_tile, 0);
+    vec2 this_texel_in_tile = p_ttc * textureSize(bayer_tile, 0);
     ivec2 img_texel = ivec2(floor(this_texel_in_tile + tile_offset_texels));
     bayer_color = bayer_tint(img_texel, bayer_color);
 
@@ -141,5 +141,5 @@ void main()
     // gamma srgb space
     // If we are zoomed in enough to see texel boundaries, it's the
     // Bayer ones we should see.
-    color = texel_boundaries(color, p_tct * textureSize(bayer_tile, 0));
+    color = texel_boundaries(color, p_ttc * textureSize(bayer_tile, 0));
 }

@@ -14,5 +14,13 @@ out vec4 fragColor;
 
 void main()
 {
-    fragColor = numeral_color(p_ttc, tile, numerals, channel_count, format_max, data_max, rotation, pixel_numerals);
+    fragColor = numeral_color(
+            p_ttc,
+            tile,
+            numerals,
+            channel_count,
+            format_max,
+            data_max,
+            rotation,
+            pixel_numerals);
 }
