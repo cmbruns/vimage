@@ -150,7 +150,10 @@ class ImageMetadata(ImageMetadataLike):
             self.photometric_scale = PhotometricScale.LINEAR
         user_comment = ""
         if "UserComment" in exif:
-            user_comment = exif["UserComment"]
+            try:
+                user_comment = exif["UserComment"].decode()
+            except AttributeError:
+                user_comment = exif["UserComment"]  # Already a string
         if "Orientation" in exif:
             orientation_code = int(exif["Orientation"])
             self.orientation = ExifOrientation(orientation_code)
@@ -347,7 +350,7 @@ class ImageMetadata(ImageMetadataLike):
         if "sm-c200" in low:
             self.inscribed_fov_radians = radians(193.8)  # "SM-C200" 2016 Gear 360
 
-    def _parse_black_level(self, value):
+    def _parse_bw(self, value) -> tuple[float, float, float]:
         # If it's a string, convert it to numbers
         try:  # Is it a string?
             bk = [float(x) for x in value.split()]
@@ -370,16 +373,18 @@ class ImageMetadata(ImageMetadataLike):
         if len(value) == 4:
             value = [value[0], 0.5 * (value[1] + value[2]), value[3]]
 
-        assert len(value) == 3
+        # Convert rational to float
+        if len(value) == 6:
+            value = value[0]/value[1], value[2]/value[3], value[4]/value[5]
 
-        self.black_level = value
+        assert len(value) == 3
+        return value
+
+    def _parse_black_level(self, value):
+        self.black_level = self._parse_bw(value)
 
     def _parse_white_level(self, value: str):
-        try:
-            white = [float(x) / self.upper_bound for x in value.split()]
-        except AttributeError:
-            white = [float(value) / self.upper_bound] * 3
-        self.white_level = white
+        self.white_level = self._parse_bw(value)
 
     def load_exiftool(self, file_name):
         with exiftool.ExifTool() as et:
