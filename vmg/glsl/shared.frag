@@ -21,10 +21,23 @@ const int DUAL_FISHEYE_INPUT_FORMAT = 1;
 const int PERSPECTIVE_INPUT_FORMAT = 2;
 const int SINUSOIDAL_INPUT_FORMAT = 3;
 
-// 
+//
 const int NUMERALS_HEXADECIMAL = 1;
 const int NUMERALS_DECIMAL = 2;
 const int NUMERALS_NONE = 3;
+
+const vec3 INVALID_OBQ = vec3(0);
+
+struct TexCoordPair {
+    vec2 front_tc;
+    vec2 rear_tc;
+    float front_bias;  // range 0-1
+};
+
+struct TexCoordAlpha {
+    vec2 p_tcr;  // full image texture coordinate
+    float alpha;  // blending parameter
+};
 
 // Colorize raw grayscale bayer mosaic texel intensity
 vec4 bayer_tint(
@@ -115,12 +128,6 @@ vec2 sinusoidal_tex_coord(vec3 dir)
     return tex_coord;
 }
 
-struct TexCoordPair {
-    vec2 front_tc;
-    vec2 rear_tc;
-    float front_bias;  // range 0-1
-};
-
 TexCoordPair dual_fisheye_tex_coord(vec3 p_pcm, float fov_radians, float lens_rot_radians)
 {
     // input vector space is 3D unit sphere, x-right, y-up, z-back (i.e. -Z forward/center)
@@ -174,50 +181,6 @@ vec4 nearest_wrap(sampler2D image, vec2 tc) {
     return equirect_color(image, tc);
 }
 
-vec4 show_boundaries(vec4 baseColor, vec2 texelCoord,
-        float edgeThickness,
-        vec3 color1, vec3 color2
-) {
-    // Derivatives: texture-space delta per screen pixel
-    vec2 dx = dFdx(texelCoord);
-    vec2 dy = dFdy(texelCoord);
-
-    // Size of one screen pixel in texture space
-    float texelsPerPixel = min(length(dx), length(dy));
-    // Screen pixels per texture pixel
-    float pixelsPerTexel = 1.0 / texelsPerPixel;
-
-    // Fade-in factor: 0 at 10px/texel, 1 at 20px/texel
-    float fade = smoothstep(12.0, 100.0, pixelsPerTexel);
-    // If fully faded out, skip work
-    if (fade <= 0.0) return baseColor;
-
-    // Compute fractional position inside a texel
-    float fx = fract(texelCoord.x);
-    float fy = fract(texelCoord.y);
-    float distX = min(fx, 1.0 - fx) * pixelsPerTexel;
-    float distY = min(fy, 1.0 - fy) * pixelsPerTexel;
-    // Boundary thickness in texture space
-    // const float edgeThickness = 0.7;
-
-    bool isEdge = (distX < edgeThickness) || (distY < edgeThickness);
-    if (!isEdge) return baseColor;
-
-    // Black/white double line pattern
-    float stripe = step(0.5, fract((texelCoord.x + texelCoord.y) * 4.0));
-    vec4 edgeColor = vec4(mix(color1, color2, stripe), 1);
-
-    // Final opacity: fade * something
-    return mix(baseColor, edgeColor, fade * 0.4);
-}
-
-vec4 texel_boundaries(vec4 baseColor, vec2 texelCoord) {
-    return show_boundaries(baseColor, texelCoord,
-            1.2,  // edge thickness
-            vec3(0, 0, 0.3), vec3(1, 1, 0.7)  // color1, color2
-    );
-}
-
 vec4 clip_n_filter(sampler2D image, vec2 tc, int pixelFilter, bool wrap)
 {
     // clip to image boundary
@@ -238,6 +201,35 @@ vec4 clip_n_filter(sampler2D image, vec2 tc, int pixelFilter, bool wrap)
     }
 }
 
+bool azeqd_valid(vec2 xy) {
+    return dot(xy, xy) < PI * PI;
+}
+
+vec3 azimuthal_equidistant_xyz(vec2 xy) {  // finite distance to edges
+    float d = sqrt(dot(xy, xy));
+    float sdd = sin(d) / d;
+    float cd = cos(d);
+    return vec3(xy.x * sdd, xy.y * sdd, -cd);
+}
+
+bool equirect_valid(vec2 xy) {
+    if (abs(xy.y) > PI / 2)
+        return false;
+    return true;
+}
+
+vec3 equirect_xyz(vec2 xy) {
+    float lat = xy.y;
+    float lon = xy.x;
+    float clat = cos(lat);
+    return vec3(clat * sin(lon), sin(lat), -clat * cos(lon));
+}
+
+vec3 gnomonic_xyz(vec2 xy) {  // pinhole camera
+    float d = sqrt(dot(xy, xy) + 1);
+    return vec3(xy.x, xy.y, -1) / d;
+}
+
 float linear_from_srgb(in float srgb)
 {
     if (srgb <= 0.04045)
@@ -253,66 +245,6 @@ vec4 linear_from_srgb(in vec4 srgb)
         linear_from_srgb(srgb.g),
         linear_from_srgb(srgb.b),
         srgb.a);
-}
-
-const vec3 INVALID_OBQ = vec3(0);
-
-float srgb_from_linear(in float linear)
-{
-    if (linear <= 0.0031308)
-        return linear * 12.92;
-    else
-        return pow(linear, 1.0/2.4) * 1.055 - 0.055;
-}
-
-// computes tile texture coordinate for a full image texture coordinate
-vec2 tct_for_tcr(mat3 tile_X_img, vec2 tcr)
-{
-    tcr = tcr - floor(tcr); // Shift to range 0-1
-    return (tile_X_img * vec3(tcr, 1)).xy;
-}
-
-vec4 srgb_from_linear(in vec4 linear)
-{
-    return vec4(
-        srgb_from_linear(linear.r),
-        srgb_from_linear(linear.g),
-        srgb_from_linear(linear.b),
-        linear.a);
-}
-
-vec3 equirect_xyz(vec2 xy) {
-    float lat = xy.y;
-    float lon = xy.x;
-    float clat = cos(lat);
-    return vec3(clat * sin(lon), sin(lat), -clat * cos(lon));
-}
-
-vec3 gnomonic_xyz(vec2 xy) {  // pinhole camera
-    float d = sqrt(dot(xy, xy) + 1);
-    return vec3(xy.x, xy.y, -1) / d;
-}
-
-vec3 stereographic_xyz(vec2 xy) {  // conformal
-    float d = dot(xy, xy) + 4;
-    return vec3(4 * xy.x, 4 * xy.y, dot(xy, xy) - 4) / d;
-}
-
-vec3 azimuthal_equidistant_xyz(vec2 xy) {  // finite distance to edges
-    float d = sqrt(dot(xy, xy));
-    float sdd = sin(d) / d;
-    float cd = cos(d);
-    return vec3(xy.x * sdd, xy.y * sdd, -cd);
-}
-
-bool azeqd_valid(vec2 xy) {
-    return dot(xy, xy) < PI * PI;
-}
-
-bool equirect_valid(vec2 xy) {
-    if (abs(xy.y) > PI / 2)
-        return false;
-    return true;
 }
 
 vec4 numeral_color(
@@ -462,29 +394,6 @@ vec4 numeral_color(
     return vec4(color, 0.75 * alpha * fade);
 }
 
-// Convert normalized image screen coordinates (nic) to
-// app-view-modified world 3D coordinates (obq).
-// If the point is invalid, (0,0,0) is returned
-vec3 obq_for_nic(vec2 nic, int display_projection)
-{
-    switch(display_projection) {
-        case STEREOGRAPHIC_DISPLAY_PROJECTION:
-            return stereographic_xyz(nic);
-        case AZ_EQ_DISPLAY_PROJECTION:
-            if (! azeqd_valid(nic))
-                return INVALID_OBQ;
-            return azimuthal_equidistant_xyz(nic);
-        case GNOMONIC_DISPLAY_PROJECTION:
-            return gnomonic_xyz(nic);
-        case EQUIRECT_DISPLAY_PROJECTION:
-        default :
-            if (! equirect_valid(nic))
-                return INVALID_OBQ;
-            return equirect_xyz(nic);
-    }
-    return INVALID_OBQ;
-}
-
 // modify image color to show selection box
 vec4 selection_box(
     in vec2 p_omp,
@@ -523,6 +432,150 @@ vec4 selection_box(
         else
             return image_color;
     }
+}
+
+vec4 show_boundaries(vec4 baseColor, vec2 texelCoord,
+        float edgeThickness,
+        vec3 color1, vec3 color2
+) {
+    // Derivatives: texture-space delta per screen pixel
+    vec2 dx = dFdx(texelCoord);
+    vec2 dy = dFdy(texelCoord);
+
+    // Size of one screen pixel in texture space
+    float texelsPerPixel = min(length(dx), length(dy));
+    // Screen pixels per texture pixel
+    float pixelsPerTexel = 1.0 / texelsPerPixel;
+
+    // Fade-in factor: 0 at 10px/texel, 1 at 20px/texel
+    float fade = smoothstep(12.0, 100.0, pixelsPerTexel);
+    // If fully faded out, skip work
+    if (fade <= 0.0) return baseColor;
+
+    // Compute fractional position inside a texel
+    float fx = fract(texelCoord.x);
+    float fy = fract(texelCoord.y);
+    float distX = min(fx, 1.0 - fx) * pixelsPerTexel;
+    float distY = min(fy, 1.0 - fy) * pixelsPerTexel;
+    // Boundary thickness in texture space
+    // const float edgeThickness = 0.7;
+
+    bool isEdge = (distX < edgeThickness) || (distY < edgeThickness);
+    if (!isEdge) return baseColor;
+
+    // Black/white double line pattern
+    float stripe = step(0.5, fract((texelCoord.x + texelCoord.y) * 4.0));
+    vec4 edgeColor = vec4(mix(color1, color2, stripe), 1);
+
+    // Final opacity: fade * something
+    return mix(baseColor, edgeColor, fade * 0.4);
+}
+
+float srgb_from_linear(in float linear)
+{
+    if (linear <= 0.0031308)
+        return linear * 12.92;
+    else
+        return pow(linear, 1.0/2.4) * 1.055 - 0.055;
+}
+
+vec4 srgb_from_linear(in vec4 linear)
+{
+    return vec4(
+        srgb_from_linear(linear.r),
+        srgb_from_linear(linear.g),
+        srgb_from_linear(linear.b),
+        linear.a);
+}
+
+vec3 stereographic_xyz(vec2 xy) {  // conformal
+    float d = dot(xy, xy) + 4;
+    return vec3(4 * xy.x, 4 * xy.y, dot(xy, xy) - 4) / d;
+}
+
+// Full image texture coordinates from camera direction
+TexCoordAlpha tcr_for_pcm(
+        vec3 p_pcm,
+        int input_format,
+        float df_fov_radians,
+        float df_lens_rot_radians,
+        int render_pass)
+{
+    TexCoordAlpha result = TexCoordAlpha(vec2(0), 1.0);
+
+    switch(input_format) {
+        case DUAL_FISHEYE_INPUT_FORMAT:
+            TexCoordPair pair = dual_fisheye_tex_coord(
+                    p_pcm,
+                    df_fov_radians,  // fisheye field of view
+                    df_lens_rot_radians);  // lens rotation offset
+            if (render_pass == 1) {
+                result.alpha = 1.0;  // first pass fully overwrites every valid pixel
+                result.p_tcr = pair.front_tc;
+                if (pair.front_bias <= 0) {
+                    result.alpha = 0.0;
+                    return result;
+                }
+            }
+            else if (render_pass == 2)  {
+                result.alpha = 1.0 - pair.front_bias;  // blend second pass
+                result.p_tcr = pair.rear_tc;
+                if (pair.front_bias >= 1) {
+                    result.alpha = 0.0;
+                    return result;
+                }
+            }
+            else {
+                result.alpha = 0.0;
+                return result;
+            }
+            break;
+        case SINUSOIDAL_INPUT_FORMAT:
+            result.p_tcr = sinusoidal_tex_coord(p_pcm);
+            break;
+        case EQUIRECT_INPUT_FORMAT:
+        default:
+            result.p_tcr = equirect_tex_coord(p_pcm);
+            break;
+    }
+    return result;
+}
+
+// computes tile texture coordinate for a full image texture coordinate
+vec2 tct_for_tcr(mat3 tile_X_img, vec2 tcr)
+{
+    tcr = tcr - floor(tcr); // Shift to range 0-1
+    return (tile_X_img * vec3(tcr, 1)).xy;
+}
+
+vec4 texel_boundaries(vec4 baseColor, vec2 texelCoord) {
+    return show_boundaries(baseColor, texelCoord,
+            1.2,  // edge thickness
+            vec3(0, 0, 0.3), vec3(1, 1, 0.7)  // color1, color2
+    );
+}
+
+// Convert normalized image screen coordinates (nic) to
+// app-view-modified world 3D coordinates (obq).
+// If the point is invalid, (0,0,0) is returned
+vec3 obq_for_nic(vec2 nic, int display_projection)
+{
+    switch(display_projection) {
+        case STEREOGRAPHIC_DISPLAY_PROJECTION:
+            return stereographic_xyz(nic);
+        case AZ_EQ_DISPLAY_PROJECTION:
+            if (! azeqd_valid(nic))
+                return INVALID_OBQ;
+            return azimuthal_equidistant_xyz(nic);
+        case GNOMONIC_DISPLAY_PROJECTION:
+            return gnomonic_xyz(nic);
+        case EQUIRECT_DISPLAY_PROJECTION:
+        default :
+            if (! equirect_valid(nic))
+                return INVALID_OBQ;
+            return equirect_xyz(nic);
+    }
+    return INVALID_OBQ;
 }
 
 // Prepare to set line numbers correctly for the next file

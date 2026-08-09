@@ -27,7 +27,7 @@ void main()
     if (p_obq == INVALID_OBQ) discard;
 
     // Convert direction to sky-up world frame (geo), then to camera frame (raw)
-    vec3 p_raw = pcm_rot_geo * geo_rot_obq * p_obq;
+    vec3 p_pcm = pcm_rot_geo * geo_rot_obq * p_obq;
 
     // Look up tile texture coordinate(s)
     vec2 p_tcr;  // Full image texture coordinate
@@ -36,7 +36,7 @@ void main()
     switch(input_format) {
         case DUAL_FISHEYE_INPUT_FORMAT:
             TexCoordPair pair = dual_fisheye_tex_coord(
-                    p_raw,
+                    p_pcm,
                     df_fov_radians,  // fisheye field of view
                     df_lens_rot_radians);  // lens rotation offset
             float alpha = 1.0;
@@ -57,19 +57,18 @@ void main()
             color.a = alpha;
             break;
         case SINUSOIDAL_INPUT_FORMAT:
-            p_img_tex = sinusoidal_tex_coord(p_raw);
+            p_img_tex = sinusoidal_tex_coord(p_pcm);
             p_tct = tct_for_tcr(tile_X_img, p_img_tex);
             color = clip_n_filter(tile, p_tct, pixelFilter, true);
             break;
         case EQUIRECT_INPUT_FORMAT:
         default:
-            p_img_tex = equirect_tex_coord(p_raw);
+            p_img_tex = equirect_tex_coord(p_pcm);
             p_tct = tct_for_tcr(tile_X_img, p_img_tex);
             color = clip_n_filter(tile, p_tct, pixelFilter, true);
             break;
     }
 
-    // TODO: valid get tile texture bounds from a uniform for best filtering
     if (p_tct.x < uv_bounds[0]
         || p_tct.y < uv_bounds[1]
         || p_tct.x > uv_bounds[2]
