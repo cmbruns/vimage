@@ -251,11 +251,15 @@ mat2 texel_rotation(vec2 tc)
 {
     vec2 dx = dFdx(tc);
     vec2 dy = dFdy(tc);
-    // mat2 J = mat2(dx, dy);
+    mat2 J = mat2(dx, dy);
     vec2 ex = normalize(dx);
     vec2 ey = normalize(dy);
-    mat2 R = mat2(ex, ey);
-    return R;
+    mat2 R = mat2(ex.yx, ey.yx);
+    // The general rotation is far too noisy
+    // so just see if a 180 degree rotation might help
+    float trace = R[1][1] + R[0][0];
+    if (trace > 0) return mat2(1);
+    else return mat2(-1, 0, 0, -1);  // still too noisy!
 }
 
 vec4 numeral_color(
@@ -287,11 +291,11 @@ vec4 numeral_color(
 
     // additional rotation if texels are rotated on screen
     // TOO NOISY, need analytic jacobians...
-    // mat2 R = texel_rotation(p_ttc);
+    mat2 R = mat2(1); // texel_rotation(p_ttc);
 
     // rotate numbers
     local_coords -= vec2(0.5);
-    local_coords  = rotation * local_coords;
+    local_coords  = R * rotation * local_coords;
     local_coords += vec2(0.5);
 
     // Trim to sub-region
