@@ -79,6 +79,27 @@ class ViewerUniforms(UniformGroup):
         self["tile_X_img"].set(1, True, tile.tile_X_img)
 
 
+class NumeralUniforms(UniformGroup):
+    def __init__(self):
+        super().__init__()
+        self.add(Uniform("channel_count", GL.glUniform1i))
+        self.add(Uniform("data_max", GL.glUniform1f))
+        self.add(Uniform("format_max", GL.glUniform1f))
+        self.add(Uniform("ndc_X_opx", GL.glUniformMatrix3fv))
+        self.add(Uniform("pixel_numerals", GL.glUniform1i))
+        self.add(Uniform("rotation", GL.glUniformMatrix2fv))
+
+    def set(self, state: RenderStateLike, image: TiledImageLike):
+        # state
+        self["ndc_X_opx"].set(1, True, state.ndc_xform_opx())
+        self["pixel_numerals"].set(state.pixel_numerals.value)
+        # image
+        self["channel_count"].set(image.md.channel_count)
+        self["data_max"].set(image.md.data_max)
+        self["format_max"].set(image.md.upper_bound)
+        self["rotation"].set(1, False, image.md.rpx_R_opx)
+
+
 class PanoUniforms(UniformGroup):
     def __init__(self):
         super().__init__()
@@ -130,14 +151,10 @@ class NumeralShader(IImageShader):
     def __init__(self):
         self.program = None
         self.numeral_texture_id = None
-        self.uNdc_X_opx = Uniform("ndc_X_opx", GL.glUniformMatrix3fv)
         self.uTile = Sampler2DUniform("tile")
         self.uNumerals = Sampler2DUniform("numerals")
-        self.uChannelCount = Uniform("channel_count", GL.glUniform1i)
-        self.uFormatMax = Uniform("format_max", GL.glUniform1f)
-        self.uDataMax = Uniform("data_max", GL.glUniform1f)
-        self.uRotation = Uniform("rotation", GL.glUniformMatrix2fv)
-        self.uPixelNumerals = Uniform("pixel_numerals", GL.glUniform1i)
+        self.uNumeralData = NumeralUniforms()
+
         with resource_stream("vmg.images", "hex_digits_df.png") as df:
             numeral_pil = Image.open(df)
             self.numeral_array = numpy.array(numeral_pil)
@@ -176,14 +193,9 @@ class NumeralShader(IImageShader):
                            ], GL.GL_FRAGMENT_SHADER),
         )
         for u in (
-            self.uNdc_X_opx,
             self.uTile,
             self.uNumerals,
-            self.uChannelCount,
-            self.uFormatMax,
-            self.uDataMax,
-            self.uRotation,
-            self.uPixelNumerals,
+            self.uNumeralData,
         ):
             u.get_location(self.program)
 
@@ -191,13 +203,8 @@ class NumeralShader(IImageShader):
         if self.program is None:
             self.initialize_gl()
         GL.glUseProgram(self.program)
-        self.uNdc_X_opx.set(1, True, state.ndc_xform_opx())
         self.uNumerals.set(1, self.numeral_texture_id)
-        self.uChannelCount.set(image.md.channel_count)
-        self.uFormatMax.set(image.md.upper_bound)
-        self.uDataMax.set(image.md.data_max)
-        self.uRotation.set(1, False, image.md.rpx_R_opx)
-        self.uPixelNumerals.set(state.pixel_numerals.value)
+        self.uNumeralData.set(state, image)
         for tile in image.tiles:
             assert tile.texture_id is not None
             self.uTile.set(0, tile.texture_id)
