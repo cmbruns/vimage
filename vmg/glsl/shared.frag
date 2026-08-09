@@ -21,7 +21,7 @@ const int DUAL_FISHEYE_INPUT_FORMAT = 1;
 const int PERSPECTIVE_INPUT_FORMAT = 2;
 const int SINUSOIDAL_INPUT_FORMAT = 3;
 
-//
+// 
 const int NUMERALS_HEXADECIMAL = 1;
 const int NUMERALS_DECIMAL = 2;
 const int NUMERALS_NONE = 3;

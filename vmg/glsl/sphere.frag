@@ -29,6 +29,8 @@ void main()
     // Convert direction to sky-up world frame (geo), then to camera frame (raw)
     vec3 p_pcm = pcm_rot_geo * geo_rot_obq * p_obq;
 
+    float alpha = 1.0;
+
     // Look up tile texture coordinate(s)
     vec2 p_tcr;  // Full image texture coordinate
     vec2 p_tct;  // Tile texture coordinate
@@ -39,7 +41,6 @@ void main()
                     p_pcm,
                     df_fov_radians,  // fisheye field of view
                     df_lens_rot_radians);  // lens rotation offset
-            float alpha = 1.0;
             if (render_pass == 1) {
                 alpha = 1.0;  // first pass fully overwrites every valid pixel
                 p_tcr = pair.front_tc;
@@ -53,21 +54,21 @@ void main()
             else discard;
 
             p_tct = tct_for_tcr(tile_X_img, p_tcr);
-            color = clip_n_filter(tile, p_tct, pixelFilter, true);
-            color.a = alpha;
             break;
         case SINUSOIDAL_INPUT_FORMAT:
-            p_img_tex = sinusoidal_tex_coord(p_pcm);
-            p_tct = tct_for_tcr(tile_X_img, p_img_tex);
-            color = clip_n_filter(tile, p_tct, pixelFilter, true);
+            p_tcr = sinusoidal_tex_coord(p_pcm);
             break;
         case EQUIRECT_INPUT_FORMAT:
         default:
-            p_img_tex = equirect_tex_coord(p_pcm);
-            p_tct = tct_for_tcr(tile_X_img, p_img_tex);
-            color = clip_n_filter(tile, p_tct, pixelFilter, true);
+            p_tcr = equirect_tex_coord(p_pcm);
             break;
     }
+
+    if (alpha == 0.0) discard;
+
+    p_tct = tct_for_tcr(tile_X_img, p_tcr);
+    color = clip_n_filter(tile, p_tct, pixelFilter, true);
+    color.a = alpha;
 
     if (p_tct.x < uv_bounds[0]
         || p_tct.y < uv_bounds[1]
