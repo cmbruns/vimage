@@ -150,7 +150,7 @@ class ImageMetadata(ImageMetadataLike):
             self.photometric_scale = PhotometricScale.LINEAR
         user_comment = ""
         if "UserComment" in exif:
-            user_comment = exif["UserComment"].decode()
+            user_comment = exif["UserComment"]
         if "Orientation" in exif:
             orientation_code = int(exif["Orientation"])
             self.orientation = ExifOrientation(orientation_code)

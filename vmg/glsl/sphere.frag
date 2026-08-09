@@ -5,7 +5,7 @@ uniform int display_projection = STEREOGRAPHIC_DISPLAY_PROJECTION;
 
 uniform sampler2D tile;
 uniform int pixelFilter = FILTER_NEAREST;
-uniform mat3 geo_rot_obq = mat3(1);
+uniform mat3 geo_rot_usr = mat3(1);
 uniform mat3 pcm_rot_geo = mat3(1);
 uniform mat3 tile_X_img = mat3(1);
 uniform vec4 uv_bounds = vec4(0, 0, 1, 1);  // (u_min, v_min, u_max, v_max)
@@ -22,12 +22,12 @@ out vec4 color;
 void main()
 {
     // Convert normalized image screen coordinates (nic) to
-    // app-view-modified world 3D coordinates (obq)
-    vec3 p_obq = obq_for_nic(p_nic, display_projection);
-    if (p_obq == INVALID_OBQ) discard;
+    // app-view-modified world 3D coordinates (usr)
+    vec3 p_usr = usr_for_nic(p_nic, display_projection);
+    if (p_usr == INVALID_USR) discard;
 
     // Convert direction to sky-up world frame (geo), then to camera frame (raw)
-    vec3 p_pcm = pcm_rot_geo * geo_rot_obq * p_obq;
+    vec3 p_pcm = pcm_rot_geo * geo_rot_usr * p_usr;
 
     TexCoordAlpha tca = rtc_for_pcm(
             p_pcm,

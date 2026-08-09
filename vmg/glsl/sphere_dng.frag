@@ -26,7 +26,7 @@ uniform mat3 tile_X_img;
 
 // 360 only
 uniform int display_projection = STEREOGRAPHIC_DISPLAY_PROJECTION;
-uniform mat3 geo_rot_obq = mat3(1);
+uniform mat3 geo_rot_usr = mat3(1);
 uniform mat3 pcm_rot_geo = mat3(1);
 uniform vec4 uv_bounds = vec4(0, 0, 1, 1);  // (u_min, v_min, u_max, v_max)
 
@@ -52,13 +52,13 @@ vec4 color_sphere(vec3 p) {
 void main()
 {
     // Convert normalized image screen coordinates (nic) to
-    // viewer-space 3D direction (obq)
-    vec3 p_obq = obq_for_nic(p_nic, display_projection);
-    if (p_obq == INVALID_OBQ) discard;
+    // viewer-space 3D direction (usr)
+    vec3 p_usr = usr_for_nic(p_nic, display_projection);
+    if (p_usr == INVALID_USR) discard;
 
     // Convert direction to sky-up physical camera world frame (geo),
     // then to physical camera frame 3D direction (raw)
-    vec3 p_pcm = pcm_rot_geo * geo_rot_obq * p_obq;
+    vec3 p_pcm = pcm_rot_geo * geo_rot_usr * p_usr;
 
     TexCoordAlpha tca = rtc_for_pcm(
             p_pcm,

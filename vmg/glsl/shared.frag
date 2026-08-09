@@ -26,7 +26,7 @@ const int NUMERALS_HEXADECIMAL = 1;
 const int NUMERALS_DECIMAL = 2;
 const int NUMERALS_NONE = 3;
 
-const vec3 INVALID_OBQ = vec3(0);
+const vec3 INVALID_USR = vec3(0);
 
 struct TexCoordPair {
     vec2 front_tc;
@@ -556,26 +556,26 @@ vec4 texel_boundaries(vec4 baseColor, vec2 texelCoord) {
 }
 
 // Convert normalized image screen coordinates (nic) to
-// app-view-modified world 3D coordinates (obq).
+// app-view-modified world 3D coordinates (usr).
 // If the point is invalid, (0,0,0) is returned
-vec3 obq_for_nic(vec2 nic, int display_projection)
+vec3 usr_for_nic(vec2 nic, int display_projection)
 {
     switch(display_projection) {
         case STEREOGRAPHIC_DISPLAY_PROJECTION:
             return stereographic_xyz(nic);
         case AZ_EQ_DISPLAY_PROJECTION:
             if (! azeqd_valid(nic))
-                return INVALID_OBQ;
+                return INVALID_USR;
             return azimuthal_equidistant_xyz(nic);
         case GNOMONIC_DISPLAY_PROJECTION:
             return gnomonic_xyz(nic);
         case EQUIRECT_DISPLAY_PROJECTION:
         default :
             if (! equirect_valid(nic))
-                return INVALID_OBQ;
+                return INVALID_USR;
             return equirect_xyz(nic);
     }
-    return INVALID_OBQ;
+    return INVALID_USR;
 }
 
 // Prepare to set line numbers correctly for the next file

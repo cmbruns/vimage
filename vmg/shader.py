@@ -85,14 +85,14 @@ class PanoUniforms(UniformGroup):
         self.add(Uniform("window_size", GL.glUniform2i))
         self.add(Uniform("window_zoom", GL.glUniform1f))
         self.add(Uniform("display_projection", GL.glUniform1i))
-        self.add(Uniform("geo_rot_obq", GL.glUniformMatrix3fv))
+        self.add(Uniform("geo_rot_usr", GL.glUniformMatrix3fv))
         self.add(Uniform("pcm_rot_geo", GL.glUniformMatrix3fv))
 
     def set(self, state: RenderStateLike, image: TiledImageLike):
         self["window_size"].set(*[int(x) for x in state.window_size])
         self["window_zoom"].set(state.zoom)
         self["display_projection"].set(state.display_projection.value)
-        self["geo_rot_obq"].set(1, True, state.geo_rot_usr)
+        self["geo_rot_usr"].set(1, True, state.geo_rot_usr)
         self["pcm_rot_geo"].set(1, True, image.md.pcm_R_geo)
 
 
@@ -404,7 +404,7 @@ class SphericalShader(IImageShader, ShaderProgramLike):
         self.shader = None
         self.zoom_location = None
         self.pixelFilter_location = None
-        self.geo_rot_obq_location = None
+        self.geo_rot_usr_location = None
         self.pcm_rot_geo_location = None
         self.window_size_location = None
         self.input_format_location = None
@@ -435,7 +435,7 @@ class SphericalShader(IImageShader, ShaderProgramLike):
         GL.glLinkProgram(self.shader)
         self.zoom_location = GL.glGetUniformLocation(self.shader, "window_zoom")
         self.pixelFilter_location = GL.glGetUniformLocation(self.shader, "pixelFilter")
-        self.geo_rot_obq_location = GL.glGetUniformLocation(self.shader, "geo_rot_obq")
+        self.geo_rot_usr_location = GL.glGetUniformLocation(self.shader, "geo_rot_usr")
         self.pcm_rot_geo_location = GL.glGetUniformLocation(self.shader, "pcm_rot_geo")
         self.window_size_location = GL.glGetUniformLocation(self.shader, "window_size")
         self.input_format_location = GL.glGetUniformLocation(self.shader, "input_format")
@@ -459,7 +459,7 @@ class SphericalShader(IImageShader, ShaderProgramLike):
         GL.glUseProgram(self.shader)
         GL.glUniform1f(self.zoom_location, state.zoom)
         GL.glUniform1i(self.pixelFilter_location, state.pixel_filter.value)
-        GL.glUniformMatrix3fv(self.geo_rot_obq_location, 1, True, state.geo_rot_usr)
+        GL.glUniformMatrix3fv(self.geo_rot_usr_location, 1, True, state.geo_rot_usr)
         GL.glUniformMatrix3fv(self.pcm_rot_geo_location, 1, True, image.md.pcm_R_geo)
         GL.glUniform2i(self.window_size_location, *[int(x) for x in state.window_size])
         GL.glUniform1i(self.input_format_location, image.md.input_format.value)
@@ -530,7 +530,7 @@ class SphericalDngShader(IImageShader):
         self.uViewer["brightness"].set(state.brightness + image.md.baseline_exposure)
         self.uViewer["pixelFilter"].set(state.pixel_filter.value)
         self.uPano["window_zoom"].set(state.zoom)
-        self.uPano["geo_rot_obq"].set(1, True, state.geo_rot_usr)
+        self.uPano["geo_rot_usr"].set(1, True, state.geo_rot_usr)
         self.uPano["pcm_rot_geo"].set(1, True, image.md.pcm_R_geo)
         self.uPano["window_size"].set(*[int(x) for x in state.window_size])
         self.uPano["display_projection"].set(state.display_projection.value)
