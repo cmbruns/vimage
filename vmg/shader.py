@@ -10,6 +10,7 @@ from OpenGL import GL
 from OpenGL.GL.shaders import compileProgram, compileShader
 from OpenGL.GL.EXT.texture_filter_anisotropic import GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, GL_TEXTURE_MAX_ANISOTROPY_EXT
 
+from vmg.load_progress import LoadProgress
 from vmg.tiled_image import DngTile, Tile
 from vmg.interfaces import RenderStateLike, TiledImageLike, InputFormat, PhotometricScale, TileLike, ShaderProgramLike
 from vmg.resources import resource_stream, resource_string
@@ -64,6 +65,19 @@ class UniformGroup:
     def get_location(self, program: int):
         for u in self._index.values():
             u.get_location(program)
+
+
+class TileUniforms(UniformGroup):
+    def __init__(self):
+        super().__init__()
+        self.add(Uniform("tile_X_img", GL.glUniformMatrix3fv))
+        self.add(Uniform("uv_bounds", GL.glUniform4f))
+        self.add(Sampler2DUniform("tile"))
+
+    def set(self, tile: TileLike, unit: int = 0):
+        self["tile_X_img"].set(1, True, tile.tile_X_img)
+        self["uv_bounds"].set(*tile.uv_bounds)
+        self["tile"].set(unit, tile.texture_id)
 
 
 class ViewerUniforms(UniformGroup):
@@ -219,9 +233,11 @@ class NumeralSphereShader(IImageShader):
     def __init__(self):
         self.program = None
         self.numeral_texture_id = None
-        self.uTile = Sampler2DUniform("tile")
+        self.uTileData = TileUniforms()
         self.uNumerals = Sampler2DUniform("numerals")
         self.uNumeralData = NumeralUniforms()
+        self.uPano = PanoUniforms()
+        self.uRenderPass = Uniform("render_pass", GL.glUniform1i)
         with resource_stream("vmg.images", "hex_digits_df.png") as df:
             numeral_pil = Image.open(df)
             self.numeral_array = numpy.array(numeral_pil)
@@ -260,23 +276,27 @@ class NumeralSphereShader(IImageShader):
                            ], GL.GL_FRAGMENT_SHADER),
         )
         for u in (
-            self.uTile,
+            self.uTileData,
             self.uNumerals,
             self.uNumeralData,
+            self.uPano,
+            self.uRenderPass,
         ):
             u.get_location(self.program)
 
-    def paint_gl(self, state: RenderStateLike, image: TiledImageLike) -> None:
+    def paint_gl(self, state: RenderStateLike, image: TiledImageLike, render_pass=1) -> None:
         if self.program is None:
             self.initialize_gl()
         GL.glUseProgram(self.program)
         self.uNumerals.set(1, self.numeral_texture_id)
         self.uNumeralData.set(state, image)
+        self.uPano.set(state, image)
+        self.uRenderPass.set(render_pass)
         for tile in image.tiles:
             assert tile.texture_id is not None
-            self.uTile.set(0, tile.texture_id)
+            self.uTileData.set(tile)
+            tile.initialize_arrays()
             assert tile.vao is not None
-            # TODO: this is for standard photos only
             GL.glBindVertexArray(tile.vao)
             GL.glDrawArrays(GL.GL_TRIANGLE_STRIP, 0, 4)
 
@@ -332,7 +352,9 @@ class RectangularTileShader(IImageShader, ShaderProgramLike):
         self.brightness.set(state.brightness + image.md.baseline_exposure)
         self.input_is_linear.set(image.md.photometric_scale == PhotometricScale.LINEAR)
         image.paint_gl(self, state)
-        self.numeral_shader.paint_gl(state, image)
+        do_numerals = state.opx_scale_qwn() < 0.2
+        if do_numerals:
+            self.numeral_shader.paint_gl(state, image)
         if state.show_tile_boundaries:
             self.tile_boundary_shader.paint_gl(state, image)
         self.box_shader.paint_gl(state, image)
@@ -434,7 +456,9 @@ class RectangularDngShader(IImageShader):
         GL.glUniformMatrix3fv(self.ndc_x_opx_location, 1, True, state.ndc_xform_opx())
         GL.glUniform1f(self.opx_scale_qwn_location, state.opx_scale_qwn())
         self.paint_image(state, image)
-        self.numeral_shader.paint_gl(state, image)
+        do_numerals = state.opx_scale_qwn() < 0.2
+        if do_numerals:
+            self.numeral_shader.paint_gl(state, image)
         if state.show_tile_boundaries:
             self.tile_boundary_shader.paint_gl(state, image)
         self.box_shader.paint_gl(state, image)
@@ -476,6 +500,7 @@ class SelectionBoxShader(IImageShader):
 class SphericalShader(IImageShader, ShaderProgramLike):
     def __init__(self):
         self.shader = None
+        self.uTile = TileUniforms()
         self.uPano = PanoUniforms()
         self.pixelFilter_location = None
         self.tile_X_img_location = None
@@ -503,7 +528,13 @@ class SphericalShader(IImageShader, ShaderProgramLike):
         self.pixelFilter_location = GL.glGetUniformLocation(self.shader, "pixelFilter")
         self.tile_X_img_location = GL.glGetUniformLocation(self.shader, "tile_X_img")
         self.uv_bounds_location = GL.glGetUniformLocation(self.shader, "uv_bounds")
-        for u in self.brightness, self.input_is_linear, self.uRenderPass, self.uPano:
+        for u in (
+                self.brightness,
+                self.input_is_linear,
+                self.uRenderPass,
+                self.uPano,
+                self.uTile,
+        ):
             u.get_location(self.shader)
         self.numeral_shader.initialize_gl()
 
@@ -522,11 +553,34 @@ class SphericalShader(IImageShader, ShaderProgramLike):
         self.brightness.set(state.brightness + image.md.baseline_exposure)
         self.input_is_linear.set(image.md.photometric_scale == PhotometricScale.LINEAR)
         self.uRenderPass.set(1)
-        image.paint_gl(self, state)
+        self.paint_image(image)
+        do_numerals = state.opx_scale_qwn() < 0.2
+        if do_numerals:
+            self.numeral_shader.paint_gl(state, image, render_pass=1)
         if image.md.input_format == InputFormat.DUAL_FISHEYE:
             # second render pass for rear lens
+            GL.glUseProgram(self.shader)
             self.uRenderPass.set(2)
-            image.paint_gl(self, state)
+            self.paint_image(image)
+            if do_numerals:
+                self.numeral_shader.paint_gl(state, image, render_pass=2)
+
+    def paint_tile(self, tile: TileLike):
+        if not tile.is_ready_for_display():
+            return False
+        tile.initialize_arrays()
+        self.uTile.set(tile)
+        GL.glBindVertexArray(tile.vao)
+        GL.glDrawArrays(GL.GL_TRIANGLE_STRIP, 0, 4)
+        return True
+
+    def paint_image(self, image: TiledImageLike):
+        is_complete = True  # start optimistic
+        for tile in image.tiles:
+            if not self.paint_tile(tile):
+                is_complete = False
+            if is_complete:
+                image.set_display_complete()
 
 
 class SphericalDngShader(IImageShader):
@@ -540,11 +594,11 @@ class SphericalDngShader(IImageShader):
     uAsShotNeutral = Uniform("as_shot_neutral", GL.glUniform3f)
     uLsr_X_wba = Uniform("lsr_X_wba", GL.glUniformMatrix3fv)
     uUvBounds = Uniform("uv_bounds", GL.glUniform4f)
+    uTile = TileUniforms()
 
     def __init__(self):
         self.shader = None
-        self.df_fov_radians_location = None
-        self.df_lens_rot_radians_location = None
+        self.numeral_shader = NumeralSphereShader()
 
     def initialize_gl(self) -> None:
         try:
@@ -568,6 +622,7 @@ class SphericalDngShader(IImageShader):
                 self.uWhiteLevel,
                 self.uAsShotNeutral,
                 self.uLsr_X_wba,
+                self.uTile,
             ):
                 uniform.get_location(self.shader)
         except BaseException as exc:
@@ -585,22 +640,28 @@ class SphericalDngShader(IImageShader):
         self.uWhiteLevel.set(*image.md.white_level)
         self.uAsShotNeutral.set(*image.md.as_shot_neutral)
         self.uLsr_X_wba.set(1, True, image.md.lsr_X_wba)
-        #
+        # Be selective about numeral painting to avoid tile bounary artifacts at lower zoom
+        do_numerals = state.opx_scale_qwn() < 0.2
         self.uRenderPass.set(1)
         self._paint_one_pass(image)
+        if do_numerals:
+            self.numeral_shader.paint_gl(state, image, render_pass=1)
         if image.md.input_format == InputFormat.DUAL_FISHEYE:
+            # second render pass for rear lens
+            GL.glUseProgram(self.shader)
             self.uRenderPass.set(2)
             self._paint_one_pass(image)
+            if do_numerals:
+                self.numeral_shader.paint_gl(state, image, render_pass=2)
 
     def paint_tile(self, tile: DngTile) -> bool:
         assert isinstance(tile, DngTile)
-        self.uViewer["tile_X_img"].set(1, True, tile.tile_X_img)
-        self.uUvBounds.set(*tile.uv_bounds)
         self.uDemosaicTile.set(1, tile.demosaic_texture_id)
         self.uBayerTile.set(0, tile.bayer_texture_id)
         if not tile.is_ready_for_display():
             return False
         tile.initialize_arrays()
+        self.uTile.set(tile)
         GL.glBindVertexArray(tile.render_vao)
         GL.glDrawArrays(GL.GL_TRIANGLE_STRIP, 0, 4)
         return True

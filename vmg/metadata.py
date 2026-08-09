@@ -121,9 +121,9 @@ class ImageMetadata(ImageMetadataLike):
                     continue
                 print(att)
         # SIZE
-        self.size_opx = DimensionsOpx(page.imagewidth, page.imagelength)
+        self.size_opx = DimensionsOpx(int(page.imagewidth), int(page.imagelength))
         # same, unless we find an exif orientation tag later
-        self.size_rpx = self.size_opx[0], self.size_opx[1]
+        self.size_rpx = int(self.size_opx[0]), int(self.size_opx[1])
         self.channel_count = page.samplesperpixel
         self.upper_bound = numpy.iinfo(page.dtype).max
         xmp = {}
@@ -228,7 +228,7 @@ class ImageMetadata(ImageMetadataLike):
 
     def load_pil_image(self, pil_image: Image.Image) -> None:
         w, h = pil_image.size
-        self.size_rpx = w, h  # Unrotated dimension
+        self.size_rpx = int(w), int(h)  # Unrotated dimension
         # TODO: move away from DimensionsOmp and other frame vectors
         self.size_opx = DimensionsOpx(w, h)
         self.channel_count = channel_count_for_pil_mode.get(pil_image.mode, 3)
@@ -394,7 +394,7 @@ class ImageMetadata(ImageMetadataLike):
         if debug:
             print(json.dumps(exif, indent=2, sort_keys=True))
         w, h = exif["EXIF:ImageWidth"], exif["EXIF:ImageHeight"]
-        self.size_rpx = w, h
+        self.size_rpx = int(w), int(h)
         self.size_opx = DimensionsOpx(w, h)
         self.channel_count = exif["EXIF:SamplesPerPixel"]
         orientation_code = exif["EXIF:Orientation"]

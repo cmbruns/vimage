@@ -247,6 +247,17 @@ vec4 linear_from_srgb(in vec4 srgb)
         srgb.a);
 }
 
+mat2 texel_rotation(vec2 tc)
+{
+    vec2 dx = dFdx(tc);
+    vec2 dy = dFdy(tc);
+    // mat2 J = mat2(dx, dy);
+    vec2 ex = normalize(dx);
+    vec2 ey = normalize(dy);
+    mat2 R = mat2(ex, ey);
+    return R;
+}
+
 vec4 numeral_color(
         vec2 p_ttc,
         sampler2D tile,
@@ -273,6 +284,10 @@ vec4 numeral_color(
     // pixel-relative texture coordinates
     vec2 texture_pixels = textureSize(tile, 0);
     vec2 local_coords = fract(texture_pixels * p_ttc);
+
+    // additional rotation if texels are rotated on screen
+    // TOO NOISY, need analytic jacobians...
+    // mat2 R = texel_rotation(p_ttc);
 
     // rotate numbers
     local_coords -= vec2(0.5);

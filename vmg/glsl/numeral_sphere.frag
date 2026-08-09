@@ -3,7 +3,9 @@
 uniform sampler2D tile;
 uniform sampler2D numerals;
 
+// tile related
 uniform mat3 tile_X_img;
+uniform vec4 uv_bounds = vec4(0, 0, 1, 1);  // (u_min, v_min, u_max, v_max)
 
 // pano related
 uniform int display_projection = STEREOGRAPHIC_DISPLAY_PROJECTION;
@@ -46,6 +48,14 @@ void main()
     if (tca.alpha == 0.0) discard;
 
     vec2 p_ttc = ttc_for_rtc(tile_X_img, tca.p_rtc);
+
+    if (p_ttc.x < uv_bounds[0]
+        || p_ttc.y < uv_bounds[1]
+        || p_ttc.x > uv_bounds[2]
+        || p_ttc.y > uv_bounds[3])
+    {
+        discard;
+    }
 
     fragColor = numeral_color(
             p_ttc,
