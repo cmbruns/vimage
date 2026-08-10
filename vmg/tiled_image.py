@@ -3,6 +3,8 @@ Intended as partial Replacement for ImageData, Texture
 """
 
 from ctypes import c_float, c_void_p, cast, sizeof
+
+import imagecodecs
 import logging
 from tifffile import TiffFileError
 from typing import Iterator
@@ -149,7 +151,11 @@ class TiledImage(TiledImageLike):
         self.md.load_tifffile_page(page, root_page)
         self.set_progress(LoadProgress.METADATA_LOADED)
         # Slurp the raw bytes
-        self.array = page.asarray()
+        try:
+            self.array = page.asarray()
+        except imagecodecs.DelayedImportError as exc:
+            logger.error(exc)
+            raise
         self.set_progress(LoadProgress.ARRAY_CREATED)
 
     def paint_gl(self, program, view_state):

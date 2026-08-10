@@ -221,7 +221,7 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         self.input_format_changed.emit(input_format)  # noqa
 
     def set_image(self, image: TiledImageLike):
-        logger.info("Received image data")
+        logger.debug("Received image data")
         self.image = image
         self.view_state.reset()
         assert self.image is not None

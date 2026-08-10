@@ -1,4 +1,5 @@
 # -*- mode: python ; coding: utf-8 -*-
+
 from PyInstaller.building.build_main import Analysis, COLLECT, EXE, PYZ
 
 block_cipher = None
@@ -18,7 +19,14 @@ a = Analysis(
      ("../vmg/git_hash.txt", "vmg"),
      ("../vmg/lib/*.dll", "vmg/lib"),
     ],
-    hiddenimports=["vmg.glsl", "vmg.lib", "imagecodecs"],
+    hiddenimports=[
+        "vmg.glsl",
+        "vmg.lib",
+        "imagecodecs._shared",
+        "imagecodecs._shared_cython",
+        "imagecodecs._imcd",
+        "imagecodecs._jpeg8",
+    ],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],

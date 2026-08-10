@@ -47,24 +47,28 @@ class ImageLoader(QtCore.QObject):
 
     @QtCore.Slot(str)  # noqa
     def load_from_file_name(self, file_name: str):
-        image = TiledImage()
-        image.sq.image_displayed.connect(self.on_image_displayed)
-        image.sq.progress_changed.connect(self.on_progress_changed)
-        image.set_progress(LoadProgress.OBJECT_CREATED)
-        if not image.load_from_file(file_name):
-            self.load_failed.emit(file_name)  # noqa
-            return
-        if image is None:
-            self.load_failed.emit(file_name)  # noqa
-            return
-        self.current_image = image
-        if self.offscreen_context is None:
-            self.image_data_is_pending = True
-            logger.debug(
-                f"Deferring texture initialization for {image.md.file_name} until OpenGL context is ready"
-            )
-        else:
-            self.upload_image(image)  # noqa
+        try:
+            image = TiledImage()
+            image.sq.image_displayed.connect(self.on_image_displayed)
+            image.sq.progress_changed.connect(self.on_progress_changed)
+            image.set_progress(LoadProgress.OBJECT_CREATED)
+            if not image.load_from_file(file_name):
+                self.load_failed.emit(file_name)  # noqa
+                return
+            if image is None:
+                self.load_failed.emit(file_name)  # noqa
+                return
+            self.current_image = image
+            if self.offscreen_context is None:
+                self.image_data_is_pending = True
+                logger.debug(
+                    f"Deferring texture initialization for {image.md.file_name} until OpenGL context is ready"
+                )
+            else:
+                self.upload_image(image)  # noqa
+        except BaseException as exc:
+            logger.error(exc)
+            self.load_failed.emit(file_name)
 
     @QtCore.Slot(Image.Image, str)  # noqa
     def load_from_pil_image(self, pil_image: Image.Image, file_name: str):
@@ -114,6 +118,7 @@ class ImageLoader(QtCore.QObject):
     def on_progress_changed(self, progress: int, image: TiledImageLike):
         if image is self.current_image:
             self.progress_changed.emit(progress)  # noqa
+            QCoreApplication.processEvents()
 
     def upload_image(self, image: TiledImageLike):
         if not self._is_current(image):
