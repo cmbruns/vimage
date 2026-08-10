@@ -521,6 +521,7 @@ class DngTile(Tile):
         if self.demosaic_framebuffer is None:
             self.demosaic_framebuffer = GL.glGenFramebuffers(1)  # noqa
             self.demosaic_vao = GL.glGenVertexArrays(1)  # noqa
+        GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, self.demosaic_framebuffer)
         # Create demosaic color texture
         self.demosaic_texture_id = GL.glGenTextures(1)  # noqa
         GL.glBindTexture(GL.GL_TEXTURE_2D, self.demosaic_texture_id)
