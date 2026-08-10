@@ -201,7 +201,7 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
     def _linear_from_srgb(image: NDArray):
         return numpy.where(image >= 0.04045, ((image + 0.055) / 1.055)**2.4, image/12.92)
 
-    def set_input_format(self, input_format: InputFormat):
+    def set_input_format(self, input_format: InputFormat) -> bool:
         if input_format == InputFormat.STANDARD_PHOTO:
             if self.image and self.image.md.is_cfa:
                 self.program = self.rect_dng_shader
@@ -213,12 +213,15 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
             else:
                 self.program = self.sphere_shader
         if self.image is None:
-            return
+            return False
+        if self.image.md.input_format == input_format:
+            return False
         self.image.md.input_format = input_format
         self.signal_360.emit(input_format != InputFormat.STANDARD_PHOTO)  # noqa
         logger.debug(f"input projection = {input_format}")
         self.view_state.update_input_format()
         self.input_format_changed.emit(input_format)  # noqa
+        return True
 
     def set_image(self, image: TiledImageLike):
         logger.debug("Received image data")
