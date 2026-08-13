@@ -4,6 +4,11 @@ project(vimage LANGUAGES CXX)  # CXX because of binary helpers
 option(BUILD_BINARY_UTILS "Build binary utilities" OFF)
 option(BUILD_INSTALLER "BuildInstaller" ON)
 
+if(UNIX)
+  set(LINUX_PACKAGE_FORMAT "DEB" CACHE STRING "Linux package format: DEB or RPM")
+  set_property(CACHE LINUX_PACKAGE_FORMAT PROPERTY STRINGS DEB RPM)
+endif()
+
 # TODO: binary utils should be a whole separate cmake, distinct from pyinstaller
 if (BUILD_BINARY_UTILS)
 add_subdirectory(csrc)  # compiled helpers
@@ -177,16 +182,28 @@ elseif(APPLE)
   set(CPACK_GENERATOR DragNDrop)
   set(CPACK_DMG_DS_STORE "${CMAKE_SOURCE_DIR}/CMake/DS_Store")
 elseif(UNIX)
-  set(CPACK_GENERATOR DEB)
-  set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Christopher Bruns")
-  set(CPACK_DEBIAN_PACKAGE_DEPENDS "")
-  set(CPACK_DEBIAN_PACKAGE_RELEASE 1)
-  set(CPACK_SET_DESTDIR "ON")
-  # TODO: flesh out and debug this sketch for setting file associations
-  set(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA
-    "${CMAKE_BINARY_DIR}/postinst"
-    "${CMAKE_BINARY_DIR}/postrm"
-  )
+    if(LINUX_PACKAGE_FORMAT STREQUAL "DEB")
+        set(CPACK_GENERATOR DEB)
+        set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Christopher Bruns")
+        set(CPACK_DEBIAN_PACKAGE_SECTION "utils")
+        set(CPACK_DEBIAN_PACKAGE_PRIORITY "optional")
+        set(CPACK_DEBIAN_PACKAGE_DEPENDS "")
+        set(CPACK_DEBIAN_PACKAGE_RELEASE 1)
+        set(CPACK_SET_DESTDIR "ON")
+        # Set file associations
+        set(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA
+            "${CMAKE_BINARY_DIR}/postinst"
+            "${CMAKE_BINARY_DIR}/postrm"
+        )
+    elseif(LINUX_PACKAGE_FORMAT STREQUAL "RPM")
+        set(CPACK_GENERATOR "RPM")
+        set(CPACK_RPM_PACKAGE_LICENSE "MIT")
+        set(CPACK_RPM_PACKAGE_GROUP "Applications/Graphics")
+        set(CPACK_RPM_PACKAGE_RELEASE 1)
+        set(CPACK_RPM_PACKAGE_SUMMARY "vimage viewer")
+        set(CPACK_RPM_PACKAGE_DESCRIPTION "vimage desktop image viewer")
+        set(CPACK_RPM_PACKAGE_REQUIRES "")
+    endif()
 endif()
 
 include(CPack)
