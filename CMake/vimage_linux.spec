@@ -1,16 +1,45 @@
 # -*- mode: python ; coding: utf-8 -*-
+import os
+
 from PyInstaller.building.build_main import Analysis, COLLECT, EXE, PYZ
 
 block_cipher = None
 
 
+def find_lib(name, search_paths):
+    for path in search_paths:
+        candidate = os.path.join(path, name)
+        if os.path.exists(candidate):
+            return candidate
+    return None
+
+
+lib_paths = [
+    "/opt/libjpeg-turbo/lib64",
+    "/usr/local/lib64",
+    "/usr/lib64",
+    "/usr/lib",
+]
+
+jpeg_lib = find_lib("libjpeg.so", lib_paths)
+turbojpeg_lib = find_lib("libturbojpeg.so.0", lib_paths)
+
+binaries = []
+
+if jpeg_lib:
+    binaries.append((jpeg_lib, '.'))
+else:
+    print("WARNING: libjpeg.so not found")
+
+if turbojpeg_lib:
+    binaries.append((turbojpeg_lib, '.'))
+else:
+    print("WARNING: libturbojpeg.so.0 not found")
+
 a = Analysis(
     scripts=['../scripts/vimage.py'],
     pathex=["..", ],
-    binaries=[
-     ('/opt/libjpeg-turbo/lib64/libjpeg.so', '.'),
-     ('/opt/libjpeg-turbo/lib64/libturbojpeg.so.0', '.'),
-    ],
+    binaries=binaries,
     datas=[
      ("../vmg/glsl/*.vert", "vmg/glsl"),
      ("../vmg/glsl/*.frag", "vmg/glsl"),
@@ -26,6 +55,9 @@ a = Analysis(
         "imagecodecs._shared_cython",
         "imagecodecs._imcd",
         "imagecodecs._jpeg8",
+        "OpenGL.platform.egl",
+        "OpenGL.platform.glx",
+        "OpenGL.platform.baseplatform",
     ],
     hookspath=[],
     hooksconfig={},
