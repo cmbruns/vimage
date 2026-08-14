@@ -366,16 +366,16 @@ class ImageMetadata(ImageMetadataLike):
         except TypeError:
             value = [float(value)] * 3
 
-        # Normalize
-        value = [float(x) / self.upper_bound for x in value]
+        # Convert rational to float
+        if len(value) == 6:
+            value = value[0]/value[1], value[2]/value[3], value[4]/value[5]
 
         # Convert CFA RGGB to RGB
         if len(value) == 4:
             value = [value[0], 0.5 * (value[1] + value[2]), value[3]]
 
-        # Convert rational to float
-        if len(value) == 6:
-            value = value[0]/value[1], value[2]/value[3], value[4]/value[5]
+        # Normalize
+        value = [float(x) / self.upper_bound for x in value]
 
         assert len(value) == 3
         return value
