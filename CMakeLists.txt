@@ -139,11 +139,28 @@ elseif(APPLE)
   )
 elseif(UNIX)
   install(DIRECTORY "${CMAKE_BINARY_DIR}/dist/vimage"
-      DESTINATION "."
+      DESTINATION "libexec"
   )
+  # 1. Install your actual program target normally
   install(
      PROGRAMS "${CMAKE_BINARY_DIR}/dist/vimage/vimage"
-     DESTINATION "vimage"
+     DESTINATION "libexec/vimage"
+  )
+  # 2. Define the symlink target path (relative to where the symlink will live)
+  # From 'bin/', you must go up one folder to reach 'libexec/'
+  set(SYMLINK_TARGET "../libexec/vimage/vimage")
+  set(SYMLINK_NAME "vimage")
+  # 3. Create the symlink physically inside the build directory at configure time
+  execute_process(
+    COMMAND ${CMAKE_COMMAND} -E create_symlink
+    "${SYMLINK_TARGET}"
+    "${CMAKE_CURRENT_BINARY_DIR}/${SYMLINK_NAME}"
+  )
+  # 4. Use install(FILES) to package the symlink.
+  # CPack RPM will see that this file is a symlink and package it properly!
+  install(
+    FILES "${CMAKE_CURRENT_BINARY_DIR}/${SYMLINK_NAME}"
+    DESTINATION bin
   )
   configure_file(${CMAKE_SOURCE_DIR}/CMake/resources/debian/postinst.in.sh
    ${CMAKE_BINARY_DIR}/postinst
@@ -157,9 +174,6 @@ elseif(UNIX)
     DESTINATION "share/mime/packages"
   )
   install(FILES ${CMAKE_SOURCE_DIR}/CMake/resources/debian/vimage.desktop
-        DESTINATION "share/applications"
-  )
-  install(FILES ${CMAKE_SOURCE_DIR}/CMake/resources/debian/mimeapps.list
         DESTINATION "share/applications"
   )
 endif()
@@ -203,6 +217,8 @@ elseif(UNIX)
         set(CPACK_RPM_PACKAGE_SUMMARY "vimage viewer")
         set(CPACK_RPM_PACKAGE_DESCRIPTION "vimage desktop image viewer")
         set(CPACK_RPM_PACKAGE_REQUIRES "")
+        # Avoid troublesome automatic dependency detection
+        set(CPACK_RPM_PACKAGE_AUTOREQPROV "no")
     endif()
 endif()
 
