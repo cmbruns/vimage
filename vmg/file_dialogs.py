@@ -18,10 +18,12 @@ OPEN_IMAGE_FILTERS = (
     "PNG Images (*.png);;"
     "JPEG Images (*.jpg *.jpeg);;"
     "TIFF Images (*.tif *.tiff);;"
+    "HEIC Images (*.heic);;"
     "WEBP Images (*.webp);;"
     "BMP Images (*.bmp);;"
     "PPM Images (*.ppm *.pgm *.pbm);;"
     "GIF Images (*.gif);;"
+    "DNG Images (*.dng);;"
     "All files (*)"
 )
 
@@ -38,9 +40,36 @@ SAVE_IMAGE_FILTERS = (
 )
 
 
-class ImageFileDialogManager:
+class AppHistoryManager:
+    """Handles ONLY persistent state tracking and history settings."""
     def __init__(self, company_name: str = "MyCompany", app_name: str = "ImageViewer"):
         self.settings = QSettings(company_name, app_name)
+
+    def log_successful_save(self, file_path: str):
+        """Call this ONLY after the image is verified written to disk."""
+        if not file_path:
+            return
+        directory = QFileInfo(file_path).absolutePath()
+        self.settings.setValue("history/last_saved_dir", directory)
+        self.settings.setValue("history/last_browsed_dir", directory)
+
+    def log_browse_action(self, directory_or_file: str):
+        """Call this when a user opens an image, picks a recent folder, or browses."""
+        if not directory_or_file:
+            return
+        info = QFileInfo(directory_or_file)
+        directory = info.absolutePath() if info.isFile() else directory_or_file
+        self.settings.setValue("history/last_browsed_dir", directory)
+
+    def get_value(self, key: str, default: str = "") -> str:
+        result = self.settings.value(key, default)
+        assert isinstance(result, str)
+        return result
+
+
+class ImageFileDialogManager:
+    def __init__(self, history_manager: AppHistoryManager):
+        self.history = history_manager
 
     @staticmethod
     def _is_valid_and_writable(path: str) -> bool:
@@ -55,15 +84,14 @@ class ImageFileDialogManager:
             if self._is_valid_and_writable(provenance_dir):
                 return provenance_dir
 
-        history_keys = (
+        keys = (
             ["history/last_saved_dir", "history/last_browsed_dir"]
             if is_save_mode else
             ["history/last_browsed_dir", "history/last_saved_dir"]
         )
 
-        for key in history_keys:
-            path = self.settings.value(key, "")
-            assert isinstance(path, str)
+        for key in keys:
+            path: str = self.history.get_value(key)
             if self._is_valid_and_writable(path):
                 return path
 
@@ -107,8 +135,6 @@ class ImageFileDialogManager:
         )
 
         if file_path:
-            browsed_dir = QFileInfo(file_path).absolutePath()
-            self.settings.setValue("history/last_browsed_dir", browsed_dir)
             return file_path
         return ""
 
@@ -118,17 +144,13 @@ class ImageFileDialogManager:
         initial_file_path = os.path.join(initial_dir, default_name)
 
         # PySide6 static calls return a tuple: (target_file_path, filter_used)
-        file_path, _ = QFileDialog.getSaveFileName(
+        file_path, _file_filter = QFileDialog.getSaveFileName(
             parent=parent,
             caption="Save Image As",
             dir=initial_file_path,
             filter=SAVE_IMAGE_FILTERS,
             selectedFilter="PNG Images (*.png)"  # Fixed syntax to match filter string precisely
         )
-
         if file_path:
-            saved_dir = QFileInfo(file_path).absolutePath()
-            self.settings.setValue("history/last_saved_dir", saved_dir)
-            self.settings.setValue("history/last_browsed_dir", saved_dir)
             return file_path
         return ""
