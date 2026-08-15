@@ -374,6 +374,12 @@ class ImageMetadata(ImageMetadataLike):
         if len(value) == 4:
             value = [value[0], 0.5 * (value[1] + value[2]), value[3]]
 
+        # Insta360 X6 linear RGB DNG
+        if len(value) == 24:  # 3 samples * 4 CFA * 2 rational components
+            # 1) Rational to float
+            value = [n/d for n, d, in zip(value[::2], value[1::2])]
+            value = value[::4]  # should be mean actually but whatever
+
         # Normalize
         value = [float(x) / self.upper_bound for x in value]
 

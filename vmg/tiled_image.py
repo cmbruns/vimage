@@ -55,6 +55,13 @@ internal_format_for_channel_count = {
     4: GL.GL_RGBA,
 }
 
+internal_format_for_channel_count16 = {
+    1: GL.GL_R16,
+    2: GL.GL_RG16,
+    3: GL.GL_RGB16,
+    4: GL.GL_RGBA16,
+}
+
 rotation_for_exif_orientation = {
     1: numpy.array([[1, 0], [0, 1]], dtype=numpy.float32),
     2: numpy.array([[-1, 0], [0, 1]], dtype=numpy.float32),
@@ -423,12 +430,15 @@ def generate_tiles(
     assert max_texture_size >= tile_size
     # Loop over tiles
     w, h = (int(x) for x in image.md.size_rpx)
-    channel_count = image.md.channel_count
-    internal_format = internal_format_for_channel_count[channel_count]
-    if tex_format is None:
-        tex_format = internal_format  # TODO: BGR, GL_RGB16 etc.
     assert image.array is not None
     data_type = gl_type_for_numpy_dtype[image.array.dtype]
+    channel_count = image.md.channel_count
+    if data_type in [GL.GL_SHORT, GL.GL_UNSIGNED_SHORT]:
+        internal_format = internal_format_for_channel_count16[channel_count]
+    else:
+        internal_format = internal_format_for_channel_count[channel_count]
+    if tex_format is None:
+        tex_format = internal_format_for_channel_count[channel_count]  # TODO: BGR, GL_RGB16 etc.
     top = 0
     top_pad = 0
     while top < h:
