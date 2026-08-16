@@ -5,7 +5,7 @@ uniform vec3 white_level = vec3(1);
 uniform vec3 as_shot_neutral = vec3(1);
 
 in vec2 tex_coord;
-out vec4 color;
+out vec4 frag_color;
 
 // Malvar He Cutler Linear Image Demosaicking on 5x5 neighborhood
 // 13 neighbor texel offsets that contribute to the demosaic
@@ -212,6 +212,12 @@ float lanczos(vec2 xa) {
     return sinc(x) * sinc(x / a);
 }
 
+struct ColorAccumulator {
+    vec3 color;
+    vec3 weight;
+    vec3 clipped_weight;
+};
+
 // My first crack at demosaic
 vec3 lanczos7x7_color(vec2 texel)
 {
@@ -245,18 +251,24 @@ vec3 lanczos7x7_color(vec2 texel)
 
             float intensity = texelFetch(bayer, tx, 0).r;
 
-            if ((y & 1) == 0 && (x & 1) == 0) {  // red
-                rgb.r += w_rb * intensity;
-                weights.r += w_rb;
+            float w = 0.0;  // weight for this sample
+            vec3 mask = vec3(0, 0, 0);  // color mask for this sample
+
+            if ((y & 1) == 0 && (x & 1) == 0) { // red
+                w = w_rb;
+                mask = vec3(1, 0, 0);
             }
-            else if ((y & 1) != 0 && (x & 1) != 0) {  // blue
-                rgb.b += w_rb * intensity;
-                weights.b += w_rb;
+            else if ((y & 1) != 0 && (x & 1) != 0) { // blue
+                w = w_rb;
+                mask = vec3(0, 0, 1);
             }
-            else {  // green
-                rgb.g += w_g * intensity;
-                weights.g += w_g;
+            else { // green
+                w = w_g;
+                mask = vec3(0, 1, 0);
             }
+
+            rgb += w * mask * intensity;
+            weights += w * mask;
         }
     }
     return rgb / weights;
@@ -269,5 +281,5 @@ void main()
     vec3 rgb = lanczos7x7_color(texel);  // better than mhc but softer
     // vec3 rgb = mhc_color(texel);  // bad zippering near door
     // vec3 rgb = linear_color(texel);  // different bad zippering
-    color = vec4(rgb, 1);
+    frag_color = vec4(rgb, 1);
 }
