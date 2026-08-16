@@ -213,27 +213,26 @@ float lanczos(vec2 xa) {
     return sinc(x) * sinc(x / a);
 }
 
-struct ColorAccumulator {
-    vec3 color;
-    vec3 weight;
-    vec3 clipped_weight;
-};
 
 // My first crack at demosaic
 vec3 lanczos7x7_color(vec2 texel)
 {
-    ivec2 iTexel = ivec2(floor(texel));
-    // Visit a 7x7 neighborhood
-    vec3 rgb = vec3(0);
-    vec3 weights = vec3(0);
-    const int dt = 3;  // 1->3x3; 2->5x5; 3->7x7
-    const float window = dt + 0.5;  // Keep neighborhood symmetric-ish, shortest distance not visited here
-    // Maybe both sampling rates should be 2.0 since that's the band limit for this raster
-    // 2.5 to give it a bit more blur
+    vec3 rgb = vec3(0);  // accumulated color
+    vec3 weights = vec3(0);  // accumulated non-clipped sample weights
+    vec3 clipped_weights = vec3(0);  // accumulated clipped sample weights
+    // sensor space color of neutral overexposed pixel
+    vec3 clipped_rgb = white_level * as_shot_neutral;
+
+    // Use two different Nyquist rates for green vs red/blue pixels
     const float rb_sampling_rate = 2.0;  // neighbor red/blue are 2 cells away
     const float g_sampling_rate = sqrt(2.0);  // neighbor greens are diagonal
+    // Texture coordinate bounds for this tile
     ivec2 max_tex = textureSize(bayer, 0) - ivec2(1);
     ivec2 min_tex = ivec2(0);
+    // Visit a 7x7 neighborhood
+    ivec2 iTexel = ivec2(floor(texel));
+    const int dt = 3;  // 1->3x3; 2->5x5; 3->7x7
+    const float window = dt + 0.9;  // Keep neighborhood symmetric-ish, shortest distance not visited here
     for (int x = iTexel.x - dt; x <= iTexel.x + dt; ++x)
     {
         float dx = x - texel.x;
@@ -268,11 +267,27 @@ vec3 lanczos7x7_color(vec2 texel)
                 mask = vec3(0, 1, 0);
             }
 
-            rgb += w * mask * intensity;
-            weights += w * mask;
+            // Only accumulate colors where the intensity is not clipped to the max
+            if (lessThan(mask * intensity, clipped_rgb) == bvec3(true)) {
+                rgb += w * mask * intensity;
+                weights += w * mask;
+            }
+            else {
+                clipped_weights += w * mask;
+            }
         }
     }
-    return rgb / weights;
+
+    // handle fully clipped and zero clipped cases first
+    if (weights == vec3(0)) return clipped_rgb;
+    vec3 linear_rgb = rgb / max(weights, vec3(0.0001));
+    if (clipped_weights == vec3(0)) return linear_rgb;
+
+    // smoothly interpolate between clipped and unclipped at the boundary
+    vec3 total_weights = weights + clipped_weights;
+    vec3 clip_ratio = clipped_weights / max(total_weights, vec3(0.0001));
+    vec3 blend_factor = smoothstep(0.2, 0.8, clip_ratio);
+    return mix(linear_rgb, clipped_rgb, blend_factor);
 }
 
 void main()

@@ -587,6 +587,7 @@ class DngTile(Tile):
                                ["demosaic.frag"],
                                GL.GL_FRAGMENT_SHADER),
             )
+            GL.glUseProgram(self.demosaic_program)
             self.uDng.get_location(self.demosaic_program)
             self.uDng.set(self.tci.image)
         GL.glUseProgram(self.demosaic_program)
