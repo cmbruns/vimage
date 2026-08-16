@@ -247,6 +247,41 @@ vec4 linear_from_srgb(in vec4 srgb)
         srgb.a);
 }
 
+vec3 linear_srgb_from_sensor(
+        vec3 sensor,
+        vec3 black_level,
+        vec3 white_level,
+        vec3 as_shot_neutral,
+        mat3 lsr_X_wba)
+{
+    vec3 color = sensor;
+
+    // TODO: put this in the demosaic shader
+    // 1. Check if ANY raw channel is at or near absolute physical sensor clipping
+    // (We use a tiny safety epsilon of 0.005 to catch driver/rounding noise)
+    bool is_sensor_clipped = (color.r >= white_level.r - 0.005) ||
+                             (color.g >= white_level.g - 0.005) ||
+                             (color.b >= white_level.b - 0.005);
+
+    // black level sns -> bkc
+    color.rgb = max(color.rgb - black_level, vec3(0));
+    // white level bkc -> rfv (camera "linear reference value" in DNG spec)
+    color.rgb = min(color.rgb/(white_level - black_level), vec3(1));
+
+    if (is_sensor_clipped)
+        color.rgb = vec3(1.0);
+
+    // rfv -> wba  white balanced
+    color.rgb /= as_shot_neutral;
+    // clip so highlights are neutral, to avoid magenta sun
+    color.rgb = min(color.rgb, vec3(1));
+
+    // convert to linear sRGB
+    color.rgb = lsr_X_wba * color.rgb;
+
+    return color;
+}
+
 mat2 texel_rotation(vec2 tc)
 {
     vec2 dx = dFdx(tc);

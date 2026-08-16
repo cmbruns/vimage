@@ -214,8 +214,8 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
                 self.program = self.sphere_shader
         if self.image is None:
             return False
-        if self.image.md.input_format == input_format:
-            return False
+        # if self.image.md.input_format == input_format:
+        #     return False
         self.image.md.input_format = input_format
         self.signal_360.emit(input_format != InputFormat.STANDARD_PHOTO)  # noqa
         logger.debug(f"input projection = {input_format}")

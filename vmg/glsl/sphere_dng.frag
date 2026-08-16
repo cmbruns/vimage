@@ -104,9 +104,6 @@ void main()
     // At lower zoom, the user sees the demosaicked RGB interpretation.
     float demosaic_bias = clamp(lod + 10, 0.0, 4.0) * 0.25;  // Blended color between lod 0->1
 
-    const bool do_color_math = true;  // for debugging
-    if (!do_color_math) demosaic_bias = 1.0;
-
     const bool debug = false;
     if (debug) {
         // Visualize lods
@@ -119,20 +116,7 @@ void main()
     color = mix(bayer_color, demosaic_color, demosaic_bias);
     color.a = tca.alpha;
 
-    if (do_color_math) {
-        // black level sns -> bkc
-        color.rgb = max(color.rgb - black_level, vec3(0));
-        // white level bkc -> rfv (camera "linear reference value" in DNG spec)
-        color.rgb = min(color.rgb / (white_level - black_level), vec3(1));
-
-        // rfv -> wba  white balanced
-        color.rgb /= as_shot_neutral;
-        // clip so highlights are neutral, to avoid magenta sun
-        color.rgb = min(color.rgb, vec3(1));
-
-        // convert to linear sRGB
-        color.rgb = lsr_X_wba * color.rgb;
-    }
+    color.rgb = linear_srgb_from_sensor(color.rgb, black_level, white_level, as_shot_neutral, lsr_X_wba);
 
     // Apply user brightness
     // DNG is always photometrically linear

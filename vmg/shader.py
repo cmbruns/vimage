@@ -67,6 +67,21 @@ class UniformGroup:
             u.get_location(program)
 
 
+class DngUniforms(UniformGroup):
+    def __init__(self):
+        super().__init__()
+        self.add(Uniform("black_level", GL.glUniform3f))
+        self.add(Uniform("white_level", GL.glUniform3f))
+        self.add(Uniform("as_shot_neutral", GL.glUniform3f))
+        self.add(Uniform("lsr_X_wba", GL.glUniformMatrix3fv))
+
+    def set(self, image: TiledImageLike):
+        self["black_level"].set(*image.md.black_level)
+        self["white_level"].set(*image.md.white_level)
+        self["as_shot_neutral"].set(*image.md.as_shot_neutral)
+        self["lsr_X_wba"].set(1, True, image.md.lsr_X_wba)
+
+
 class TileUniforms(UniformGroup):
     def __init__(self):
         super().__init__()
@@ -311,6 +326,7 @@ class RectangularTileShader(IImageShader, ShaderProgramLike):
         self.opx_scale_qwn_location = None
         self.tile_X_img_location = -1
         self.uv_bounds_location = -1
+        self.uDng = DngUniforms()
         self.brightness = Uniform("brightness", GL.glUniform1f)
         self.input_is_linear = Uniform("input_is_linear", GL.glUniform1i)
         self.background_color = [0.5, 0.5, 0.5, 0.5]
@@ -333,6 +349,7 @@ class RectangularTileShader(IImageShader, ShaderProgramLike):
             self.background_color_location = GL.glGetUniformLocation(self.shader, "background_color")
             self.pixelFilter_location = GL.glGetUniformLocation(self.shader, "pixel_filter")
             self.opx_scale_qwn_location = GL.glGetUniformLocation(self.shader, "opx_scale_qwn")
+            self.uDng.get_location(self.shader)
             self.brightness.get_location(self.shader)
             self.input_is_linear.get_location(self.shader)
             self.box_shader.initialize_gl()
@@ -349,6 +366,7 @@ class RectangularTileShader(IImageShader, ShaderProgramLike):
         GL.glUniform4f(self.background_color_location, *state.background_color)
         GL.glUniformMatrix3fv(self.ndc_x_opx_location, 1, True, state.ndc_xform_opx())
         GL.glUniform1f(self.opx_scale_qwn_location, state.opx_scale_qwn())
+        self.uDng.set(image)
         self.brightness.set(state.brightness + image.md.baseline_exposure)
         self.input_is_linear.set(image.md.photometric_scale == PhotometricScale.LINEAR)
         image.paint_gl(self, state)
@@ -502,6 +520,7 @@ class SphericalShader(IImageShader, ShaderProgramLike):
         self.shader = None
         self.uTile = TileUniforms()
         self.uPano = PanoUniforms()
+        self.uDng = DngUniforms()
         self.pixelFilter_location = None
         self.tile_X_img_location = None
         self.uv_bounds_location = None
@@ -534,6 +553,7 @@ class SphericalShader(IImageShader, ShaderProgramLike):
                 self.uRenderPass,
                 self.uPano,
                 self.uTile,
+                self.uDng,
         ):
             u.get_location(self.shader)
         self.numeral_shader.initialize_gl()
@@ -550,6 +570,7 @@ class SphericalShader(IImageShader, ShaderProgramLike):
         GL.glUseProgram(self.shader)
         self.uPano.set(state, image)
         GL.glUniform1i(self.pixelFilter_location, state.pixel_filter.value)
+        self.uDng.set(image)
         self.brightness.set(state.brightness + image.md.baseline_exposure)
         self.input_is_linear.set(image.md.photometric_scale == PhotometricScale.LINEAR)
         self.uRenderPass.set(1)
