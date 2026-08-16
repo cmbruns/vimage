@@ -256,20 +256,10 @@ vec3 linear_srgb_from_sensor(
 {
     vec3 color = sensor;
 
-    // TODO: put this in the demosaic shader
-    // 1. Check if ANY raw channel is at or near absolute physical sensor clipping
-    // (We use a tiny safety epsilon of 0.005 to catch driver/rounding noise)
-    bool is_sensor_clipped = (color.r >= white_level.r - 0.005) ||
-                             (color.g >= white_level.g - 0.005) ||
-                             (color.b >= white_level.b - 0.005);
-
     // black level sns -> bkc
     color.rgb = max(color.rgb - black_level, vec3(0));
     // white level bkc -> rfv (camera "linear reference value" in DNG spec)
     color.rgb = min(color.rgb/(white_level - black_level), vec3(1));
-
-    if (is_sensor_clipped)
-        color.rgb = vec3(1.0);
 
     // rfv -> wba  white balanced
     color.rgb /= as_shot_neutral;

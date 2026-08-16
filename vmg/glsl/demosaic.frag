@@ -1,6 +1,9 @@
 #version 410 core
 
 uniform sampler2D bayer;
+uniform vec3 white_level = vec3(1);
+uniform vec3 as_shot_neutral = vec3(1);
+
 in vec2 tex_coord;
 out vec4 color;
 
@@ -98,7 +101,7 @@ ivec2 rggb_clamp_to_edge(ivec2 xy)
     return ivec2(cx, cy);
 }
 
-// Malvar He Cutler Linear Image Demosaicking on 5x5 neighborhood
+// Bilinear demosaicking
 vec3 linear_color(vec2 texel)
 {
     // fract(texel) should be near 0.5 if textures are aligned correctly
@@ -139,6 +142,7 @@ vec3 linear_color(vec2 texel)
     return result;
 }
 
+// Malvar He Cutler Linear Image Demosaicking on 5x5 neighborhood
 vec3 mhc_color(vec2 texel)
 {
     // fract(texel) should be near 0.5 if textures are aligned correctly
@@ -212,7 +216,7 @@ float lanczos(vec2 xa) {
 vec3 lanczos7x7_color(vec2 texel)
 {
     ivec2 iTexel = ivec2(floor(texel));
-    // Visit a 5x5 neighborhood
+    // Visit a 7x7 neighborhood
     vec3 rgb = vec3(0);
     vec3 weights = vec3(0);
     const int dt = 3;  // 1->3x3; 2->5x5; 3->7x7
@@ -220,33 +224,16 @@ vec3 lanczos7x7_color(vec2 texel)
     // Maybe both sampling rates should be 2.0 since that's the band limit for this raster
     // 2.5 to give it a bit more blur
     const float rb_sampling_rate = 2.0;  // neighbor red/blue are 2 cells away
-    const float g_sampling_rate = 2.0;  // sqrt(2.0);  // neighbor greens are diagonal
+    const float g_sampling_rate = sqrt(2.0);  // neighbor greens are diagonal
     ivec2 max_tex = textureSize(bayer, 0) - ivec2(1);
     ivec2 min_tex = ivec2(0);
     for (int x = iTexel.x - dt; x <= iTexel.x + dt; ++x)
     {
-        // RGGB aware manual clamp to edge
-        // Find the closest in-bounds texel matching the parity of the logical texel
-        int cx = x >= 0 ? x : (-x) & 1;
-        cx = cx <= max_tex.x ? cx : max_tex.x - ((cx + 1) & 1);
-
         float dx = x - texel.x;
         for (int y = iTexel.y - dt; y <= iTexel.y + dt; ++y)
         {
-            // RGGB aware manual clamp to edge
-            // Find the closest in-bounds texel matching the parity of the logical texel
-            int cy = y >= 0 ? y : (-y) & 1;
-            cy = cy <= max_tex.y ? cy : max_tex.y - ((cy + 1) & 1);
-
+            ivec2 tx = rggb_clamp_to_edge(ivec2(x, y));
             float dy = y - texel.y;
-            float dist = length(vec2(dx, dy));
-            if (dist > window)
-                continue;
-            vec2 xa = vec2(dist, window);
-
-            // A) distance based lanczos weight. I made this up.
-            float w_rb1 = lanczos(xa/rb_sampling_rate);
-            float w_g1 = lanczos(xa/g_sampling_rate);
 
             // B) scalar product standard lanczos weight. This is what the books say
             float w_rb2 = lanczos(vec2(dx, window)/rb_sampling_rate) * lanczos(vec2(dy, window)/rb_sampling_rate);
@@ -260,17 +247,17 @@ vec3 lanczos7x7_color(vec2 texel)
 
             if ((y & 1) == 0 && (x & 1) == 0) {  // red
                 w = w_rb2;
-                rgb.r += w * texelFetch(bayer, ivec2(cx, cy), 0).r;
+                rgb.r += w * texelFetch(bayer, tx, 0).r;
                 weights.r += w;
             }
             else if ((y & 1) != 0 && (x & 1) != 0) {  // blue
                 w = w_rb2;
-                rgb.b += w * texelFetch(bayer, ivec2(cx, cy), 0).r;
+                rgb.b += w * texelFetch(bayer, tx, 0).r;
                 weights.b += w;
             }
             else {  // green
                 w = w_g2;
-                rgb.g += w * texelFetch(bayer, ivec2(cx, cy), 0).r;
+                rgb.g += w * texelFetch(bayer, tx, 0).r;
                 weights.g += w;
             }
         }
