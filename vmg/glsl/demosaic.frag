@@ -235,30 +235,27 @@ vec3 lanczos7x7_color(vec2 texel)
             ivec2 tx = rggb_clamp_to_edge(ivec2(x, y));
             float dy = y - texel.y;
 
-            // B) scalar product standard lanczos weight. This is what the books say
-            float w_rb2 = lanczos(vec2(dx, window)/rb_sampling_rate) * lanczos(vec2(dy, window)/rb_sampling_rate);
-            // but with green texel offset rotated 45 degrees, because that's green's actual rectangular lattice
+            // Scalar product standard lanczos weight.
+            float w_rb = lanczos(vec2(dx, window)/rb_sampling_rate) * lanczos(vec2(dy, window)/rb_sampling_rate);
+            // rotate green texel offset by 45 degrees, because that's green's actual rectangular lattice
             const float s22 = sqrt(2.0)/2.0;
             const mat2 rot45 = mat2(s22, -s22, s22, s22);
             vec2 dxy_g = vec2(dx, dy) * rot45;
-            float w_g2 = lanczos(vec2(dxy_g.x, window)/g_sampling_rate) * lanczos(vec2(dxy_g.y, window)/g_sampling_rate);
+            float w_g = lanczos(vec2(dxy_g.x, window)/g_sampling_rate) * lanczos(vec2(dxy_g.y, window)/g_sampling_rate);
 
-            float w = 1.0;
+            float intensity = texelFetch(bayer, tx, 0).r;
 
             if ((y & 1) == 0 && (x & 1) == 0) {  // red
-                w = w_rb2;
-                rgb.r += w * texelFetch(bayer, tx, 0).r;
-                weights.r += w;
+                rgb.r += w_rb * intensity;
+                weights.r += w_rb;
             }
             else if ((y & 1) != 0 && (x & 1) != 0) {  // blue
-                w = w_rb2;
-                rgb.b += w * texelFetch(bayer, tx, 0).r;
-                weights.b += w;
+                rgb.b += w_rb * intensity;
+                weights.b += w_rb;
             }
             else {  // green
-                w = w_g2;
-                rgb.g += w * texelFetch(bayer, tx, 0).r;
-                weights.g += w;
+                rgb.g += w_g * intensity;
+                weights.g += w_g;
             }
         }
     }
