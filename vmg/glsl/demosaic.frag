@@ -1,6 +1,7 @@
 #version 410 core
 
 uniform sampler2D bayer;
+
 uniform vec3 white_level = vec3(1);
 uniform vec3 as_shot_neutral = vec3(1);
 

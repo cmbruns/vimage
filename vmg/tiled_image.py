@@ -26,7 +26,7 @@ from vmg.load_progress import LoadProgress
 from vmg.metadata import ImageMetadata
 from vmg.exif_orientation import ExifOrientation
 from vmg.interfaces import TiledImageLike, TileLike, PhotometricScale
-from vmg.resources import resource_string
+from vmg.uniforms import DngUniforms
 from vmg.shader_exception import compile_shader
 
 logger = logging.getLogger(__name__)
@@ -482,6 +482,7 @@ class DngTile(Tile):
     demosaic_framebuffer = None
     demosaic_program = None
     demosaic_vao = None
+    uDng = DngUniforms()
 
     def __init__(self, tci: TileCreateInfo):
         super().__init__(tci)
@@ -586,7 +587,10 @@ class DngTile(Tile):
                                ["demosaic.frag"],
                                GL.GL_FRAGMENT_SHADER),
             )
+            self.uDng.get_location(self.demosaic_program)
+            self.uDng.set(self.tci.image)
         GL.glUseProgram(self.demosaic_program)
+        self.uDng.set(self.tci.image)
         GL.glDrawArrays(GL.GL_TRIANGLE_STRIP, 0, 4)
 
         # Generate demosaic mipmaps
