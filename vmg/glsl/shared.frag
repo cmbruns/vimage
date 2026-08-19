@@ -135,7 +135,12 @@ vec2 sinusoidal_tex_coord(vec3 dir)
     return tex_coord;
 }
 
-TexCoordPair dual_fisheye_tex_coord(vec3 p_pcm, float fov_radians, float lens_rot_radians)
+TexCoordPair dual_fisheye_tex_coord(
+        vec3 p_pcm,
+        float fov_radians,
+        float lens_rot_radians,
+        vec4 front_center_scale,
+        vec4 rear_center_scale)
 {
     // input vector space is 3D unit sphere, x-right, y-up, z-back (i.e. -Z forward/center)
     // range [-1, +1]
@@ -149,11 +154,6 @@ TexCoordPair dual_fisheye_tex_coord(vec3 p_pcm, float fov_radians, float lens_ro
         crot, srot,
         -srot, crot);
 
-    // Texture coordinates of each fisheye image center
-    // TODO: Ricoh Theta Z1 has front camera fisheye on the right; others may differ
-    vec2 center_front_tc = vec2(0.75, 0.5);  // right/front fisheye center in output texture coordinates
-    vec2 center_rear_tc = vec2(0.25, 0.5);  // left/rear camera occupies right half of image
-
     // Amount the two lenses overlap determines the blending region
     float z_limit = 0.4 * sin(fov_radians - radians(180));  // angular overlap region in z direction
     float front_bias = smoothstep(+z_limit, -z_limit, p_sph_front.z);
@@ -165,17 +165,13 @@ TexCoordPair dual_fisheye_tex_coord(vec3 p_pcm, float fov_radians, float lens_ro
     vec2 p_nfish_rear = (normalize(p_sph_rear.xy) * radius_nfish_rear) * rot_nfish;
 
     // output gl texture coordinates 2D x-right, y-down, range[0, 1]
-    vec2 p_front_tc = center_front_tc + p_nfish_front * vec2(0.5, -1);  // Translate and scale
-    vec2 p_rear_tc = center_rear_tc + p_nfish_rear * vec2(0.5, -1);
+    vec2 p_front_tc = front_center_scale.xy + p_nfish_front * front_center_scale.zw * vec2(1, -1);  // Translate and scale
+    vec2 p_rear_tc = rear_center_scale.xy + p_nfish_rear * rear_center_scale.zw * vec2(1, -1);
 
-    if (p_front_tc.x >= 1.0) front_bias = 0.0;
-    if (p_front_tc.x <= 0.5) front_bias = 0.0;
-    if (p_front_tc.y >= 1.0) front_bias = 0.0;
-    if (p_front_tc.y <= 0.0) front_bias = 0.0;
-    if (p_rear_tc.x <= 0.0) front_bias = 1.0;
-    if (p_rear_tc.x >= 0.5) front_bias = 1.0;
-    if (p_rear_tc.y >= 1.0) front_bias = 1.0;
-    if (p_rear_tc.y <= 0.0) front_bias = 1.0;
+    if (lessThan(abs(p_nfish_front), vec2(1.0)) != bvec2(true))
+        front_bias = 0.0;
+    if (lessThan(abs(p_nfish_rear), vec2(1.0)) != bvec2(true))
+        front_bias = 1.0;
 
     return TexCoordPair(p_front_tc, p_rear_tc, front_bias);
 }
@@ -550,6 +546,8 @@ TexCoordAlpha rtc_for_pcm(
         int input_format,
         float df_fov_radians,
         float df_lens_rot_radians,
+        vec4 df_front_center_scale,
+        vec4 df_rear_center_scale,
         int render_pass)
 {
     TexCoordAlpha result = TexCoordAlpha(vec2(0), 1.0);
@@ -559,7 +557,10 @@ TexCoordAlpha rtc_for_pcm(
             TexCoordPair pair = dual_fisheye_tex_coord(
                     p_pcm,
                     df_fov_radians,  // fisheye field of view
-                    df_lens_rot_radians);  // lens rotation offset
+                    df_lens_rot_radians,  // lens rotation offset
+                    df_front_center_scale,
+                    df_rear_center_scale
+            );
             if (render_pass == 1) {
                 result.alpha = 1.0;  // first pass fully overwrites every valid pixel
                 result.p_rtc = pair.front_tc;

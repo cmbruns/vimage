@@ -86,7 +86,8 @@ class ImageMetadata(ImageMetadataLike):
         # Dual fisheye lens parameters
         self.inscribed_fov_radians = radians(195.0)
         self.df_lens_rot_radians = radians(0.0)
-        self.df_lens_centers = (0.75, 0.50, 0.25, 0.50)
+        self.df_front_center_scale = (0.75, 0.5, 0.5, 1.0)  # cx, cy, sx, sy in rtc frame
+        self.df_rear_center_scale = (0.25, 0.5, 0.5, 1.0)
         # Dng metadata
         self.is_cfa = False
         self.cfa_pattern = (-1, -1, -1, -1)  # All -1 means "not CFA"
@@ -204,7 +205,8 @@ class ImageMetadata(ImageMetadataLike):
         # TODO: GPano orientation, if we find a tiff that has some
         if w == 2 * h or 2 * w == h:
             if 2 * w == h:  # vertical dual fisheye
-                self.df_lens_centers = (0.5, 0.25, 0.5, 0.75)
+                self.df_front_center_scale = (0.5, 0.25, 1.0, 0.5)
+                self.df_rear_center_scale = (0.5, 0.75, 1.0, 0.5)
                 self.input_format = InputFormat.DUAL_FISHEYE
             elif self.cfa_pattern != (-1, -1, -1, -1) and self.channel_count == 1:
                 # The rawest of DNGs are not equirectangular

@@ -11,6 +11,8 @@ uniform mat3 tile_X_img = mat3(1);
 uniform vec4 uv_bounds = vec4(0, 0, 1, 1);  // (u_min, v_min, u_max, v_max)
 uniform float df_fov_radians = radians(195.0);
 uniform float df_lens_rot_radians = 0.0;
+uniform vec4 df_front_center_scale = vec4(0.75, 0.5, 0.5, 1.0);
+uniform vec4 df_rear_center_scale = vec4(0.25, 0.5, 0.5, 1.0);
 uniform float brightness = 0.0;
 uniform bool input_is_linear = false;
 uniform int render_pass = 1;  // for tiled dual fisheye
@@ -40,6 +42,8 @@ void main()
             input_format,
             df_fov_radians,
             df_lens_rot_radians,
+            df_front_center_scale,
+            df_rear_center_scale,
             render_pass);
 
     if (tca.alpha == 0.0) discard;

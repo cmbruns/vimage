@@ -28,6 +28,8 @@ class ImageMetadataLike(Protocol):
     channel_count: int
     data_max: Number
     df_lens_rot_radians: Float
+    df_front_center_scale: tuple[Float, Float, Float, Float]
+    df_rear_center_scale: tuple[Float, Float, Float, Float]
     file_name: Optional[str]
     input_format: InputFormat
     inscribed_fov_radians: Float

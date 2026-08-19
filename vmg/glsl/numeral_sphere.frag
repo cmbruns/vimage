@@ -16,6 +16,8 @@ uniform mat3 pcm_rot_geo = mat3(1);
 uniform int input_format = EQUIRECT_INPUT_FORMAT;
 uniform float df_fov_radians = radians(195.0);
 uniform float df_lens_rot_radians = 0.0;
+uniform vec4 df_front_center_scale = vec4(0.75, 0.5, 0.5, 1.0);
+uniform vec4 df_rear_center_scale = vec4(0.25, 0.5, 0.5, 1.0);
 uniform int render_pass = 1;  // for tiled dual fisheye
 
 // numeral related
@@ -43,6 +45,8 @@ void main()
             input_format,
             df_fov_radians,
             df_lens_rot_radians,
+            df_front_center_scale,
+            df_rear_center_scale,
             render_pass);
 
     if (tca.alpha == 0.0) discard;

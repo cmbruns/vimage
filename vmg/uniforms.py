@@ -118,6 +118,8 @@ class PanoUniforms(UniformGroup):
         self.add(Uniform("input_format", GL.glUniform1i))
         self.add(Uniform("df_fov_radians", GL.glUniform1f))
         self.add(Uniform("df_lens_rot_radians", GL.glUniform1f))
+        self.add(Uniform("df_front_center_scale", GL.glUniform4f))
+        self.add(Uniform("df_rear_center_scale", GL.glUniform4f))
         # NOT render_pass, because it's set with a different cadence
 
     def set(self, state: RenderStateLike, image: TiledImageLike):
@@ -129,3 +131,5 @@ class PanoUniforms(UniformGroup):
         self["input_format"].set(image.md.input_format.value)
         self["df_fov_radians"].set(image.md.inscribed_fov_radians)
         self["df_lens_rot_radians"].set(image.md.df_lens_rot_radians)
+        self["df_front_center_scale"].set(*image.md.df_front_center_scale)
+        self["df_rear_center_scale"].set(*image.md.df_rear_center_scale)
