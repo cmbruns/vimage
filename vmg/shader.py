@@ -235,10 +235,7 @@ class RectangularTileShader(IImageShader, ShaderProgramLike):
 
 
 class RectangularDngShader(IImageShader):
-    uBlackLevel = Uniform("black_level", GL.glUniform3f)
-    uWhiteLevel = Uniform("white_level", GL.glUniform3f)
-    uAsShotNeutral = Uniform("as_shot_neutral", GL.glUniform3f)
-    uLsr_X_wba = Uniform("lsr_X_wba", GL.glUniformMatrix3fv)
+    uDng = DngUniforms()
 
     def __init__(self):
         self.shader = None
@@ -282,10 +279,7 @@ class RectangularDngShader(IImageShader):
             for uniform in (
                     self.uBayerTile,
                     self.uDemosaicTile,
-                    self.uBlackLevel,
-                    self.uWhiteLevel,
-                    self.uAsShotNeutral,
-                    self.uLsr_X_wba,
+                    self.uDng,
             ):
                 uniform.get_location(self.shader)
             self.box_shader.initialize_gl()
@@ -296,10 +290,7 @@ class RectangularDngShader(IImageShader):
             raise
 
     def paint_image(self, state: RenderStateLike, image: TiledImageLike):
-        self.uBlackLevel.set(*image.md.black_level)
-        self.uWhiteLevel.set(*image.md.white_level)
-        self.uAsShotNeutral.set(*image.md.as_shot_neutral)
-        self.uLsr_X_wba.set(1, True, image.md.lsr_X_wba)
+        self.uDng.set(image)
         self.brightness.set(state.brightness + image.md.baseline_exposure)
         is_complete = True  # start optimistic
         for tile in image.tiles:
@@ -465,12 +456,8 @@ class SphericalDngShader(IImageShader):
     uDemosaicTile = Sampler2DUniform("demosaic_tile")
     uViewer = ViewerUniforms()
     uPano = PanoUniforms()
+    uDng = DngUniforms()
     uRenderPass = Uniform("render_pass", GL.glUniform1i)
-    uBlackLevel = Uniform("black_level", GL.glUniform3f)
-    uWhiteLevel = Uniform("white_level", GL.glUniform3f)
-    uAsShotNeutral = Uniform("as_shot_neutral", GL.glUniform3f)
-    uLsr_X_wba = Uniform("lsr_X_wba", GL.glUniformMatrix3fv)
-    uUvBounds = Uniform("uv_bounds", GL.glUniform4f)
     uTile = TileUniforms()
 
     def __init__(self):
@@ -493,12 +480,8 @@ class SphericalDngShader(IImageShader):
                 self.uPano,
                 self.uBayerTile,
                 self.uDemosaicTile,
-                self.uUvBounds,
                 self.uRenderPass,
-                self.uBlackLevel,
-                self.uWhiteLevel,
-                self.uAsShotNeutral,
-                self.uLsr_X_wba,
+                self.uDng,
                 self.uTile,
             ):
                 uniform.get_location(self.shader)
@@ -513,10 +496,7 @@ class SphericalDngShader(IImageShader):
         self.uViewer["brightness"].set(state.brightness + image.md.baseline_exposure)
         self.uViewer["pixelFilter"].set(state.pixel_filter.value)
         self.uPano.set(state, image)
-        self.uBlackLevel.set(*image.md.black_level)
-        self.uWhiteLevel.set(*image.md.white_level)
-        self.uAsShotNeutral.set(*image.md.as_shot_neutral)
-        self.uLsr_X_wba.set(1, True, image.md.lsr_X_wba)
+        self.uDng.set(image)
         # Be selective about numeral painting to avoid tile bounary artifacts at lower zoom
         do_numerals = state.opx_scale_qwn() < 0.2
         self.uRenderPass.set(1)

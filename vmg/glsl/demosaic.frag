@@ -4,9 +4,138 @@ uniform sampler2D bayer;
 
 uniform vec3 white_level = vec3(1);
 uniform vec3 as_shot_neutral = vec3(1);
+uniform ivec4 cfa_pattern = ivec4(0, 1, 1, 2);
 
 in vec2 tex_coord;
 out vec4 frag_color;
+
+
+// Texel type in a RGGB Bayer Color Filter Array (CFA) camera sensor
+const int CFA_NONE = -1;
+const int CFA_RED = 0;
+const int CFA_GREEN1 = 1;  // green in red row
+const int CFA_GREEN2 = 2;  // green in blue row
+const int CFA_BLUE = 3;
+
+struct CfaSample {
+    float i;  // intensity
+    int cfa;
+};
+
+struct Rgb {
+  vec3 rgb;  // accumulated color
+  vec3 unclipped_weight;  // accumulated weight
+  vec3 clipped_weight;  // accumulated weight rejected due to clipping
+};
+
+int cfa_for_texel(ivec2 texel) {
+    ivec2 parity = texel & ivec2(1);
+    if (parity == ivec2(0)) return CFA_RED;
+    else if (parity == ivec2(1)) return CFA_BLUE;
+    else if (parity == ivec2(1, 0)) return CFA_GREEN1;
+    else return CFA_GREEN2;
+}
+
+int cfa_for_texel(vec2 texel) {
+    return cfa_for_texel(ivec2(floor(texel)));
+}
+
+vec3 mask_for_cfa(int cfa) {
+    if (cfa == CFA_RED) return vec3(1, 0, 0);
+    else if (cfa == CFA_GREEN1) return vec3(0, 1, 0);
+    else if (cfa == CFA_GREEN2) return vec3(0, 1, 0);
+    else if (cfa == CFA_BLUE) return vec3(0, 0, 1);
+    else return vec3(0);
+}
+
+// RGGB aware manual clamp to edge
+// Find the closest in-bounds texel matching the parity of the logical texel
+ivec2 rggb_clamp_to_edge(ivec2 xy)
+{
+    ivec2 max_tex = textureSize(bayer, 0) - ivec2(1);
+    const ivec2 min_tex = ivec2(0);
+    int x = xy.x;
+    int y = xy.y;
+    int cx = x >= 0 ? x : (-x) & 1;
+    cx = cx <= max_tex.x ? cx : max_tex.x - ((cx + 1) & 1);
+    int cy = y >= 0 ? y : (-y) & 1;
+    cy = cy <= max_tex.y ? cy : max_tex.y - ((cy + 1) & 1);
+    return ivec2(cx, cy);
+}
+
+// Lanczos 5x5 for green, with median chroma
+// "LGMC5"
+
+const float LGMC5_G_AT_RB[25] = float[25](
+  //  x=-2    x=-1    x=+0    x=+1    x=+2
+    +0.000, -0.056, +0.000, -0.056, +0.000,   // y=-2:
+    -0.056, +0.000, +0.348, +0.000, -0.056,   // y=-1:
+    +0.000, +0.348, +1.000, +0.348, +0.000,   // y=+0:
+    -0.056, +0.000, +0.348, +0.000, -0.056,   // y=+1:
+    +0.000, -0.056, +0.000, -0.056, +0.000    // y=+2:
+);
+
+vec3 lgmc5_color(vec2 texel)
+{
+    // Initialize array of samples, without fetching anything yet
+    const int NBR = 2;  // number of texels to go in each direction
+    const int GRID_SIZE = 2 * NBR + 1;
+    CfaSample[GRID_SIZE*GRID_SIZE] samples;
+    for (int i = 0; i < GRID_SIZE*GRID_SIZE; i++) {
+        samples[i] = CfaSample(0, CFA_NONE);
+    }
+
+    // Fetch relevant texels into the sample array
+    // TODO: just the needed subset
+    ivec2 txl = ivec2(floor(texel));
+    for (int y = 0; y < GRID_SIZE; y++) {
+        for (int x = 0; x < GRID_SIZE; x++) {
+            int ix = y * GRID_SIZE + x;
+            ivec2 tx = ivec2(txl.x + x - NBR, txl.y + y - NBR);
+            samples[ix].i = texelFetch(bayer, tx, 0).r;
+            samples[ix].cfa = cfa_for_texel(tx);
+        }
+    }
+
+    // Clamp to edge
+    for (int y = 0; y < GRID_SIZE; y++) {
+        for (int x = 0; x < GRID_SIZE; x++) {
+            int ix = y * GRID_SIZE + x;
+            ivec2 tx0 = ivec2(txl.x + x - NBR, txl.y + y - NBR);
+            ivec2 tx1 = rggb_clamp_to_edge(tx0);
+            if (tx0 != tx1) {
+                // copy tx1 value to tx0 position
+                ivec2 ix0 = tx0 - txl + ivec2(NBR);
+                ivec2 ix1 = tx1 - txl + ivec2(NBR);
+                int src = ix1.x + GRID_SIZE * ix1.y;
+                int dst = ix0.x + GRID_SIZE * ix0.y;
+                samples[dst].i = samples[src].i;
+                // .cfa should already be the same
+            }
+        }
+    }
+
+    // TODO: accumulate green lanczos
+    int cfa = cfa_for_texel(txl);
+    vec3 mask0 = mask_for_cfa(CFA_GREEN1);
+    Rgb rgb = Rgb(vec3(0), vec3(0), vec3(0));
+    for (int i = 0; i < GRID_SIZE*GRID_SIZE; i++) {
+        vec3 mask1 = mask_for_cfa(samples[i].cfa);
+        float w = LGMC5_G_AT_RB[i];
+        rgb.rgb += w * mask0 * mask1 * samples[i].i;
+        rgb.unclipped_weight += w * mask0 * mask1;
+        // TODO: clip highlights
+    }
+
+    // Duplicate green channel
+    rgb.rgb = rgb.rgb.ggg;
+    rgb.unclipped_weight = rgb.unclipped_weight.ggg;
+
+    return vec3(rgb.rgb / rgb.unclipped_weight);  // grayscale test
+
+    // TODO: median chroma
+}
+
 
 // Malvar He Cutler Linear Image Demosaicking on 5x5 neighborhood
 // 13 neighbor texel offsets that contribute to the demosaic
@@ -86,21 +215,6 @@ const float LIN_RB_AT_G_IN_BR[9] = float[9](
         0, 0.0, 0,
         0, 0.5, 0
 );
-
-// RGGB aware manual clamp to edge
-// Find the closest in-bounds texel matching the parity of the logical texel
-ivec2 rggb_clamp_to_edge(ivec2 xy)
-{
-    ivec2 max_tex = textureSize(bayer, 0) - ivec2(1);
-    const ivec2 min_tex = ivec2(0);
-    int x = xy.x;
-    int y = xy.y;
-    int cx = x >= 0 ? x : (-x) & 1;
-    cx = cx <= max_tex.x ? cx : max_tex.x - ((cx + 1) & 1);
-    int cy = y >= 0 ? y : (-y) & 1;
-    cy = cy <= max_tex.y ? cy : max_tex.y - ((cy + 1) & 1);
-    return ivec2(cx, cy);
-}
 
 // Bilinear demosaicking
 vec3 linear_color(vec2 texel)
@@ -213,6 +327,11 @@ float lanczos(vec2 xa) {
     return sinc(x) * sinc(x / a);
 }
 
+const vec3[3] rgb_mask = vec3[3](
+    vec3(1, 0, 0),  // red
+    vec3(0, 1, 0),  // green
+    vec3(0, 0, 1)  // blue
+);
 
 // My first crack at demosaic
 vec3 lanczos7x7_color(vec2 texel)
@@ -256,15 +375,19 @@ vec3 lanczos7x7_color(vec2 texel)
 
             if ((y & 1) == 0 && (x & 1) == 0) { // red
                 w = w_rb;
-                mask = vec3(1, 0, 0);
+                mask = rgb_mask[cfa_pattern[0]];
             }
-            else if ((y & 1) != 0 && (x & 1) != 0) { // blue
+            else if ((y & 1) == 0 && (x & 1) != 0) { // green1
                 w = w_rb;
-                mask = vec3(0, 0, 1);
+                mask = rgb_mask[cfa_pattern[1]];
             }
-            else { // green
-                w = w_g;
-                mask = vec3(0, 1, 0);
+            else if ((y & 1) != 0 && (x & 1) == 0) { // green2
+                w = w_rb;
+                mask = rgb_mask[cfa_pattern[2]];
+            }
+            else { // blue
+                w = w_rb;
+                mask = rgb_mask[cfa_pattern[3]];
             }
 
             // Only accumulate colors where the intensity is not clipped to the max
@@ -297,5 +420,6 @@ void main()
     vec3 rgb = lanczos7x7_color(texel);  // better than mhc but softer
     // vec3 rgb = mhc_color(texel);  // bad zippering near door
     // vec3 rgb = linear_color(texel);  // different bad zippering
+    // vec3 rgb = lgmc5_color(texel);
     frag_color = vec4(rgb, 1);
 }

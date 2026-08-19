@@ -54,8 +54,15 @@
       <string>Open Recent</string>
      </property>
     </widget>
+    <widget class="QMenu" name="menuRecent_Folders">
+     <property name="title">
+      <string>Recent Folders...</string>
+     </property>
+    </widget>
     <addaction name="actionOpen"/>
     <addaction name="menuOpen_Recent"/>
+    <addaction name="menuRecent_Folders"/>
+    <addaction name="separator"/>
     <addaction name="actionSave_As"/>
     <addaction name="actionSave_Current_View_As"/>
     <addaction name="separator"/>
@@ -740,6 +747,11 @@
    </property>
    <property name="shortcut">
     <string>G</string>
+   </property>
+  </action>
+  <action name="actionFoo">
+   <property name="text">
+    <string>Foo</string>
    </property>
   </action>
  </widget>

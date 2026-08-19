@@ -31,7 +31,8 @@ class ImageMetadataLike(Protocol):
     file_name: Optional[str]
     input_format: InputFormat
     inscribed_fov_radians: Float
-    is_cfa: bool
+    # is_cfa: bool
+    cfa_pattern: tuple[int, int, int, int]
     lsr_X_wba: NDArray[numpy.float32]
     orientation: ExifOrientation
     pcm_R_geo: NDArray[numpy.float32]

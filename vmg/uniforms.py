@@ -52,12 +52,14 @@ class DngUniforms(UniformGroup):
         self.add(Uniform("white_level", GL.glUniform3f))
         self.add(Uniform("as_shot_neutral", GL.glUniform3f))
         self.add(Uniform("lsr_X_wba", GL.glUniformMatrix3fv))
+        self.add(Uniform("cfa_pattern", GL.glUniform4i))
 
     def set(self, image: TiledImageLike):
         self["black_level"].set(*image.md.black_level)
         self["white_level"].set(*image.md.white_level)
         self["as_shot_neutral"].set(*image.md.as_shot_neutral)
         self["lsr_X_wba"].set(1, True, image.md.lsr_X_wba)
+        self["cfa_pattern"].set(*image.md.cfa_pattern)
 
 
 class TileUniforms(UniformGroup):

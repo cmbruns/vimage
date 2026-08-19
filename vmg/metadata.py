@@ -86,8 +86,10 @@ class ImageMetadata(ImageMetadataLike):
         # Dual fisheye lens parameters
         self.inscribed_fov_radians = radians(195.0)
         self.df_lens_rot_radians = radians(0.0)
+        self.df_lens_centers = (0.75, 0.50, 0.25, 0.50)
         # Dng metadata
         self.is_cfa = False
+        self.cfa_pattern = (-1, -1, -1, -1)  # All -1 means "not CFA"
         self.black_level = (0.0, 0.0, 0.0)
         self.white_level = (1.0, 1.0, 1.0)
         self.as_shot_neutral = (1.0, 1.0, 1.0)
@@ -144,8 +146,10 @@ class ImageMetadata(ImageMetadataLike):
             model = tk['Model']
             self._update_model(model)
         if 'CFAPattern' in tk:
-            cfa = list(tk['CFAPattern'])
-            assert cfa == [0, 1, 1, 2]
+            cfa = tk['CFAPattern']
+            assert len(cfa) == 4
+            self.cfa_pattern = tuple(int(x) for x in cfa)
+            # assert cfa == [0, 1, 1, 2]
             self.is_cfa = True
             self.photometric_scale = PhotometricScale.LINEAR
         user_comment = ""
@@ -198,8 +202,12 @@ class ImageMetadata(ImageMetadataLike):
         # Panorama metadata
         w, h = self.size_opx
         # TODO: GPano orientation, if we find a tiff that has some
-        if w == 2 * h:
-            if self.is_cfa:
+        if w == 2 * h or 2 * w == h:
+            if 2 * w == h:  # vertical dual fisheye
+                self.df_lens_centers = (0.5, 0.25, 0.5, 0.75)
+                self.input_format = InputFormat.DUAL_FISHEYE
+            elif self.cfa_pattern != (-1, -1, -1, -1) and self.channel_count == 1:
+                # The rawest of DNGs are not equirectangular
                 self.input_format = InputFormat.DUAL_FISHEYE
             else:
                 self.input_format = InputFormat.EQUIRECTANGULAR
@@ -351,40 +359,45 @@ class ImageMetadata(ImageMetadataLike):
             self.inscribed_fov_radians = radians(193.8)  # "SM-C200" 2016 Gear 360
 
     def _parse_bw(self, value) -> tuple[float, float, float]:
-        # If it's a string, convert it to numbers
-        try:  # Is it a string?
-            bk = [float(x) for x in value.split()]
-            value = bk
-        except AttributeError:
-            pass
-
-        # If it's a rational, convert it to float
         try:
-            if len(value) == 2:
-                bk = value[0] / value[1]
-                value = [bk] * 3
-        except TypeError:
-            value = [float(value)] * 3
+            # If it's a string, convert it to numbers
+            try:  # Is it a string?
+                value = [x for x in value.split()]
+            except AttributeError as exc:
+                pass  # Not a string I guess
 
-        # Convert rational to float
-        if len(value) == 6:
-            value = value[0]/value[1], value[2]/value[3], value[4]/value[5]
+            # Make sure the elements are numbers
+            try:
+                value = [float(x) for x in value]
+            except TypeError:
+                # it's not an array, so make it one
+                value = [float(value), ]
 
-        # Convert CFA RGGB to RGB
-        if len(value) == 4:
-            value = [value[0], 0.5 * (value[1] + value[2]), value[3]]
+            # If it got an even length other than 4, treat it as rational
+            if len(value) != 4 and len(value) % 2 == 0:
+                value = [float(n) / float(d) for n, d, in zip(value[::2], value[1::2])]
 
-        # Insta360 X6 linear RGB DNG
-        if len(value) == 24:  # 3 samples * 4 CFA * 2 rational components
-            # 1) Rational to float
-            value = [n/d for n, d, in zip(value[::2], value[1::2])]
-            value = value[::4]  # should be mean actually but whatever
+            # If it's a single value, make it 3
+            if len(value) == 1:
+                value = [float(value[0])] * 3
 
-        # Normalize
-        value = [float(x) / self.upper_bound for x in value]
+            # Convert CFA RGGB to RGB
+            if len(value) == 4:
+                value = [value[0], 0.5 * (value[1] + value[2]), value[3]]
 
-        assert len(value) == 3
-        return value
+            # Insta360 X6 linear RGB DNG has 12 rational values
+            if len(value) > 3:
+                stride = len(value) // 3
+                value = value[::stride]  # should be mean actually but whatever
+
+            # Normalize
+            value = [float(x) / self.upper_bound for x in value]
+
+            assert len(value) == 3
+            return value
+        except BaseException as exc:
+            logger.error(exc)
+            raise
 
     def _parse_black_level(self, value):
         self.black_level = self._parse_bw(value)

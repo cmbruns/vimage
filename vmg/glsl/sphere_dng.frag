@@ -40,6 +40,7 @@ uniform vec3 black_level = vec3(0);
 uniform vec3 white_level = vec3(1);
 uniform vec3 as_shot_neutral = vec3(1);
 uniform mat3 lsr_X_wba = mat3(1);
+uniform ivec4 cfa_pattern = ivec4(0, 1, 1, 2);
 
 in vec2 p_nic;
 out vec4 color;
@@ -97,7 +98,7 @@ void main()
     vec2 tile_offset_texels = -ul_full_ttc.xy * textureSize(bayer_tile, 0);
     vec2 this_texel_in_tile = p_ttc * textureSize(bayer_tile, 0);
     ivec2 img_texel = ivec2(floor(this_texel_in_tile + tile_offset_texels));
-    bayer_color = bayer_tint(img_texel, bayer_color);
+    bayer_color = bayer_tint(img_texel, bayer_color, cfa_pattern);
 
     // Blend bayer and demosaicked depending on mipmap level
     // At high zoom the user sees the pure raw DNG mosaic.

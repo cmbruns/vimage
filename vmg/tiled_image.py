@@ -92,7 +92,7 @@ class TiledImage(TiledImageLike):
         self.pil_image = None
 
     def initialize_gl(self):
-        if self.md.is_cfa:
+        if self.md.cfa_pattern != (-1, -1, -1, -1):
             assert self.array is not None
             assert self.array.dtype == numpy.uint16
             for tile in generate_tiles(
@@ -131,6 +131,7 @@ class TiledImage(TiledImageLike):
             pil_image = pil_image.convert("RGBA")
         self.pil_image = pil_image
         self.set_progress(LoadProgress.FILE_OPENED)
+        # self.md.load_exiftool(file_name)
         self.md.load_pil_image(pil_image)
         self.set_progress(LoadProgress.METADATA_LOADED)
         self.sq.progress_changed.emit(2, self)  # noqa

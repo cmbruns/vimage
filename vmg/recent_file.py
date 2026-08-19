@@ -1,8 +1,10 @@
 import os
-from PySide6 import QtCore, QtGui, QtWidgets
+from PySide6 import QtCore
+from PySide6.QtGui import QAction
+from PySide6.QtWidgets import QMessageBox
 
 
-class RecentFile(QtGui.QAction):
+class RecentFile(QAction):
     """QAction that reopens a previously opened file"""
 
     def __init__(self, file_name, open_file_slot, *args, **kwargs):
@@ -43,11 +45,12 @@ class RecentFileList(QtCore.QObject):
         settings = QtCore.QSettings()
         file_list = settings.value(settings_key)
         if file_list is not None:
+            assert isinstance(file_list, list)
             for file_name in file_list:
                 recent_file = RecentFile(file_name, self.open_file_slot)
                 self.list.append(recent_file)
                 recent_file.file_not_found.connect(self.on_file_not_found)  # noqa
-        self.update()
+        self.update_menu()
 
     def add_file(self, file_name):
         item = RecentFile(file_name, self.open_file_slot)
@@ -63,7 +66,7 @@ class RecentFileList(QtCore.QObject):
         settings = QtCore.QSettings()
         file_list = [x.file_name for x in self.list]
         settings.setValue(self.settings_key, file_list)
-        self.update()
+        self.update_menu()
 
     @QtCore.Slot(str)  # noqa
     def on_file_not_found(self, file_path):
@@ -72,16 +75,16 @@ class RecentFileList(QtCore.QObject):
         settings = QtCore.QSettings()
         file_list = [x.file_name for x in self.list]
         settings.setValue(self.settings_key, file_list)
-        self.update()
-        QtWidgets.QMessageBox.warning(
+        self.update_menu()
+        QMessageBox.warning(
             self.menu,
             f"File not found",
             f"File not found '{file_path}'",
-            QtWidgets.QMessageBox.Ok,
-            QtWidgets.QMessageBox.Ok,
+            buttons=QMessageBox.StandardButton.Ok,
+            defaultButton=QMessageBox.StandardButton.Ok,
         )
 
-    def update(self):
+    def update_menu(self):
         if len(self.list) > 0:
             self.menu.clear()
             for a in self.list:

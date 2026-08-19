@@ -203,12 +203,12 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
 
     def set_input_format(self, input_format: InputFormat) -> bool:
         if input_format == InputFormat.STANDARD_PHOTO:
-            if self.image and self.image.md.is_cfa:
+            if self.image and self.image.md.cfa_pattern != (-1, -1, -1, -1):
                 self.program = self.rect_dng_shader
             else:
                 self.program = self.rect_tile_shader
         else:
-            if self.image and self.image.md.is_cfa:
+            if self.image and self.image.md.cfa_pattern != (-1, -1, -1, -1):
                 self.program = self.sphere_dng_shader
             else:
                 self.program = self.sphere_shader
