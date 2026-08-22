@@ -59,7 +59,7 @@ class VimageApp(object):
         QtWidgets.QApplication.setAttribute(Qt.ApplicationAttribute.AA_ShareOpenGLContexts)
         f = QSurfaceFormat()
         f.setProfile(QSurfaceFormat.CoreProfile)
-        f.setVersion(4, 1)
+        f.setVersion(4, 1)  # Limit to OpenGL 4.1 for macOS compatibility
         QSurfaceFormat.setDefaultFormat(f)
         # Respect dark mode setting on Windows
         if platform.system() == "Windows":

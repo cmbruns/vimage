@@ -128,9 +128,8 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         logger.debug("Created shared offscreen OpenGL context")
         self.context_created.emit(offscreen_context)  # noqa
 
-    def paint_guide_lines(self):
+    def paint_guide_lines(self, painter:QPainter):
         # --- now draw Qt overlay ---
-        painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing, False)
 
         dash_length = 10
@@ -159,10 +158,15 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         painter.end()
 
     def paintGL(self) -> None:
+        self._internal_paint_gl()
+
+    def _internal_paint_gl(self):
         try:
             if self.vao is None:
                 self.initializeGL()
             logger.debug("Starting paintGL()")
+            painter = QPainter(self)
+            painter.beginNativePainting()
             # TODO: Should this vary by image PhotometricScale? need tests
             # Make transparent images transparent
             # Framebuffer is premultiplied alpha
@@ -182,8 +186,9 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
                 return
             GL.glBindVertexArray(self.vao)
             self.program.paint_gl(self.view_state, self.image)
+            painter.endNativePainting()
             if self.view_state.show_center_guides:
-                self.paint_guide_lines()
+                self.paint_guide_lines(painter)
             logger.debug("Finished paintGL()")
         except BaseException:
             raise  # sufficient to get traceback to log, via except_hook

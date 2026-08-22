@@ -1,5 +1,4 @@
 import os
-from pathlib import Path
 
 from PySide6.QtWidgets import QFileDialog, QWidget
 from PySide6.QtCore import QSettings, QStandardPaths, QDir, QFileInfo
@@ -40,117 +39,64 @@ SAVE_IMAGE_FILTERS = (
 )
 
 
-class AppHistoryManager:
-    """Handles ONLY persistent state tracking and history settings."""
-    def __init__(self, company_name: str = "MyCompany", app_name: str = "ImageViewer"):
-        self.settings = QSettings(company_name, app_name)
-
-    def log_successful_save(self, file_path: str):
-        """Call this ONLY after the image is verified written to disk."""
-        if not file_path:
-            return
-        directory = QFileInfo(file_path).absolutePath()
-        self.settings.setValue("history/last_saved_dir", directory)
-        self.settings.setValue("history/last_browsed_dir", directory)
-
-    def log_browse_action(self, directory_or_file: str):
-        """Call this when a user opens an image, picks a recent folder, or browses."""
-        if not directory_or_file:
-            return
-        info = QFileInfo(directory_or_file)
-        directory = info.absolutePath() if info.isFile() else directory_or_file
-        self.settings.setValue("history/last_browsed_dir", directory)
-
-    def get_value(self, key: str, default: str = "") -> str:
-        result = self.settings.value(key, default)
-        assert isinstance(result, str)
-        return result
+def log_successful_save(file_path: str):
+    """Call this ONLY after the image is verified written to disk."""
+    if not file_path:
+        return
+    folder = os.path.dirname(os.path.abspath(file_path))
+    QSettings().setValue("latest_save_folder", folder)
+    QSettings().setValue("latest_load_folder", folder)
 
 
-class ImageFileDialogManager:
-    def __init__(self, history_manager: AppHistoryManager):
-        self.history = history_manager
+def log_successful_load(file_path: str):
+    """Call this when a user opens an image, picks a recent folder, or browses."""
+    if not file_path:
+        return
+    folder = os.path.dirname(os.path.abspath(file_path))
+    QSettings().setValue("latest_load_folder", folder)
 
-    @staticmethod
-    def _is_valid_and_writable(path: str) -> bool:
-        if not path:
-            return False
-        info = QFileInfo(path)
-        return info.exists() and info.isDir() and info.isWritable()
 
-    def get_deterministic_directory(self, is_save_mode: bool, provenance_path: str = "") -> str:
-        if provenance_path:
-            provenance_dir = QFileInfo(provenance_path).absolutePath()
-            if self._is_valid_and_writable(provenance_dir):
-                return provenance_dir
+def get_save_folder(provenance_path: str = "") -> str:
+    """
+    Default folder path for vimage image QFileDialog.getSaveFileName
 
-        keys = (
-            ["history/last_saved_dir", "history/last_browsed_dir"]
-            if is_save_mode else
-            ["history/last_browsed_dir", "history/last_saved_dir"]
-        )
+    provenance_path: file path to parent image of this image
+    """
+    if provenance_path:
+        p: str = os.path.dirname(os.path.abspath(provenance_path))
+        if os.path.exists(p) and os.access(p, os.W_OK):
+            return p
 
-        for key in keys:
-            path: str = self.history.get_value(key)
-            if self._is_valid_and_writable(path):
-                return path
+    for key in ["latest_save_folder", "latest_load_folder"]:
+        p: str = QSettings().value(key)
+        if os.path.exists(p) and os.access(p, os.W_OK):
+            return p
 
-        pics_dir = QStandardPaths.writableLocation(QStandardPaths.StandardLocation.PicturesLocation)
-        if self._is_valid_and_writable(pics_dir):
-            return pics_dir
+    for std_path in [
+        QStandardPaths.StandardLocation.PicturesLocation,
+        QStandardPaths.StandardLocation.DocumentsLocation,
+        QStandardPaths.StandardLocation.HomeLocation,
+    ]:
+        p = QStandardPaths.writableLocation(std_path)
+        if os.path.exists(p) and os.access(p, os.W_OK):
+            return p
 
-        docs_dir = QStandardPaths.writableLocation(QStandardPaths.StandardLocation.DocumentsLocation)
-        if self._is_valid_and_writable(docs_dir):
-            return docs_dir
+    return QDir.tempPath()
 
-        home_dir = QStandardPaths.writableLocation(QStandardPaths.StandardLocation.HomeLocation)
-        if self._is_valid_and_writable(home_dir):
-            return home_dir
 
-        return QDir.tempPath()
+def get_load_folder() -> str:
+    for key in ["latest_load_folder", "latest_save_folder"]:
+        p: str = QSettings().value(key)
+        if os.path.exists(p) and os.access(p, os.R_OK):
+            return p
 
-    @staticmethod
-    def scan_folder_for_images(folder_path: str) -> list[Path]:
-        """Uses your scanning filter to deterministically pull valid paths."""
-        folder = Path(folder_path)
-        if not folder.exists() or not folder.is_dir():
-            return []
+    for std_paths in [
+        QStandardPaths.StandardLocation.PicturesLocation,
+        QStandardPaths.StandardLocation.DocumentsLocation,
+        QStandardPaths.StandardLocation.HomeLocation,
+    ]:
+        for p in QStandardPaths.standardLocations(std_paths):
+            if os.path.exists(p) and os.access(p, os.R_OK):
+                return p
 
-        # Leverages your exact targeted lower-case extension tracking logic safely
-        return [
-            file for file in folder.iterdir()
-            if file.is_file() and file.suffix.lower() in SUPPORTED_EXTENSIONS
-        ]
-
-    def open_image(self, parent: QWidget) -> str:
-        """Opens dialog using smart composite filter mapping instead of raw '*.*'"""
-        initial_dir = self.get_deterministic_directory(is_save_mode=False)
-
-        # PySide6 static calls return a tuple: (chosen_file_path, filter_used)
-        file_path, _ = QFileDialog.getOpenFileName(
-            parent=parent,
-            caption="Choose an image file",
-            dir=initial_dir,
-            filter=OPEN_IMAGE_FILTERS
-        )
-
-        if file_path:
-            return file_path
-        return ""
-
-    def save_image_as(self, parent: QWidget, provenance_path: str = "", default_name: str = "untitled.png") -> str:
-        """Saves file while correctly maintaining matching initial selectedFilter mappings."""
-        initial_dir = self.get_deterministic_directory(is_save_mode=True, provenance_path=provenance_path)
-        initial_file_path = os.path.join(initial_dir, default_name)
-
-        # PySide6 static calls return a tuple: (target_file_path, filter_used)
-        file_path, _file_filter = QFileDialog.getSaveFileName(
-            parent=parent,
-            caption="Save Image As",
-            dir=initial_file_path,
-            filter=SAVE_IMAGE_FILTERS,
-            selectedFilter="PNG Images (*.png)"  # Fixed syntax to match filter string precisely
-        )
-        if file_path:
-            return file_path
-        return ""
+    return QDir.tempPath()

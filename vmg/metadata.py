@@ -229,6 +229,10 @@ class ImageMetadata(ImageMetadataLike):
                             self.pose_pitch_degrees = pitch
                         if heading is not None:
                             self.pose_heading_degrees = heading
+            if "insta360" in model.lower():
+                fields = user_comment.split("_")
+                # print(len(fields))
+                # TODO:
             if self.pose_heading_degrees != 0 or self.pose_pitch_degrees != 0 or self.pose_roll_degrees != 0:
                 logger.info(
                     f"Pose heading, pitch, roll = ({self.pose_heading_degrees}, {self.pose_pitch_degrees}, {self.pose_roll_degrees})")
@@ -351,13 +355,17 @@ class ImageMetadata(ImageMetadataLike):
         # so these string checks can be somewhat broad
         low = model_name.lower()
         # Inscribed fov determined by looking at a distant feature in one image
-        if "ricoh theta" in low:
-            self.inscribed_fov_radians = radians(191.2)  # "RICOH THETA Z1"
-        if "qoocam" in low:
+        if "insta360 oners" in low:
+            self.inscribed_fov_radians = radians(193.8)  # "Insta360 OneRS"
+        if "insta360 x6" in low:
+            self.inscribed_fov_radians = radians(196.8)  # "Insta360 X6"
+        elif "qoocam" in low:
             self.inscribed_fov_radians = radians(196.8)  # "QooCam 3 Ultra"
-        if "qjxj01fj" in low:
+        elif "qjxj01fj" in low:
             self.inscribed_fov_radians = radians(197.6)  # "QJXJ01FJ" Xiaomi Misphere
-        if "sm-c200" in low:
+        elif "ricoh theta" in low:
+            self.inscribed_fov_radians = radians(191.2)  # "RICOH THETA Z1"
+        elif "sm-c200" in low:
             self.inscribed_fov_radians = radians(193.8)  # "SM-C200" 2016 Gear 360
 
     def _parse_bw(self, value) -> tuple[float, float, float]:
@@ -428,7 +436,8 @@ class ImageMetadata(ImageMetadataLike):
             self._update_model(model)
         # Color adjustments, especially for DNG files
         if "EXIF:CFAPattern2" in exif:
-            assert exif["EXIF:CFAPattern2"] == "0 1 1 2"  # We only know RGGB
+            # assert exif["EXIF:CFAPattern2"] == "0 1 1 2"  # We only know RGGB
+            self.cfa_pattern = tuple(int(x) for x in exif["EXIF:CFAPattern2"].split())
         if "EXIF:BlackLevel" in exif:
             self._parse_black_level(exif["EXIF:BlackLevel"])
         if "EXIF:WhiteLevel" in exif:

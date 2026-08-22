@@ -1,3 +1,5 @@
+from typing import Optional
+
 import ctypes
 import locale
 from OpenGL import GL
@@ -21,6 +23,8 @@ from PySide6.QtWidgets import QFileDialog, QMessageBox
 
 from vmg.circular_combo_box import CircularComboBox
 from vmg.command import CropToSelection
+from vmg.file_dialogs import SAVE_IMAGE_FILTERS, SUPPORTED_EXTENSIONS, get_save_folder, log_successful_save, \
+    log_successful_load, OPEN_IMAGE_FILTERS, get_load_folder
 from vmg.image_loader import ImageLoader
 from vmg.interfaces import TiledImageLike, InputFormat
 from vmg.lens_dialog import LensDialog
@@ -68,7 +72,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         self.setAttribute(Qt.WA_AcceptTouchEvents, True)  # noqa
         self.image_list = []
         self.image_index = 0
-        self.image = None
+        self.image: Optional[TiledImageLike] = None
         self.imageWidgetGL.request_message.connect(self.statusbar.showMessage)
         self.imageWidgetGL.signal_360.connect(self.set_is_360)
         self.imageWidgetGL.image_size_changed.connect(self.set_image_size)
@@ -84,14 +88,14 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         self.actionNext.setIcon(QtGui.QIcon(resource_filename("vmg.images", "next_icon.png")))
         self.toolBar.widgetForAction(self.actionPrevious).setAutoRepeat(True)
         self.toolBar.widgetForAction(self.actionNext).setAutoRepeat(True)
-        self.actionOpen.setShortcut(QtGui.QKeySequence.Open)
+        self.actionOpen.setShortcut(QtGui.QKeySequence.StandardKey.Open)
         self.actionOpen.setIcon(self.style().standardIcon(
-            QtWidgets.QStyle.SP_DialogOpenButton))
+            QtWidgets.QStyle.StandardPixmap.SP_DialogOpenButton))
         self.actionPrevious.setIcon(QtGui.QIcon(resource_filename("vmg.images", "previous_icon.png")))
-        self.actionExit.setShortcut(QtGui.QKeySequence.Quit)
+        self.actionExit.setShortcut(QtGui.QKeySequence.StandardKey.Quit)
         self.actionSave_As.setIcon(self.style().standardIcon(
-            QtWidgets.QStyle.SP_DialogSaveButton))
-        self.actionSave_As.setShortcut(QtGui.QKeySequence.SaveAs)
+            QtWidgets.QStyle.StandardPixmap.SP_DialogSaveButton))
+        self.actionSave_As.setShortcut(QtGui.QKeySequence.StandardKey.SaveAs)
         sel_rect.selection_shown.connect(self.actionSelect_None.setEnabled)
         self.actionSelect_None.triggered.connect(sel_rect.clear)
         rect_icon_file = resource_filename("vmg.images", "box_icon.png")
@@ -99,7 +103,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         self.actionSelect_Rectangle.triggered.connect(self.imageWidgetGL.start_rect_with_no_point)
         # Zoom In
         self.actionZoom_In.setIcon(QtGui.QIcon(
-            resource_filename("vmg.images","zoom_in.png")))
+            resource_filename(package="vmg.images", resource_name="zoom_in.png")))
         self.toolBar.widgetForAction(self.actionZoom_In).setAutoRepeat(True)
         self.actionZoom_In.setShortcuts([
             QKeySequence(QKeySequence.StandardKey.ZoomIn),
@@ -107,7 +111,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         ])
         # Zoom Out
         self.actionZoom_Out.setIcon(QtGui.QIcon(
-            resource_filename("vmg.images","zoom_out.png")))
+            resource_filename(package="vmg.images", resource_name="zoom_out.png")))
         self.toolBar.widgetForAction(self.actionZoom_Out).setAutoRepeat(True)
         self.actionZoom_Out.setShortcuts([
             QKeySequence(QKeySequence.StandardKey.ZoomOut),
@@ -173,7 +177,9 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         # Add image dimensions to status bar
         self.size_label = QtWidgets.QLabel("0x0")
         self.size_label.setMinimumWidth(60)
-        self.size_label.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
+        self.size_label.setAlignment(
+            QtCore.Qt.AlignmentFlag.AlignRight
+            | QtCore.Qt.AlignmentFlag.AlignVCenter)
         self.statusbar.addPermanentWidget(self.size_label, stretch=0)
         # Clipboard actions
         self.clipboard = QtGui.QGuiApplication.clipboard()
@@ -244,27 +250,18 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
 
     cancel_load_requested = QtCore.Signal(str)
 
-    def _dialog_and_save_image(self, image, default_name: str = "") -> str:
+    def _dialog_and_save_image(self, pil_image: Image.Image, default_name: str = "") -> str:
         file_path, _file_filter = QFileDialog.getSaveFileName(
             self,
             "Save Image to File",
             default_name,
-            filter=(
-                "PNG Images (*.png)"
-                ";;JPEG Images(*.jpg *.jpeg)"
-                ";;TIFF Images(*.tif *.tiff)"
-                ";;WEBP Images(*.webp)"
-                ";;BMP Images(*.bmp)"
-                ";;PPM Images(*.ppm *.pgm *.pbm)"
-                ";;GIF Images(*.gif)"
-                ";;All files (*.*)"
-            ),
+            filter=SAVE_IMAGE_FILTERS,
             selectedFilter="PNG Files (*.png)",
         )
         if len(file_path) < 1:
             return ""
         try:
-            self.save_image(file_path, image)
+            self.save_image(file_path, pil_image)
             return file_path
         except ValueError as value_error:  # File without extension
             QtWidgets.QMessageBox.warning(
@@ -359,6 +356,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         self.image = image
         self.imageWidgetGL.set_image(image)
         fn = image.md.file_name
+        assert isinstance(fn, str)
         self.set_current_image_path(fn)
         self.actionSave_As.setEnabled(True)
         self.actionSave_Current_View_As.setEnabled(True)
@@ -392,22 +390,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
             if file.name == name:
                 continue  # Skip the triggering file
             # Accept all suffixes for supported image types
-            if file.suffix.lower() in (
-                    ".bmp",
-                    ".dng",
-                    ".heic",
-                    ".heif",
-                    ".gif",
-                    ".pbm",
-                    ".pgm",
-                    ".ppm",
-                    ".png",
-                    ".jpg",
-                    ".jpeg",
-                    ".tif",
-                    ".tiff",
-                    ".webp",
-            ):
+            if file.suffix.lower() in SUPPORTED_EXTENSIONS:
                 paths_list.append(file)
         self.set_image_list(paths_list, 0)
 
@@ -416,9 +399,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         has_image = self.clipboard.image().width() > 0
         self.actionPaste.setEnabled(has_image)
 
-    def save_image(self, file_path: str, image=None):
-        if image is None:
-            image = self.image
+    def save_image(self, file_path: str, pil_image: Image.Image):
         # TODO: cancellable separate thread save? (at least after in-memory copy is made)
         with ScopedWaitCursor():
             self.statusbar.showMessage(f"Saving image {file_path}...", 5000)
@@ -427,15 +408,16 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
             in_memory_image = io.BytesIO()
             in_memory_image.name = file_path
             try:
-                image.save(in_memory_image, quality=95)
+                pil_image.save(in_memory_image, quality=95)
             except OSError:
-                rgb_image = image.convert("RGB")  # TODO: choose bg color or warn or whatever
+                rgb_image = pil_image.convert("RGB")  # TODO: choose bg color or warn or whatever
                 rgb_image.save(in_memory_image, quality=95)
             with open(file_path, "wb") as out:
                 logging.info(f"Saving image {file_path}")
                 in_memory_image.seek(0)
                 out.write(in_memory_image.read())
-            if image is self.pil_image:
+                log_successful_save(file_path)
+            if pil_image is self.image.pil_image:
                 self.set_current_image_path(file_path)
                 self.load_main_image(file_path)
             self.statusbar.showMessage(f"Saved image {file_path}", 5000)
@@ -444,6 +426,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         self.setWindowFilePath(path)
         if os.path.exists(path):
             self.recent_files.add_file(path)
+            log_successful_load(path)
 
     def set_image_list(self, image_list: list, current_index: int):
         if len(image_list) < 1:
@@ -604,9 +587,9 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         # Copy selection only, if available
         sel_rect = self.imageWidgetGL.view_state.sel_rect
         if sel_rect.is_active:
-            img = self.pil_image.crop(sel_rect.left_top_right_bottom)
+            img = self.image.pil_image.crop(sel_rect.left_top_right_bottom)
         else:
-            img = self.pil_image
+            img = self.image.pil_image
         temp = img.convert("RGBA")
         qimage = QtGui.QImage(
             temp.tobytes("raw", "RGBA"),
@@ -733,18 +716,19 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         if self.image_index >= len(self.image_list) - 1:
             self.actionNext.setEnabled(False)  # prevent further next actions until dialog is done
             box = QMessageBox()
-            box.setIcon(QMessageBox.Question)
+            box.setIcon(QMessageBox.Icon.Question)
             box.setWindowTitle("Continue from first image?")
             box.setText(cleandoc("""
                This is the final image.
                Do you want to continue from the first image?
             """))
-            box.setStandardButtons(QMessageBox.Cancel | QMessageBox.Yes)
-            box.setDefaultButton(QMessageBox.Yes)
-            button_yes = box.button(QMessageBox.Yes)
+            box.setStandardButtons(
+                QMessageBox.StandardButton.Cancel | QMessageBox.StandardButton.Yes)
+            box.setDefaultButton(QMessageBox.StandardButton.Yes)
+            button_yes = box.button(QMessageBox.StandardButton.Yes)
             button_yes.setText("Continue")
             reply = box.exec()
-            if reply != QMessageBox.Yes:
+            if reply != QMessageBox.StandardButton.Yes:
                 self.actionNext.setEnabled(True)
                 return
         self.image_index += 1
@@ -764,10 +748,13 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
 
     @QtCore.Slot()  # noqa
     def on_actionOpen_triggered(self):  # noqa
+        default_folder = get_load_folder()
         file_name, filter_used = QFileDialog.getOpenFileName(
             parent=self,
-            caption="Choose a file",
-            filter="All files (*)",
+            caption="Choose an image",
+            dir=default_folder,
+            filter=OPEN_IMAGE_FILTERS,
+            selectedFilter="All files (*)",
         )
         if len(file_name) < 1:
             return
@@ -817,18 +804,20 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         if self.image_index <= 0:
             self.actionPrevious.setEnabled(False)
             box = QMessageBox()
-            box.setIcon(QMessageBox.Question)
+            box.setIcon(QMessageBox.Icon.Question)
             box.setWindowTitle("Continue from final image?")
             box.setText(cleandoc("""
                This is the first image.
                Do you want to continue from the final image?
             """))
-            box.setStandardButtons(QMessageBox.Cancel | QMessageBox.Yes)
-            box.setDefaultButton(QMessageBox.Yes)
-            button_yes = box.button(QMessageBox.Yes)
+            box.setStandardButtons(
+                QMessageBox.StandardButton.Cancel
+                | QMessageBox.StandardButton.Yes)
+            box.setDefaultButton(QMessageBox.StandardButton.Yes)
+            button_yes = box.button(QMessageBox.StandardButton.Yes)
             button_yes.setText("Continue")
             reply = box.exec()
-            if reply != QMessageBox.Yes:
+            if reply != QMessageBox.StandardButton.Yes:
                 self.actionPrevious.setEnabled(True)
                 return
         self.image_index -= 1
@@ -855,7 +844,11 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
     @QtCore.Slot()  # noqa
     def on_actionSave_As_triggered(self):  # noqa
         default_name = f"{pathlib.Path(self._current_file_name).stem}"
-        file_path = self._dialog_and_save_image(self.image, default_name=default_name)
+        default_folder = get_save_folder(self._current_file_name)
+        file_path = self._dialog_and_save_image(
+            self.image.pil_image,
+            default_name=f"{default_folder}/{default_name}",
+        )
         if os.path.exists(file_path):
             self.set_current_image_path(file_path)
             self.undo_stack.setClean()
@@ -865,9 +858,12 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         pixmap = self.imageWidgetGL.grab()
         view_image = Image.fromqpixmap(pixmap)
         default_name = f"{pathlib.Path(self._current_file_name).stem}_view"
-        file_path = self._dialog_and_save_image(view_image, default_name=default_name)
-        if os.path.exists(file_path):
-            self.recent_files.add_file(file_path)
+        default_folder = get_save_folder(self._current_file_name)
+        file_path = self._dialog_and_save_image(
+            view_image,
+            default_name=f"{default_folder}/{default_name}",
+        )
+        self.set_current_image_path(file_path)
 
     @QtCore.Slot(bool)  # noqa
     def on_actionSharp_toggled(self, is_checked: bool):  # noqa
@@ -930,7 +926,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         if image.md.file_name == self._current_file_name:
             logger.debug("Image displayed")
             stem = pathlib.Path(self._current_file_name).stem
-            self.progress_status.set_value(100)
+            self.progress_status.set_value(percent_complete=100)
             self.statusbar.showMessage(f"Loaded {stem}", 5000)
             QtWidgets.QApplication.restoreOverrideCursor()
 

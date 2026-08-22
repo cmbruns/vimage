@@ -42,7 +42,7 @@ class RecentFileList(QtCore.QObject):
         self.open_file_slot = open_file_slot
         self.settings_key = settings_key
         self.menu = menu
-        settings = QtCore.QSettings()
+        settings = QtCore.QSettings()  # Organization name etc. was already set in app.py
         file_list = settings.value(settings_key)
         if file_list is not None:
             assert isinstance(file_list, list)
