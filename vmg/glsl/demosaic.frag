@@ -119,18 +119,18 @@ const ivec2 CRB_AT_GBR[16] = ivec2[16](
         ivec2(0,-1),ivec2(0,-2),
         ivec2(0,-1),ivec2(-1,-1),
         ivec2(0,-1),ivec2(1,-1),
-        ivec2(0,-1),ivec2(0,0),
-        ivec2(0,1),ivec2(0,0),
+        ivec2(0,-1),ivec2(0,0),  // TODO: weight repeated green 0.5
+        ivec2(0,1),ivec2(0,0),  // TODO: weight repeated green 0.5
         ivec2(0,1),ivec2(-1,1),
         ivec2(0,1),ivec2(1,1),
         ivec2(0,1),ivec2(0,2));
 
 const ivec2 CRB_AT_GRB[16] = ivec2[16](
         ivec2(-1,0),ivec2(-2,0),
-        ivec2(-1,0),ivec2(0,0),
         ivec2(-1,0),ivec2(-1,-1),
         ivec2(-1,0),ivec2(-1,1),
-        ivec2(1,0),ivec2(0,0),
+        ivec2(-1,0),ivec2(0,0),  // TODO: weight repeated green 0.5
+        ivec2(1,0),ivec2(0,0),  // TODO: weight repeated green 0.5
         ivec2(1,0),ivec2(2,0),
         ivec2(1,0),ivec2(1,-1),
         ivec2(1,0),ivec2(1,1));
@@ -164,6 +164,11 @@ const float LGMC5_G_AT_RB[25] = float[25](
     -0.056, +0.000, +0.348, +0.000, -0.056,   // y=+1:
     +0.000, -0.056, +0.000, -0.056, +0.000    // y=+2:
 );
+
+struct ChromaSample {
+    float chroma;
+    float weight;
+};
 
 // Sort two values
 void sort2(inout float a, inout float b) {
