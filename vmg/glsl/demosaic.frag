@@ -30,10 +30,21 @@ struct Rgb {
 
 int cfa_for_texel(ivec2 texel) {
     ivec2 parity = texel & ivec2(1);
-    if (parity == ivec2(0)) return CFA_RED;
-    else if (parity == ivec2(1)) return CFA_BLUE;
-    else if (parity == ivec2(1, 0)) return CFA_GREEN1;
-    else return CFA_GREEN2;
+    int index;
+    if (parity == ivec2(0)) index = 0;  // red in RGGB
+    else if (parity == ivec2(1)) index = 3;  // blue in RGGB
+    else if (parity == ivec2(1, 0)) index = 1;  // G1 in RGGB
+    else index = 2;  // G2 in RGGB
+    // handle alternate cfa pattern
+    int shift = 0;
+    for (int i = 0; i < 4; ++i) {
+        if (cfa_pattern[i] == 0) {
+            shift = -i;
+            break;
+        }
+    }
+    index = (index + shift) % 4;
+    return index;
 }
 
 int cfa_for_texel(vec2 texel) {
@@ -66,6 +77,85 @@ ivec2 rggb_clamp_to_edge(ivec2 xy)
 // Lanczos 5x5 for green, with median chroma
 // "LGMC5"
 
+/*
+  To get the median chroma values, we first collect the closest 8 values
+  of Cb = blue - green,  and Cr = red - green
+
+  Case1: centered on BLUE; Cr:"+" Cb:"-"
+  x = -2 -1 +0 +1 +2   y =
+
+       B  G  B  G  B   -2
+             |
+       G  R++G++R  G   -1
+          +  |  +
+       B--G--B--G--B   +0
+          +  |  +
+       G  R++G++R  G   +1
+             |
+       B  G  B  G  B   +2
+
+       Cb: (0,0)-(0,-1), (0,0)-(0,1), (0,0)-(1,0), (0,0)-(-1,0)
+           (0,-2)-(0,-1), (-2,0)-(-1,0), (2,0)-(1,0), (0,2)-(0,1)
+       Cr: (-1,-1)-(0,-1), (-1, -1)-(-1,0), (1,-1)-(0,-1), (1,-1)-(1,0)
+           (-1,1)-(0,1), (-1, 1)-(1,0), (1,1)-(0,1), (1,1)-(1,0)
+
+  Case 2: centered on GREEN in RED row
+  x = -2 -1 +0 +1 +2   y =
+
+       G  R  G  R  G   -2
+             |
+       B  G--B--G  B   -1
+          +  |  +
+       G++R++G++R++G   +0
+          +  |  +
+       B  G--B--G  B   +1
+             |
+       G  R  G  R  G   +2
+
+/* */
+
+// Chroma texel index pairs for central green texel
+const ivec2 CRB_AT_GBR[16] = ivec2[16](
+        ivec2(0,-1),ivec2(0,-2),
+        ivec2(0,-1),ivec2(-1,-1),
+        ivec2(0,-1),ivec2(1,-1),
+        ivec2(0,-1),ivec2(0,0),
+        ivec2(0,1),ivec2(0,0),
+        ivec2(0,1),ivec2(-1,1),
+        ivec2(0,1),ivec2(1,1),
+        ivec2(0,1),ivec2(0,2));
+
+const ivec2 CRB_AT_GRB[16] = ivec2[16](
+        ivec2(-1,0),ivec2(-2,0),
+        ivec2(-1,0),ivec2(0,0),
+        ivec2(-1,0),ivec2(-1,-1),
+        ivec2(-1,0),ivec2(-1,1),
+        ivec2(1,0),ivec2(0,0),
+        ivec2(1,0),ivec2(2,0),
+        ivec2(1,0),ivec2(1,-1),
+        ivec2(1,0),ivec2(1,1));
+
+// Chroma texel index pairs for central texel red or blue
+const ivec2 CRB_AT_RB[16] = ivec2[16](
+        ivec2(0,0),ivec2(0,-1),
+        ivec2(0,0),ivec2(0,1),
+        ivec2(0,0),ivec2(1,0),
+        ivec2(0,0),ivec2(-1,0),
+        ivec2(0,-2),ivec2(0,-1),
+        ivec2(-2,0),ivec2(-1,0),
+        ivec2(2,0),ivec2(1,0),
+        ivec2(0,2),ivec2(0,1));
+
+const ivec2 CRB_AT_BR[16] = ivec2[16](
+        ivec2(-1,-1),ivec2(0,-1),
+        ivec2(-1,-1),ivec2(-1,0),
+        ivec2(1,-1),ivec2(0,-1),
+        ivec2(1,-1),ivec2(1,0),
+        ivec2(-1,1),ivec2(0,1),
+        ivec2(-1,1),ivec2(-1,0),
+        ivec2(1,1),ivec2(0,1),
+        ivec2(1,1),ivec2(1,0));
+
 const float LGMC5_G_AT_RB[25] = float[25](
   //  x=-2    x=-1    x=+0    x=+1    x=+2
     +0.000, -0.056, +0.000, -0.056, +0.000,   // y=-2:
@@ -74,6 +164,55 @@ const float LGMC5_G_AT_RB[25] = float[25](
     -0.056, +0.000, +0.348, +0.000, -0.056,   // y=+1:
     +0.000, -0.056, +0.000, -0.056, +0.000    // y=+2:
 );
+
+// Sort two values
+void sort2(inout float a, inout float b) {
+    float t = a;
+    a = min(t, b);
+    b = max(t, b);
+}
+
+// Sort an array of 8 floats, for use in median calculation
+void sort8(inout float arr[8]) {
+    // Pass 1
+    sort2(arr[0], arr[1]); sort2(arr[2], arr[3]);
+    sort2(arr[4], arr[5]); sort2(arr[6], arr[7]);
+
+    // Pass 2
+    sort2(arr[0], arr[2]); sort2(arr[1], arr[3]);
+    sort2(arr[4], arr[6]); sort2(arr[5], arr[7]);
+
+    // Pass 3
+    sort2(arr[0], arr[1]); sort2(arr[2], arr[3]);
+    sort2(arr[4], arr[5]); sort2(arr[6], arr[7]);
+
+    // Pass 4
+    sort2(arr[0], arr[4]); sort2(arr[1], arr[5]);
+    sort2(arr[2], arr[6]); sort2(arr[3], arr[7]);
+
+    // Pass 5
+    sort2(arr[2], arr[4]); sort2(arr[3], arr[5]);
+
+    // Pass 6
+    sort2(arr[1], arr[2]); sort2(arr[3], arr[4]); sort2(arr[5], arr[6]);
+}
+
+float median_chroma5x5(ivec2 CX_AT[16], CfaSample samples[25]) {
+    const int NBR = 2;
+    const int GRID_SIZE = 5;
+    float cb_array[8];
+    for (int i = 0; i < 8; i++) {
+        ivec2 rb_ix = CX_AT[i * 2] + ivec2(NBR);
+        float rb = samples[rb_ix.x + GRID_SIZE * rb_ix.y].i;
+        ivec2 g_ix = CX_AT[i * 2 + 1] + ivec2(NBR);
+        float g = samples[g_ix.x + GRID_SIZE * g_ix.y].i;
+        cb_array[i] = rb - g;
+    }
+    sort8(cb_array);
+    float cb_med = 0.5 * (cb_array[3] + cb_array[4]);  // median Cb chroma
+    // float cb_med = cb_array[4];  // minimum for testing
+    return cb_med;
+}
 
 vec3 lgmc5_color(vec2 texel)
 {
@@ -115,7 +254,7 @@ vec3 lgmc5_color(vec2 texel)
         }
     }
 
-    // TODO: accumulate green lanczos
+    // accumulate green lanczos
     int cfa = cfa_for_texel(txl);
     vec3 mask0 = mask_for_cfa(CFA_GREEN1);
     Rgb rgb = Rgb(vec3(0), vec3(0), vec3(0));
@@ -127,13 +266,39 @@ vec3 lgmc5_color(vec2 texel)
         // TODO: clip highlights
     }
 
-    // Duplicate green channel
+    // Duplicate green channel - until we have chroma median fully working
+    rgb.rgb.g /= rgb.unclipped_weight.g;
     rgb.rgb = rgb.rgb.ggg;
-    rgb.unclipped_weight = rgb.unclipped_weight.ggg;
+    rgb.unclipped_weight = vec3(1);
 
-    return vec3(rgb.rgb / rgb.unclipped_weight);  // grayscale test
+    // Use median chroma values to generate red/blue
+    if (cfa == CFA_BLUE) {
+        float cb_med = median_chroma5x5(CRB_AT_RB, samples);
+        rgb.rgb.b = cb_med + rgb.rgb.g;
+        float cr_med = median_chroma5x5(CRB_AT_BR, samples);
+        rgb.rgb.r = cr_med + rgb.rgb.g;
+    }
+    else if (cfa == CFA_RED) {
+        float cb_med = median_chroma5x5(CRB_AT_BR, samples);
+        rgb.rgb.b = cb_med + rgb.rgb.g;
+        float cr_med = median_chroma5x5(CRB_AT_RB, samples);
+        rgb.rgb.r = cr_med + rgb.rgb.g;
+    }
+    else if (cfa == CFA_GREEN1) {
+        float cb_med = median_chroma5x5(CRB_AT_GBR, samples);
+        rgb.rgb.b = cb_med + rgb.rgb.g;
+        float cr_med = median_chroma5x5(CRB_AT_GRB, samples);
+        rgb.rgb.r = cr_med + rgb.rgb.g;
+    }
+    else if (cfa == CFA_GREEN2) {
+        float cb_med = median_chroma5x5(CRB_AT_GRB, samples);
+        rgb.rgb.b = cb_med + rgb.rgb.g;
+        float cr_med = median_chroma5x5(CRB_AT_GBR, samples);
+        rgb.rgb.r = cr_med + rgb.rgb.g;
+    }
 
-    // TODO: median chroma
+    return vec3(rgb.rgb);
+
 }
 
 
@@ -223,27 +388,28 @@ vec3 linear_color(vec2 texel)
     ivec2 txl = ivec2(floor(texel));
     int x = txl.x;
     int y = txl.y;
+    int cfa = cfa_for_texel(txl);
     vec3 result = vec3(0);
     for (int t = 0; t < 9; ++t)
     {
         ivec2 tx = rggb_clamp_to_edge(txl + LIN_NBRS[t]);
         float intensity = texelFetch(bayer, tx, 0).r;
-        if ((y & 1) == 0 && (x & 1) == 0) {  // red
+        if (cfa == CFA_RED) {  // red
             result.r += intensity * LIN_RGB_AT_RGB[t];
             result.g += intensity * LIN_G_AT_RB[t];
             result.b += intensity * LIN_RB_AT_BR[t];
         }
-        else if ((y & 1) != 0 && (x & 1) != 0) {  // blue
+        else if (cfa == CFA_BLUE) {  // blue
             result.r += intensity * LIN_RB_AT_BR[t];
             result.g += intensity * LIN_G_AT_RB[t];
             result.b += intensity * LIN_RGB_AT_RGB[t];
         }
-        else if ((y & 1) == 0 && (x & 1) != 0) {  // green in red row
+        else if (cfa == CFA_GREEN1) {  // green in red row
             result.r += intensity * LIN_RB_AT_G_IN_RB[t];
             result.g += intensity * LIN_RGB_AT_RGB[t];
             result.b += intensity * LIN_RB_AT_G_IN_BR[t];
         }
-        else if ((y & 1) != 0 && (x & 1) == 0) {  // green in blue row
+        else if (cfa == CFA_GREEN2) {  // green in blue row
             result.r += intensity * LIN_RB_AT_G_IN_BR[t];
             result.g += intensity * LIN_RGB_AT_RGB[t];
             result.b += intensity * LIN_RB_AT_G_IN_RB[t];
@@ -264,27 +430,28 @@ vec3 mhc_color(vec2 texel)
     ivec2 txl = ivec2(floor(texel));
     int x = txl.x;
     int y = txl.y;
+    int cfa = cfa_for_texel(txl);
     vec3 result = vec3(0);
     for (int t = 0; t < 13; ++t)
     {
         ivec2 tx = rggb_clamp_to_edge(txl + MHC_NBRS[t]);
         float intensity = MHC_SCALE * texelFetch(bayer, tx, 0).r;
-        if ((y & 1) == 0 && (x & 1) == 0) {  // red
+        if (cfa == CFA_RED) {  // red
             result.r += intensity * MHC_RGB_AT_RGB[t];
             result.g += intensity * MHC_G_AT_R_OR_B[t];
             result.b += intensity * MHC_RB_AT_BR[t];
         }
-        else if ((y & 1) != 0 && (x & 1) != 0) {  // blue
+        else if (cfa == CFA_BLUE) {  // blue
             result.r += intensity * MHC_RB_AT_BR[t];
             result.g += intensity * MHC_G_AT_R_OR_B[t];
             result.b += intensity * MHC_RGB_AT_RGB[t];
         }
-        else if ((y & 1) == 0 && (x & 1) != 0) {  // green in red row
+        else if (cfa == CFA_GREEN1) {  // green in red row
             result.r += intensity * MHC_RB_AT_G_IN_RB[t];
             result.g += intensity * MHC_RGB_AT_RGB[t];
             result.b += intensity * MHC_RB_AT_G_IN_BR[t];
         }
-        else if ((y & 1) != 0 && (x & 1) == 0) {  // green in blue row
+        else if (cfa == CFA_GREEN2) {  // green in blue row
             result.r += intensity * MHC_RB_AT_G_IN_BR[t];
             result.g += intensity * MHC_RGB_AT_RGB[t];
             result.b += intensity * MHC_RB_AT_G_IN_RB[t];
@@ -417,9 +584,9 @@ void main()
 {
     // Fractional texel
     vec2 texel = tex_coord * textureSize(bayer, 0);
-    vec3 rgb = lanczos7x7_color(texel);  // better than mhc but softer
+    // vec3 rgb = lanczos7x7_color(texel);  // better than mhc but softer
+    vec3 rgb = lgmc5_color(texel);
     // vec3 rgb = mhc_color(texel);  // bad zippering near door
     // vec3 rgb = linear_color(texel);  // different bad zippering
-    // vec3 rgb = lgmc5_color(texel);
     frag_color = vec4(rgb, 1);
 }
