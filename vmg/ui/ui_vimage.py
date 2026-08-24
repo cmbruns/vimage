@@ -8,12 +8,17 @@
 ## WARNING! All changes made in this file will be lost when recompiling UI file!
 ################################################################################
 
-from PySide6.QtCore import (QCoreApplication, QMetaObject, QRect,
-                            QSize, Qt)
-from PySide6.QtGui import (QAction, QIcon)
-from PySide6.QtWidgets import (QMenu, QMenuBar,
-                               QStatusBar, QToolBar, QVBoxLayout,
-                               QWidget)
+from PySide6.QtCore import (QCoreApplication, QDate, QDateTime, QLocale,
+    QMetaObject, QObject, QPoint, QRect,
+    QSize, QTime, QUrl, Qt)
+from PySide6.QtGui import (QAction, QBrush, QColor, QConicalGradient,
+    QCursor, QFont, QFontDatabase, QGradient,
+    QIcon, QImage, QKeySequence, QLinearGradient,
+    QPainter, QPalette, QPixmap, QRadialGradient,
+    QTransform)
+from PySide6.QtWidgets import (QApplication, QMainWindow, QMenu, QMenuBar,
+    QSizePolicy, QStatusBar, QToolBar, QVBoxLayout,
+    QWidget)
 
 from vmg.ui.image_widget_gl import ImageWidgetGL
 
@@ -253,12 +258,14 @@ class Ui_MainWindow(object):
         self.menuPanorama.setObjectName(u"menuPanorama")
         self.menu360_Projection = QMenu(self.menuPanorama)
         self.menu360_Projection.setObjectName(u"menu360_Projection")
+        self.menu360_Projection.setEnabled(False)
         self.menuInput_Projection = QMenu(self.menuPanorama)
         self.menuInput_Projection.setObjectName(u"menuInput_Projection")
         self.menuRaw_DNG = QMenu(self.menuView)
         self.menuRaw_DNG.setObjectName(u"menuRaw_DNG")
         self.menuStereo_3D = QMenu(self.menuView)
         self.menuStereo_3D.setObjectName(u"menuStereo_3D")
+        self.menuStereo_3D.setEnabled(False)
         self.menuHelp = QMenu(self.menubar)
         self.menuHelp.setObjectName(u"menuHelp")
         self.menuEdit = QMenu(self.menubar)

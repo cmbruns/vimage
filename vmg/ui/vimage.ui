@@ -147,6 +147,9 @@
       <string>Panorama</string>
      </property>
      <widget class="QMenu" name="menu360_Projection">
+      <property name="enabled">
+       <bool>false</bool>
+      </property>
       <property name="title">
        <string>Display Projection</string>
       </property>
@@ -174,6 +177,9 @@
      <addaction name="actionDemosaic"/>
     </widget>
     <widget class="QMenu" name="menuStereo_3D">
+     <property name="enabled">
+      <bool>false</bool>
+     </property>
      <property name="title">
       <string>Stereo 3D</string>
      </property>
@@ -774,7 +780,7 @@
   <customwidget>
    <class>ImageWidgetGL</class>
    <extends>QOpenGLWidget</extends>
-   <header>vmg/image_widget_gl.h</header>
+   <header>vmg/ui/image_widget_gl.h</header>
   </customwidget>
  </customwidgets>
  <resources/>
