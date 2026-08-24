@@ -48,5 +48,5 @@ sequenceDiagram
 ## Related Code Files
 
 - [vmg/image_loader.py](../vmg/image_loader.py) - Handles image decoding
-- [vmg/main_window.py](../vmg/main_window.py) - Coordinates GL uploads
-- [vmg/image_widget_gl.py](../vmg/image_widget_gl.py) - Manages GL context and rendering
+- [vmg/main_window.py](../vmg/ui/main_window.py) - Coordinates GL uploads
+- [vmg/image_widget_gl.py](../vmg/ui/image_widget_gl.py) - Manages GL context and rendering

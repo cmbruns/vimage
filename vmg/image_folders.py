@@ -1,7 +1,6 @@
 import os
 
-from PySide6.QtWidgets import QFileDialog, QWidget
-from PySide6.QtCore import QSettings, QStandardPaths, QDir, QFileInfo
+from PySide6.QtCore import QSettings, QStandardPaths, QDir
 
 
 # The exhaustive list of extensions your app scanning logic supports

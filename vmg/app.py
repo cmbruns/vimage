@@ -6,9 +6,8 @@ from PySide6 import QtWidgets, QtCore
 from PySide6.QtCore import QEvent, Qt
 from PySide6.QtGui import QIcon, QSurfaceFormat
 
-from .main_window import VimageMainWindow
+from vmg.ui.main_window import VimageMainWindow
 from .except_hook import ExceptHook
-from .log import StdIoRedirector
 from vmg.resources import resource_filename
 
 

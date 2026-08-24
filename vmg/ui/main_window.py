@@ -21,13 +21,13 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QUndoStack, QKeySequence
 from PySide6.QtWidgets import QFileDialog, QMessageBox
 
-from vmg.circular_combo_box import CircularComboBox
+from vmg.ui.circular_combo_box import CircularComboBox
 from vmg.command import CropToSelection
-from vmg.file_dialogs import SAVE_IMAGE_FILTERS, SUPPORTED_EXTENSIONS, get_save_folder, log_successful_save, \
+from vmg.image_folders import SAVE_IMAGE_FILTERS, SUPPORTED_EXTENSIONS, get_save_folder, log_successful_save, \
     log_successful_load, OPEN_IMAGE_FILTERS, get_load_folder
 from vmg.image_loader import ImageLoader
 from vmg.interfaces import TiledImageLike, InputFormat
-from vmg.lens_dialog import LensDialog
+from vmg.ui.lens_dialog import LensDialog
 from vmg.log import LogDialog
 from vmg.natural_sort import natural_sort_key
 from vmg.pixel_filter import PixelFilter, PixelNumerals
