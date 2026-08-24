@@ -635,6 +635,10 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         wgl.view_state.pixel_numerals = PixelNumerals.DECIMAL
         wgl.update()
 
+    @QtCore.Slot()
+    def on_actionDemosaic_triggered(self):
+        print("demosaic")
+
     @QtCore.Slot(bool)  # noqa
     def on_actionDual_FisheyeInput_toggled(self, is_checked: bool):  # noqa
         if is_checked:

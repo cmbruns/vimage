@@ -72,28 +72,6 @@
     <property name="title">
      <string>View</string>
     </property>
-    <widget class="QMenu" name="menu360_Projection">
-     <property name="enabled">
-      <bool>false</bool>
-     </property>
-     <property name="title">
-      <string>Display Projection</string>
-     </property>
-     <addaction name="actionPerspective"/>
-     <addaction name="actionStereographic"/>
-     <addaction name="actionEquidistant"/>
-     <addaction name="actionEquirectangular"/>
-    </widget>
-    <widget class="QMenu" name="menuInput_Projection">
-     <property name="title">
-      <string>Input Format</string>
-     </property>
-     <addaction name="actionPerspectiveInput"/>
-     <addaction name="actionEquirectangularInput"/>
-     <addaction name="actionSinusoidalInput"/>
-     <addaction name="actionDual_FisheyeInput"/>
-     <addaction name="separator"/>
-    </widget>
     <widget class="QMenu" name="menuDebug">
      <property name="title">
       <string>Debug</string>
@@ -134,6 +112,7 @@
       <addaction name="actionDecrease_LOD_Bias"/>
       <addaction name="actionIncrease_LOD_Bias"/>
      </widget>
+     <addaction name="actionView_Log"/>
      <addaction name="actionTile_Boundaries"/>
      <addaction name="actionAnisotropic_Filtering"/>
      <addaction name="menuTexture_Min_Filter"/>
@@ -163,6 +142,43 @@
      <addaction name="actionDecimal"/>
      <addaction name="actionNone"/>
     </widget>
+    <widget class="QMenu" name="menuPanorama">
+     <property name="title">
+      <string>Panorama</string>
+     </property>
+     <widget class="QMenu" name="menu360_Projection">
+      <property name="title">
+       <string>Display Projection</string>
+      </property>
+      <addaction name="actionPerspective"/>
+      <addaction name="actionStereographic"/>
+      <addaction name="actionEquidistant"/>
+      <addaction name="actionEquirectangular"/>
+     </widget>
+     <widget class="QMenu" name="menuInput_Projection">
+      <property name="title">
+       <string>Input Format</string>
+      </property>
+      <addaction name="actionPerspectiveInput"/>
+      <addaction name="actionEquirectangularInput"/>
+      <addaction name="actionDual_FisheyeInput"/>
+      <addaction name="actionSinusoidalInput"/>
+     </widget>
+     <addaction name="menu360_Projection"/>
+     <addaction name="menuInput_Projection"/>
+    </widget>
+    <widget class="QMenu" name="menuRaw_DNG">
+     <property name="title">
+      <string>Raw DNG</string>
+     </property>
+     <addaction name="actionDemosaic"/>
+    </widget>
+    <widget class="QMenu" name="menuStereo_3D">
+     <property name="title">
+      <string>Stereo 3D</string>
+     </property>
+     <addaction name="separator"/>
+    </widget>
     <addaction name="actionReset_View"/>
     <addaction name="separator"/>
     <addaction name="menuZoom"/>
@@ -175,11 +191,10 @@
     <addaction name="menuPixel_Values"/>
     <addaction name="actionSharp"/>
     <addaction name="actionShow_Center_Guides"/>
+    <addaction name="menuPanorama"/>
+    <addaction name="menuRaw_DNG"/>
+    <addaction name="menuStereo_3D"/>
     <addaction name="separator"/>
-    <addaction name="menu360_Projection"/>
-    <addaction name="menuInput_Projection"/>
-    <addaction name="separator"/>
-    <addaction name="actionView_Log"/>
     <addaction name="menuDebug"/>
    </widget>
    <widget class="QMenu" name="menuHelp">
@@ -749,9 +764,9 @@
     <string>G</string>
    </property>
   </action>
-  <action name="actionFoo">
+  <action name="actionDemosaic">
    <property name="text">
-    <string>Foo</string>
+    <string>Demosaic...</string>
    </property>
   </action>
  </widget>
