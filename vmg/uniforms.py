@@ -80,12 +80,12 @@ class ViewerUniforms(UniformGroup):
         super().__init__()
         self.add(Uniform("brightness", GL.glUniform1f))
         self.add(Uniform("pixelFilter", GL.glUniform1i))
-        self.add(Uniform("tile_X_img", GL.glUniformMatrix3fv))
+        self.add(Uniform("show_cfa_colors", GL.glUniform1i))
 
-    def set(self, state: RenderStateLike, tile: TileLike):
-        self["brightness"].set(state.brightness)
+    def set(self, state: RenderStateLike, image: TiledImageLike):
+        self["brightness"].set(state.brightness + image.md.baseline_exposure)
         self["pixelFilter"].set(state.pixel_filter.value)
-        self["tile_X_img"].set(1, True, tile.tile_X_img)
+        self["show_cfa_colors"].set(state.show_cfa_colors)
 
 
 class NumeralUniforms(UniformGroup):

@@ -68,6 +68,7 @@ class RenderStateLike(Protocol):
     pixel_filter: PixelFilter
     pixel_numerals: PixelNumerals
     sel_rect: SelectionBox
+    show_cfa_colors: bool
     show_tile_boundaries: bool
     texture_wrap: GLint
 
@@ -156,6 +157,10 @@ class TileLike(Protocol):
     def tile_X_img(self) -> NDArray[numpy.floating]:
         """3×3 float32 transform from tile to image space."""
         ...
+
+
+class DemosaicMethod(enum.Enum):
+    LANCZOS_7X7 = 1
 
 
 class InputFormat(enum.Enum):

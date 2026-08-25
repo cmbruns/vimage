@@ -48,6 +48,7 @@ class ViewState(
         self._previous_mouse_position = None
         self.asc_qwn = 1
         self.asc_opx = 1
+        self.show_cfa_colors = True
         self.show_tile_boundaries = False
         self.show_center_guides = False
         self.anisotropic_filtering = True

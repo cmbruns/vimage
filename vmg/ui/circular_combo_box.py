@@ -13,12 +13,16 @@ class CircularListView(QtWidgets.QListView):
     def moveCursor(
         self,
         cursor_action: QtWidgets.QAbstractItemView.CursorAction,
-        modifiers: Qt.KeyboardModifiers,
+        modifiers: Qt.KeyboardModifier,
     ) -> QtCore.QModelIndex:
         selected = self.selectedIndexes()
         if len(selected) != 1:
             return super().moveCursor(cursor_action, modifiers)
         index: QtCore.QModelIndex = selected[0]  # noqa
+        # Guard against an empty model
+        model = self.model()
+        if not model or model.rowCount() == 0:
+            return super().moveCursor(cursor_action, modifiers)
         top = 0
         bottom = self.model().rowCount() - 1
         ca = QtWidgets.QAbstractItemView.CursorAction
@@ -31,6 +35,33 @@ class CircularListView(QtWidgets.QListView):
         else:
             return super().moveCursor(cursor_action, modifiers)
 
+    def wheelEvent(self, event: QtGui.QWheelEvent) -> None:
+        """Enables circular mouse wheel wrapping when the popup menu is open."""
+        model = self.model()
+        if not model or model.rowCount() <= 1:
+            super().wheelEvent(event)
+            return
+
+        # Get currently highlighted item in the popup list
+        current_index = self.currentIndex()
+        if not current_index.isValid():
+            super().wheelEvent(event)
+            return
+
+        delta = event.angleDelta().y()
+        row = current_index.row()
+
+        if delta < 0:  # Scroll down
+            new_row = (row + 1) % model.rowCount()
+        elif delta > 0:  # Scroll up
+            new_row = (row - 1) % model.rowCount()
+        else:
+            return
+
+        new_index = model.index(new_row, current_index.column(), current_index.parent())
+        self.setCurrentIndex(new_index)
+        event.accept()
+
 
 class CircularComboBox(QtWidgets.QComboBox):
     def __init__(self, *args, **kwargs) -> None:
@@ -39,24 +70,37 @@ class CircularComboBox(QtWidgets.QComboBox):
         self.setView(view)
 
     def _activate_next(self) -> None:
+        if self.count() <= 1:
+            return
         index = (self.currentIndex() + 1) % self.count()
         self.setCurrentIndex(index)
 
     def _activate_previous(self):
+        if self.count() <= 1:
+            return
         index = (self.currentIndex() - 1) % self.count()
         self.setCurrentIndex(index)
 
     def keyPressEvent(self, event: QtGui.QKeyEvent) -> None:
-        if event.key() == Qt.Key_Down:
+        # Ignore modifiers like Alt (so Alt + Down still opens the popup natively)
+        if event.modifiers() & Qt.KeyboardModifier.AltModifier:
+            super().keyPressEvent(event)
+            return
+        if event.key() == Qt.Key.Key_Down:
             self._activate_next()
-        elif event.key() == Qt.Key_Up:
+        elif event.key() == Qt.Key.Key_Up:
             self._activate_previous()
         else:
             super().keyPressEvent(event)
 
     def wheelEvent(self, event: QtGui.QWheelEvent) -> None:
+        # Let the standard wheel logic handle it if the popup view is currently open
+        if self.view().isVisible():
+            super().wheelEvent(event)
+            return
         delta = event.angleDelta().y()
         if delta < 0:
             self._activate_next()
         elif delta > 0:
             self._activate_previous()
+        event.accept()

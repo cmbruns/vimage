@@ -236,15 +236,14 @@ class RectangularTileShader(IImageShader, ShaderProgramLike):
 
 class RectangularDngShader(IImageShader):
     uDng = DngUniforms()
+    uViewer = ViewerUniforms()
 
     def __init__(self):
         self.shader = None
         self.ndc_x_opx_location = None
-        self.pixelFilter_location = None
         self.sel_rect_opx_location = None
         self.background_color_location = None
         self.opx_scale_qwn_location = None
-        self.brightness = Uniform("brightness", GL.glUniform1f)
         self.background_color = [0.5, 0.5, 0.5, 0.5]
         self.box_shader = SelectionBoxShader()
         self.uBayerTile = Sampler2DUniform("bayer_tile")
@@ -271,15 +270,14 @@ class RectangularDngShader(IImageShader):
             self.ndc_x_opx_location = GL.glGetUniformLocation(self.shader, "ndc_X_opx")
             self.sel_rect_opx_location = GL.glGetUniformLocation(self.shader, "sel_rect_opx")
             self.background_color_location = GL.glGetUniformLocation(self.shader, "background_color")
-            self.pixelFilter_location = GL.glGetUniformLocation(self.shader, "pixel_filter")
             self.opx_scale_qwn_location = GL.glGetUniformLocation(self.shader, "opx_scale_qwn")
-            self.brightness.get_location(self.shader)
             self.tile_X_img_location = GL.glGetUniformLocation(self.shader, "tile_X_img")
             self.uv_bounds_location = GL.glGetUniformLocation(self.shader, "uv_bounds")
             for uniform in (
                     self.uBayerTile,
                     self.uDemosaicTile,
                     self.uDng,
+                    self.uViewer,
             ):
                 uniform.get_location(self.shader)
             self.box_shader.initialize_gl()
@@ -291,7 +289,7 @@ class RectangularDngShader(IImageShader):
 
     def paint_image(self, state: RenderStateLike, image: TiledImageLike):
         self.uDng.set(image)
-        self.brightness.set(state.brightness + image.md.baseline_exposure)
+        self.uViewer.set(state, image)
         is_complete = True  # start optimistic
         for tile in image.tiles:
             assert isinstance(tile, DngTile)
@@ -315,7 +313,7 @@ class RectangularDngShader(IImageShader):
 
     def paint_gl(self, state: RenderStateLike, image: TiledImageLike) -> None:
         GL.glUseProgram(self.shader)
-        GL.glUniform1i(self.pixelFilter_location, state.pixel_filter.value)
+        self.uViewer.set(state, image)
         GL.glUniform4i(self.sel_rect_opx_location, *state.sel_rect.left_top_right_bottom)
         GL.glUniform4f(self.background_color_location, *state.background_color)
         GL.glUniformMatrix3fv(self.ndc_x_opx_location, 1, True, state.ndc_xform_opx())
@@ -493,8 +491,7 @@ class SphericalDngShader(IImageShader):
         if self.shader is None:
             self.initialize_gl()
         GL.glUseProgram(self.shader)
-        self.uViewer["brightness"].set(state.brightness + image.md.baseline_exposure)
-        self.uViewer["pixelFilter"].set(state.pixel_filter.value)
+        self.uViewer.set(state, image)
         self.uPano.set(state, image)
         self.uDng.set(image)
         # Be selective about numeral painting to avoid tile bounary artifacts at lower zoom

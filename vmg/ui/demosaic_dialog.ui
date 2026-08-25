@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>386</width>
-    <height>162</height>
+    <height>205</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -17,48 +17,45 @@
    <item>
     <widget class="QGroupBox" name="groupBox">
      <property name="title">
-      <string>Demosaic</string>
+      <string>Demosaic Method</string>
      </property>
      <layout class="QVBoxLayout" name="verticalLayout">
       <item>
-       <widget class="QLabel" name="label">
+       <widget class="QRadioButton" name="radioButtonLanczos7x7">
         <property name="text">
-         <string>&amp;Demosaic Method</string>
+         <string>Lanczos 7x7</string>
         </property>
-        <property name="buddy">
-         <cstring>comboBox</cstring>
+        <property name="checked">
+         <bool>true</bool>
         </property>
        </widget>
       </item>
       <item>
-       <widget class="QComboBox" name="comboBox">
-        <item>
-         <property name="text">
-          <string>Lanczos 7x7</string>
-         </property>
-        </item>
-        <item>
-         <property name="text">
-          <string>Malvar He Cutler 5x5</string>
-         </property>
-        </item>
-        <item>
-         <property name="text">
-          <string>Lanczos 5x5 green, median chroma</string>
-         </property>
-        </item>
-        <item>
-         <property name="text">
-          <string>Bilinear 3x3</string>
-         </property>
-        </item>
+       <widget class="QRadioButton" name="radioButtonMalvar_He_Cutler_5x5">
+        <property name="text">
+         <string>Malvar He Cutler (5x5)</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QRadioButton" name="radioButtonLanczos_5x5_Green_Median_Chroma">
+        <property name="text">
+         <string>Lanczos 5x5 green, Median Chroma</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QRadioButton" name="radioButtonBilinear_3x3">
+        <property name="text">
+         <string>Bilinear (3x3)</string>
+        </property>
        </widget>
       </item>
      </layout>
     </widget>
    </item>
    <item>
-    <widget class="QCheckBox" name="checkBox">
+    <widget class="QCheckBox" name="checkBoxShow_CFA_Colors">
      <property name="text">
       <string>Show CFA colors at high zoom</string>
      </property>

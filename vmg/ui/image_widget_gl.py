@@ -128,6 +128,14 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         logger.debug("Created shared offscreen OpenGL context")
         self.context_created.emit(offscreen_context)  # noqa
 
+    @QtCore.Slot(bool)
+    def on_show_cfa_colors_toggled(self, is_on: bool):
+        print(f"show_cfa_colors_toggled {is_on}")
+        if self.view_state.show_cfa_colors == is_on:
+            return
+        self.view_state.show_cfa_colors = is_on
+        self.update()
+
     def paint_guide_lines(self, painter:QPainter):
         # --- now draw Qt overlay ---
         painter.setRenderHint(QPainter.RenderHint.Antialiasing, False)

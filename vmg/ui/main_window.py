@@ -27,6 +27,7 @@ from vmg.image_folders import SAVE_IMAGE_FILTERS, SUPPORTED_EXTENSIONS, get_save
     log_successful_load, OPEN_IMAGE_FILTERS, get_load_folder
 from vmg.image_loader import ImageLoader
 from vmg.interfaces import TiledImageLike, InputFormat
+from vmg.ui.demosaic_dialog import DemosaicDialog
 from vmg.ui.lens_dialog import LensDialog
 from vmg.log import LogDialog
 from vmg.natural_sort import natural_sort_key
@@ -230,6 +231,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         # Logging
         self.log_window = LogDialog(self)
         self.lens_dialog = None  # Instantiate just in time
+        self.demosaic_dialog = None
 
     def activate_indexed_image(self):
         try:
@@ -637,7 +639,10 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
 
     @QtCore.Slot()
     def on_actionDemosaic_triggered(self):
-        print("demosaic")
+        if self.demosaic_dialog is None:
+            self.demosaic_dialog = DemosaicDialog(self)
+            self.demosaic_dialog.show_cfa_colors_toggled.connect(self.imageWidgetGL.on_show_cfa_colors_toggled)
+        self.demosaic_dialog.show()
 
     @QtCore.Slot(bool)  # noqa
     def on_actionDual_FisheyeInput_toggled(self, is_checked: bool):  # noqa
