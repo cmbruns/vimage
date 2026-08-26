@@ -1,4 +1,4 @@
-#version 410 core
+#pragma include "shared.frag"
 
 uniform sampler2D bayer;
 
@@ -468,23 +468,6 @@ vec3 mhc_color(vec2 texel)
     // debugging - fractional texel should be X.5
     // result.r = 10 * abs(fract(texel.y) - 0.5);  // should be zero
     return result;
-}
-
-float srgb_from_linear(in float linear)
-{
-    if (linear <= 0.0031308)
-        return linear * 12.92;
-    else
-        return pow(linear, 1.0/2.4) * 1.055 - 0.055;
-}
-
-vec4 srgb_from_linear(in vec4 linear)
-{
-    return vec4(
-        srgb_from_linear(linear.r),
-        srgb_from_linear(linear.g),
-        srgb_from_linear(linear.b),
-        linear.a);
 }
 
 float sinc(float x) {

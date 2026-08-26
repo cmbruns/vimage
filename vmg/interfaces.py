@@ -159,8 +159,12 @@ class TileLike(Protocol):
         ...
 
 
+# Sync with DEMOSAIC_XXX in vmg/glsl/shared.frag
 class DemosaicMethod(enum.Enum):
     LANCZOS_7X7 = 1
+    MALVAR_HE_CUTLER = 2
+    LANCZOS_5x5_GREEN_MEDIAN_CHROMA = 3
+    BILINEAR = 4
 
 
 class InputFormat(enum.Enum):

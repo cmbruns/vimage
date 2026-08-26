@@ -585,7 +585,7 @@ class DngTile(Tile):
                                ["demosaic.vert"],
                                GL.GL_VERTEX_SHADER),
                 compile_shader("vmg.glsl",
-                               ["demosaic.frag"],
+                               ["shared.frag", "demosaic.frag"],
                                GL.GL_FRAGMENT_SHADER),
             )
             GL.glUseProgram(self.demosaic_program)

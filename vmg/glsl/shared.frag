@@ -26,6 +26,12 @@ const int NUMERALS_HEXADECIMAL = 1;
 const int NUMERALS_DECIMAL = 2;
 const int NUMERALS_NONE = 3;
 
+// Sync with DemosaicMethod vmg.interfaces.py
+const int DEMOSAIC_LANCZOS_7X7 = 1;
+const int DEMOSAIC_MALVAR_HE_CUTLER = 2;
+const int DEMOSAIC_LANCZOS_5x5_GREEN_MEDIAN_CHROMA = 3;
+const int DEMOSAIC_BILINEAR = 4;
+
 const vec3 INVALID_USR = vec3(0);
 
 struct TexCoordPair {
