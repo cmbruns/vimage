@@ -54,19 +54,38 @@ vec4 bayer_tint(
     bool rowEven = (texel_rtc.y & 1) == 0;
     bool colEven = (texel_rtc.x & 1) == 0;
     // RGGB Bayer pattern
-    vec4 mask = vec4(1);
+    vec3 mask = vec3(1);
 
     const vec3[3] rgb_tint = vec3[3](
-        vec3(1.0, 0.5, 0.4),  // red
-        vec3(0.4, 1.0, 0.4),  // green
-        vec3(0.25, 0.5, 1.0)  // blue
+        vec3(1.0, 0.2, 0.1),  // red
+        vec3(0.1, 1.0, 0.1),  // green
+        vec3(0.1, 0.2, 1.0)  // blue
+    );
+    // prevent colors from getting completely washed out
+    const vec3[3] rgb_pure = vec3[3](
+        vec3(1.0, 0.0, 0.0),  // red
+        vec3(0.0, 1.0, 0.0),  // green
+        vec3(0.0, 0.0, 1.0)  // blue
     );
 
-    if      ( rowEven &&  colEven) mask = vec4(rgb_tint[cfa_pattern[0]], 1);  // red
-    else if ( rowEven && !colEven) mask = vec4(rgb_tint[cfa_pattern[1]], 1);  // green
-    else if (!rowEven &&  colEven) mask = vec4(rgb_tint[cfa_pattern[2]], 1);  // green
-    else /* if (!rowEven && !colEven) */ mask = vec4(rgb_tint[cfa_pattern[3]], 1);  // blue
-    return bayer_color * mask;
+    vec3 pure;
+    if      ( rowEven &&  colEven) {
+        mask = rgb_tint[cfa_pattern[0]];
+        pure = rgb_pure[cfa_pattern[0]];
+    }  // red
+    else if ( rowEven && !colEven) {
+        mask = rgb_tint[cfa_pattern[1]];
+        pure = rgb_pure[cfa_pattern[0]];
+    }  // green
+    else if (!rowEven &&  colEven) {
+        mask = rgb_tint[cfa_pattern[2]];
+        pure = rgb_pure[cfa_pattern[0]];
+    }  // green
+    else /* if (!rowEven && !colEven) */ {
+        mask = rgb_tint[cfa_pattern[3]];
+        pure = rgb_pure[cfa_pattern[0]];
+    }  // blue
+    return mix(bayer_color * vec4(mask, 1), vec4(0.5 * pure, 1), 0.0);
 }
 
 vec4 equirect_color(sampler2D image, vec2 tex_coord)

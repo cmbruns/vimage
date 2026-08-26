@@ -5,6 +5,7 @@ uniform sampler2D bayer;
 uniform vec3 white_level = vec3(1);
 uniform vec3 as_shot_neutral = vec3(1);
 uniform ivec4 cfa_pattern = ivec4(0, 1, 1, 2);
+uniform int demosaic_method = DEMOSAIC_LANCZOS_7X7;
 
 in vec2 tex_coord;
 out vec4 frag_color;
@@ -572,9 +573,16 @@ void main()
 {
     // Fractional texel
     vec2 texel = tex_coord * textureSize(bayer, 0);
-    // vec3 rgb = lanczos7x7_color(texel);  // better than mhc but softer
-    vec3 rgb = lgmc5_color(texel);
-    // vec3 rgb = mhc_color(texel);  // bad zippering near door
-    // vec3 rgb = linear_color(texel);  // different bad zippering
+    vec3 rgb;
+    if (demosaic_method == DEMOSAIC_LANCZOS_7X7)
+        rgb = lanczos7x7_color(texel);  // better than mhc but softer
+    else if (demosaic_method == DEMOSAIC_MALVAR_HE_CUTLER)
+        rgb = mhc_color(texel);  // bad zippering near door
+    else if (demosaic_method == DEMOSAIC_LANCZOS_5x5_GREEN_MEDIAN_CHROMA)
+        rgb = lgmc5_color(texel);
+    else if (demosaic_method == DEMOSAIC_BILINEAR)
+        rgb = linear_color(texel);  // different bad zippering
+    else
+        rgb = mix(linear_color(texel), vec3(1, 0, 1), 0.75);  // error
     frag_color = vec4(rgb, 1);
 }

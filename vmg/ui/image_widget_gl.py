@@ -130,7 +130,6 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
 
     @QtCore.Slot(bool)
     def on_show_cfa_colors_toggled(self, is_on: bool):
-        print(f"show_cfa_colors_toggled {is_on}")
         if self.view_state.show_cfa_colors == is_on:
             return
         self.view_state.show_cfa_colors = is_on
