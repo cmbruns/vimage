@@ -94,38 +94,35 @@ void main()
 
     vec4 demosaic_color = clip_n_filter(demosaic_tile, p_ttc, pixelFilter, true);
 
-    if (show_cfa_colors) {
-        // TODO: should bayer_color have a sharp transition along the seam?
-        vec4 bayer_color = texture(bayer_tile, p_ttc);
+    // TODO: should bayer_color have a sharp transition along the seam?
+    vec4 bayer_color = texture(bayer_tile, p_ttc);
 
-        // For Bayer mosaic we need to know the parity of this texel
-        //   in the full image, not just the tile.
-        // What's the upper left of the full image in tile coordinates?
-        vec3 ul_full_ttc = tile_X_img * vec3(0, 0, 1);
-        vec2 tile_offset_texels = -ul_full_ttc.xy * textureSize(bayer_tile, 0);
-        vec2 this_texel_in_tile = p_ttc * textureSize(bayer_tile, 0);
-        ivec2 img_texel = ivec2(floor(this_texel_in_tile + tile_offset_texels));
-        bayer_color = bayer_tint(img_texel, bayer_color, cfa_pattern);
+    // For Bayer mosaic we need to know the parity of this texel
+    //   in the full image, not just the tile.
+    // What's the upper left of the full image in tile coordinates?
+    vec3 ul_full_ttc = tile_X_img * vec3(0, 0, 1);
+    vec2 tile_offset_texels = -ul_full_ttc.xy * textureSize(bayer_tile, 0);
+    vec2 this_texel_in_tile = p_ttc * textureSize(bayer_tile, 0);
+    ivec2 img_texel = ivec2(floor(this_texel_in_tile + tile_offset_texels));
+    bayer_color = bayer_tint(img_texel, bayer_color, cfa_pattern);
 
-        // Blend bayer and demosaicked depending on mipmap level
-        // At high zoom the user sees the pure raw DNG mosaic.
-        // At lower zoom, the user sees the demosaicked RGB interpretation.
-        float demosaic_bias = clamp(lod + 10, 0.0, 4.0) * 0.25;  // Blended color between lod 0->1
+    // Blend bayer and demosaicked depending on mipmap level
+    // At high zoom the user sees the pure raw DNG mosaic.
+    // At lower zoom, the user sees the demosaicked RGB interpretation.
+    float demosaic_bias = clamp(lod + 10, 0.0, 4.0) * 0.25;  // Blended color between lod 0->1
 
-        const bool debug = false;
-        if (debug) {
-            // Visualize lods
-            color = vec4(0, demosaic_bias, 0, 1);
-            return;
-            // demosaic_bias = 1.0;  // pure demosaic
-        }
-
-        // Raw sensor color "sns"
-        color = mix(bayer_color, demosaic_color, demosaic_bias);
+    const bool debug = false;
+    if (debug) {
+        // Visualize lods
+        color = vec4(0, demosaic_bias, 0, 1);
+        return;
+        // demosaic_bias = 1.0;  // pure demosaic
     }
-    else {
-        color = demosaic_color;
-    }
+
+    if (! show_cfa_colors) demosaic_bias = 1.0;
+
+    // Raw sensor color "sns"
+    color = mix(bayer_color, demosaic_color, demosaic_bias);
 
     color.a = tca.alpha;
 
