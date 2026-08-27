@@ -25,4 +25,31 @@ class DemosaicDialog(QDialog):
         self.hide()      # just hide the window
 
     demosaic_method_changed = QtCore.Signal(DemosaicMethod)
+
+    @QtCore.Slot(bool)
+    def on_radioButtonBilinear_3x3_toggled(self, checked: bool):
+        if not checked:
+            return
+        self.demosaic_method_changed.emit(DemosaicMethod.BILINEAR)
+
+    @QtCore.Slot(bool)
+    def on_radioButtonLanczos_5x5_Green_Median_Chroma_toggled(self, checked: bool):
+        if not checked:
+            return
+        print(DemosaicMethod.LANCZOS_5x5_GREEN_MEDIAN_CHROMA)
+        self.demosaic_method_changed.emit(DemosaicMethod.LANCZOS_5x5_GREEN_MEDIAN_CHROMA)
+
+    @QtCore.Slot(bool)
+    def on_radioButtonLanczos7x7_toggled(self, checked: bool):
+        if not checked:
+            return
+        self.demosaic_method_changed.emit(DemosaicMethod.LANCZOS_7X7)
+
+    @QtCore.Slot(bool)
+    def on_radioButtonMalvar_He_Cutler_5x5_toggled(self, checked: bool):
+        if not checked:
+            return
+        print(DemosaicMethod.MALVAR_HE_CUTLER)
+        self.demosaic_method_changed.emit(DemosaicMethod.MALVAR_HE_CUTLER)
+
     show_cfa_colors_toggled = QtCore.Signal(bool)

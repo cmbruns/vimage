@@ -10,7 +10,7 @@ from PySide6.QtGui import Qt
 
 from vmg.frame import DimensionsQwn, LocationHpd, LocationUsr, LocationNic, LocationOpx, LocationGeo, \
     LocationPrj, LocationQwn, LocationRelative, DimensionsOpx
-from vmg.interfaces import TiledImageLike, RenderStateLike, InputFormat
+from vmg.interfaces import TiledImageLike, RenderStateLike, InputFormat, DemosaicMethod
 from vmg.pixel_filter import PixelFilter, PixelNumerals
 from vmg.display_projection import DisplayProjection
 from vmg.selection_box import SelectionBox, CursorHolder
@@ -35,6 +35,7 @@ class ViewState(
         self.vss = ViewStateSignaller()
         self._background_color = [0.5, 0.5, 0.5, 0]
         self.brightness = 0.0  # EV
+        self.demosaic_method = DemosaicMethod.LANCZOS_7X7
         self._size_qwn = DimensionsQwn(window_size.width(), window_size.height())
         self.display_projection = DisplayProjection.STEREOGRAPHIC
         self._zoom = 1.0  # windows per image

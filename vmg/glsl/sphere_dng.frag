@@ -64,6 +64,7 @@ void main()
     // then to physical camera frame 3D direction (raw)
     vec3 p_pcm = pcm_rot_geo * geo_rot_usr * p_usr;
 
+    // TODO: allow manual front/rear bias adjustment
     TexCoordAlpha tca = rtc_for_pcm(
             p_pcm,
             DUAL_FISHEYE_INPUT_FORMAT,
@@ -76,12 +77,13 @@ void main()
     if (tca.alpha == 0.0) discard;
 
     vec2 p_rtc = tca.p_rtc;
+    vec2 p_ttc = ttc_for_rtc(tile_X_img, p_rtc);  // Tile texture coordinate
 
     // Compute lod before bounds clip,
     // to avoid derivative problems near the edges.
+    // TODO using p_rtc for lod avoids tile boundary artifacts
+    // but using p_ttc gives more accurate lods.
     float lod = textureQueryLod(demosaic_tile, p_rtc).y;
-
-    vec2 p_ttc = ttc_for_rtc(tile_X_img, p_rtc);  // Tile texture coordinate
 
     // Clip to tile
     if (p_ttc.x < uv_bounds[0]
@@ -89,8 +91,6 @@ void main()
         || p_ttc.x > uv_bounds[2]
         || p_ttc.y > uv_bounds[3])
     discard;
-
-    // TODO: allow manual front/rear bias adjustment
 
     vec4 demosaic_color = clip_n_filter(demosaic_tile, p_ttc, pixelFilter, true);
 

@@ -64,6 +64,7 @@ class RenderStateLike(Protocol):
 
     anisotropic_filtering: bool
     brightness: Float
+    demosaic_method: DemosaicMethod
     display_projection: DisplayProjection
     pixel_filter: PixelFilter
     pixel_numerals: PixelNumerals

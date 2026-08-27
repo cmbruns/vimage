@@ -53,6 +53,7 @@ class DngUniforms(UniformGroup):
         self.add(Uniform("as_shot_neutral", GL.glUniform3f))
         self.add(Uniform("lsr_X_wba", GL.glUniformMatrix3fv))
         self.add(Uniform("cfa_pattern", GL.glUniform4i))
+        self.add(Uniform("demosaic_method", GL.glUniform1i))
 
     def set(self, image: TiledImageLike):
         self["black_level"].set(*image.md.black_level)
@@ -60,6 +61,7 @@ class DngUniforms(UniformGroup):
         self["as_shot_neutral"].set(*image.md.as_shot_neutral)
         self["lsr_X_wba"].set(1, True, image.md.lsr_X_wba)
         self["cfa_pattern"].set(*image.md.cfa_pattern)
+        self["demosaic_method"].set(image.demosaic_method.value)
 
 
 class TileUniforms(UniformGroup):

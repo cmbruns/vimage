@@ -9,7 +9,7 @@ from PySide6.QtCore import QEvent, Qt, QPoint
 from PySide6.QtGui import QPainter, QPen, QColor, QAction
 from PySide6.QtWidgets import QGestureEvent, QSwipeGesture, QPinchGesture
 
-from vmg.interfaces import TiledImageLike, InputFormat, PhotometricScale
+from vmg.interfaces import TiledImageLike, InputFormat, PhotometricScale, DemosaicMethod, RenderStateLike
 from vmg.offscreen_context import OffscreenContext
 from vmg.selection_box import (CursorHolder)
 from vmg.state import ViewState
@@ -37,7 +37,7 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
         self.sphere_dng_shader = SphericalDngShader()
         self.rect_dng_shader = RectangularDngShader()
         self.program: IImageShader = self.rect_tile_shader
-        self.view_state = ViewState(window_size=self.size())
+        self.view_state: RenderStateLike = ViewState(window_size=self.size())
         self.view_state.vss.cursor_changed.connect(self.change_cursor)
         self.view_state.vss.request_message.connect(self.request_message)
         self.view_state.sel_rect.selection_shown.connect(self.update)
@@ -127,6 +127,18 @@ class ImageWidgetGL(QtOpenGLWidgets.QOpenGLWidget):
             offscreen_context.context.moveToThread(main_window.loading_thread)
         logger.debug("Created shared offscreen OpenGL context")
         self.context_created.emit(offscreen_context)  # noqa
+
+    @QtCore.Slot(DemosaicMethod)
+    def on_demosaic_method_changed(self, demosaic_method: DemosaicMethod):
+        if self.view_state.demosaic_method == demosaic_method:
+            return
+        self.view_state.demosaic_method = demosaic_method
+        try:
+            self.makeCurrent()
+            if self.image.update_demosaic_method_gl(demosaic_method):
+                self.update()
+        finally:
+            self.doneCurrent()
 
     @QtCore.Slot(bool)
     def on_show_cfa_colors_toggled(self, is_on: bool):

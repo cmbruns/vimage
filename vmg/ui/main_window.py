@@ -642,6 +642,7 @@ class VimageMainWindow(Ui_MainWindow, QtWidgets.QMainWindow):
         if self.demosaic_dialog is None:
             self.demosaic_dialog = DemosaicDialog(self)
             self.demosaic_dialog.show_cfa_colors_toggled.connect(self.imageWidgetGL.on_show_cfa_colors_toggled)
+            self.demosaic_dialog.demosaic_method_changed.connect(self.imageWidgetGL.on_demosaic_method_changed)
         self.demosaic_dialog.show()
 
     @QtCore.Slot(bool)  # noqa

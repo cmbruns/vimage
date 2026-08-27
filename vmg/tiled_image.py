@@ -25,7 +25,7 @@ import tifffile
 from vmg.load_progress import LoadProgress
 from vmg.metadata import ImageMetadata
 from vmg.exif_orientation import ExifOrientation
-from vmg.interfaces import TiledImageLike, TileLike, PhotometricScale
+from vmg.interfaces import TiledImageLike, TileLike, PhotometricScale, DemosaicMethod
 from vmg.uniforms import DngUniforms
 from vmg.shader_exception import compile_shader
 
@@ -90,6 +90,7 @@ class TiledImage(TiledImageLike):
         self.load_progress = LoadProgress.NONE
         self.array = None
         self.pil_image = None
+        self.demosaic_method = DemosaicMethod.LANCZOS_7X7
 
     def initialize_gl(self):
         if self.md.cfa_pattern != (-1, -1, -1, -1):
@@ -187,6 +188,14 @@ class TiledImage(TiledImageLike):
     def set_progress(self, progress: LoadProgress):
         self.load_progress = progress
         self.sq.progress_changed.emit(progress.value, self)  # noqa
+
+    def update_demosaic_method_gl(self, demosaic_method: DemosaicMethod):
+        result = False
+        self.demosaic_method = demosaic_method
+        for tile in self.tiles:
+            if tile.update_demosaic_method_gl(demosaic_method):
+                result = True
+        return result
 
 
 class TileCreateInfo:
@@ -492,70 +501,18 @@ class DngTile(Tile):
         self.bayer_array = tci.image.array
         self.demosaic_texture_id = None
         self.render_vao = None
+        self.demosaic_method = DemosaicMethod.LANCZOS_7X7
 
-    def initialize_gl(self):
-        self.vbo = GL.glGenBuffers(1)  # noqa
-        GL.glBindBuffer(GL.GL_ARRAY_BUFFER, self.vbo)
-        GL.glBufferData(GL.GL_ARRAY_BUFFER, len(self.vertexes) * sizeof(c_float), self.vertexes, GL.GL_STATIC_DRAW)
-        self.bayer_texture_id = GL.glGenTextures(1)  # noqa
-        self.texture_id = self.bayer_texture_id
-        GL.glBindTexture(GL.GL_TEXTURE_2D, self.bayer_texture_id)
-        GL.glPixelStorei(GL.GL_UNPACK_ALIGNMENT, 1)  # In case width is odd
-        bayer_w, bayer_h = self.tci.image.md.size_rpx
-        GL.glPixelStorei(GL.GL_UNPACK_ROW_LENGTH, int(bayer_w))
-        GL.glPixelStorei(GL.GL_UNPACK_SKIP_PIXELS, self.tci.left - self.tci.left_pad)
-        GL.glPixelStorei(GL.GL_UNPACK_SKIP_ROWS, self.tci.top - self.tci.top_pad)
+    def update_demosaic_method_gl(self, demosaic_method: DemosaicMethod) -> bool:
+        if self.demosaic_method == demosaic_method:
+            return False
+        self.demosaic_method = demosaic_method
+        self._update_demosaic_gl()
+        return True
 
-        GL.glTexImage2D(
-            GL.GL_TEXTURE_2D,
-            0,  # base mipmap
-            GL.GL_R16,  # single channel
-            self.padded_width,
-            self.padded_height,
-            0,  # border
-            GL.GL_RED,
-            GL.GL_UNSIGNED_SHORT,  # 16 bit
-            self.bayer_array,
-        )
-
-        # We always want literally exact texel values, and no mipmapping
-        GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_NEAREST)
-        GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_NEAREST)
-        # Make all fetches outside the texture return transparent black
-        GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_S, GL.GL_CLAMP_TO_BORDER)
-        GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_T, GL.GL_CLAMP_TO_BORDER)
-        GL.glTexParameterfv(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_BORDER_COLOR, [0, 0, 0, 0])
-        # Fill all three channels R, G, B with the one intensity
-        GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_SWIZZLE_R, GL.GL_RED)
-        GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_SWIZZLE_G, GL.GL_RED)
-        GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_SWIZZLE_B, GL.GL_RED)
-        GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_SWIZZLE_A, GL.GL_ONE)
-
-        # Construct a second downsampled demosaic texture for zoomed out visualization
-        # Theoretical mipmap level 1 size
-        demosaic_w = max(1, self.padded_width)
-        demosaic_h = max(1, self.padded_height)
-        # Create framebuffer
-        if self.demosaic_framebuffer is None:
-            self.demosaic_framebuffer = GL.glGenFramebuffers(1)  # noqa
-            self.demosaic_vao = GL.glGenVertexArrays(1)  # noqa
+    def _update_demosaic_gl(self):
         GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, self.demosaic_framebuffer)
-        # Create demosaic color texture
-        self.demosaic_texture_id = GL.glGenTextures(1)  # noqa
         GL.glBindTexture(GL.GL_TEXTURE_2D, self.demosaic_texture_id)
-        GL.glPixelStorei(GL.GL_UNPACK_ALIGNMENT, 1)  # In case width is odd
-        # Allocate storage for level 0 of demosaic tile (RGB float)
-        GL.glTexImage2D(
-            GL.GL_TEXTURE_2D,
-            0,  # mip level
-            GL.GL_RGBA16,  # internal format
-            demosaic_w,
-            demosaic_h,
-            0,  # border
-            GL.GL_RGBA,  # upload format
-            GL.GL_UNSIGNED_SHORT,  # upload type
-            None  # no initial data
-        )
         # Attach texture to framebuffer
         GL.glFramebufferTexture2D(
             GL.GL_FRAMEBUFFER,
@@ -570,15 +527,70 @@ class DngTile(Tile):
         status = GL.glCheckFramebufferStatus(GL.GL_FRAMEBUFFER)
         if status != GL.GL_FRAMEBUFFER_COMPLETE:
             raise RuntimeError(f"Framebuffer incomplete: 0x{status:X}")
-
         # Populate the demosaic texture
         GL.glBindVertexArray(self.demosaic_vao)
+        demosaic_w = max(1, self.padded_width)
+        demosaic_h = max(1, self.padded_height)
         GL.glViewport(0, 0, demosaic_w, demosaic_h)
         # Render
         GL.glClearColor(0.0, 0.0, 0.0, 0.0)
         GL.glClear(GL.GL_COLOR_BUFFER_BIT)
         GL.glBindTexture(GL.GL_TEXTURE_2D, self.bayer_texture_id)
+        GL.glUseProgram(self.demosaic_program)
+        self.uDng.set(self.tci.image)
+        GL.glDrawArrays(GL.GL_TRIANGLE_STRIP, 0, 4)
+        # Generate demosaic mipmaps
+        GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, 0)
+        GL.glBindTexture(GL.GL_TEXTURE_2D, self.demosaic_texture_id)
+        GL.glGenerateMipmap(GL.GL_TEXTURE_2D)
+        # We do catrom filtering in-shadero, so use GL_NEAREST for now
+        GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_NEAREST)
+        GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_LINEAR_MIPMAP_LINEAR)
+        # Anisotropic filtering
+        f_largest = GL.glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT)  # noqa
+        GL.glTexParameterf(GL.GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, f_largest)
 
+    def initialize_gl(self):
+        self.vbo = GL.glGenBuffers(1)  # noqa
+        GL.glBindBuffer(GL.GL_ARRAY_BUFFER, self.vbo)
+        GL.glBufferData(GL.GL_ARRAY_BUFFER, len(self.vertexes) * sizeof(c_float), self.vertexes, GL.GL_STATIC_DRAW)
+        self.bayer_texture_id = GL.glGenTextures(1)  # noqa
+        self.texture_id = self.bayer_texture_id
+        GL.glBindTexture(GL.GL_TEXTURE_2D, self.bayer_texture_id)
+        GL.glPixelStorei(GL.GL_UNPACK_ALIGNMENT, 1)  # In case width is odd
+        bayer_w, bayer_h = self.tci.image.md.size_rpx
+        GL.glPixelStorei(GL.GL_UNPACK_ROW_LENGTH, int(bayer_w))
+        GL.glPixelStorei(GL.GL_UNPACK_SKIP_PIXELS, self.tci.left - self.tci.left_pad)
+        GL.glPixelStorei(GL.GL_UNPACK_SKIP_ROWS, self.tci.top - self.tci.top_pad)
+        GL.glTexImage2D(
+            GL.GL_TEXTURE_2D,
+            0,  # base mipmap
+            GL.GL_R16,  # single channel
+            self.padded_width,
+            self.padded_height,
+            0,  # border
+            GL.GL_RED,
+            GL.GL_UNSIGNED_SHORT,  # 16 bit
+            self.bayer_array,
+        )
+        # We always want literally exact texel values, and no mipmapping
+        GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_NEAREST)
+        GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_NEAREST)
+        # Make all fetches outside the texture return transparent black
+        GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_S, GL.GL_CLAMP_TO_BORDER)
+        GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_T, GL.GL_CLAMP_TO_BORDER)
+        GL.glTexParameterfv(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_BORDER_COLOR, [0, 0, 0, 0])
+        # Fill all three channels R, G, B with the one intensity
+        GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_SWIZZLE_R, GL.GL_RED)
+        GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_SWIZZLE_G, GL.GL_RED)
+        GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_SWIZZLE_B, GL.GL_RED)
+        GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_SWIZZLE_A, GL.GL_ONE)
+
+        # Create framebuffer
+        if self.demosaic_framebuffer is None:
+            self.demosaic_framebuffer = GL.glGenFramebuffers(1)  # noqa
+            self.demosaic_vao = GL.glGenVertexArrays(1)  # noqa
+        GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, self.demosaic_framebuffer)
         if self.demosaic_program is None:
             self.demosaic_program = compileProgram(
                 compile_shader("vmg.glsl",
@@ -591,20 +603,26 @@ class DngTile(Tile):
             GL.glUseProgram(self.demosaic_program)
             self.uDng.get_location(self.demosaic_program)
             self.uDng.set(self.tci.image)
-        GL.glUseProgram(self.demosaic_program)
-        self.uDng.set(self.tci.image)
-        GL.glDrawArrays(GL.GL_TRIANGLE_STRIP, 0, 4)
-
-        # Generate demosaic mipmaps
-        GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, 0)
+        # Construct a second downsampled demosaic texture for zoomed out visualization
+        self.demosaic_texture_id = GL.glGenTextures(1)  # noqa
         GL.glBindTexture(GL.GL_TEXTURE_2D, self.demosaic_texture_id)
-        GL.glGenerateMipmap(GL.GL_TEXTURE_2D)
-        # We do catrom filtering in-shadero, so use GL_NEAREST for now
-        GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_NEAREST)
-        GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_LINEAR_MIPMAP_LINEAR)
-        # Anisotropic filtering
-        f_largest = GL.glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT)  # noqa
-        GL.glTexParameterf(GL.GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, f_largest)
+        GL.glPixelStorei(GL.GL_UNPACK_ALIGNMENT, 1)  # In case width is odd
+        # Allocate storage for level 0 of demosaic tile (RGB float)
+        demosaic_w = max(1, self.padded_width)
+        demosaic_h = max(1, self.padded_height)
+        GL.glTexImage2D(
+            GL.GL_TEXTURE_2D,
+            0,  # mip level
+            GL.GL_RGBA16,  # internal format
+            demosaic_w,
+            demosaic_h,
+            0,  # border
+            GL.GL_RGBA,  # upload format
+            GL.GL_UNSIGNED_SHORT,  # upload type
+            None  # no initial data
+        )
+
+        self._update_demosaic_gl()
 
         # TODO: so much duplicated code
         self.boundary_ebo = GL.glGenBuffers(1)  # noqa
