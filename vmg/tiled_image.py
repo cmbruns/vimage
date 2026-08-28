@@ -90,7 +90,7 @@ class TiledImage(TiledImageLike):
         self.load_progress = LoadProgress.NONE
         self.array = None
         self.pil_image = None
-        self.demosaic_method = DemosaicMethod.LANCZOS_7X7
+        self.demosaic_method = DemosaicMethod.DEFAULT
 
     def initialize_gl(self):
         if self.md.cfa_pattern != (-1, -1, -1, -1):
@@ -501,7 +501,7 @@ class DngTile(Tile):
         self.bayer_array = tci.image.array
         self.demosaic_texture_id = None
         self.render_vao = None
-        self.demosaic_method = DemosaicMethod.LANCZOS_7X7
+        self.demosaic_method = DemosaicMethod.DEFAULT
 
     def update_demosaic_method_gl(self, demosaic_method: DemosaicMethod) -> bool:
         if self.demosaic_method == demosaic_method:

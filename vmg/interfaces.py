@@ -166,6 +166,7 @@ class DemosaicMethod(enum.Enum):
     MALVAR_HE_CUTLER = 2
     LANCZOS_5x5_GREEN_MEDIAN_CHROMA = 3
     BILINEAR = 4
+    DEFAULT = LANCZOS_7X7
 
 
 class InputFormat(enum.Enum):

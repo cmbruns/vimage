@@ -35,7 +35,7 @@ class ViewState(
         self.vss = ViewStateSignaller()
         self._background_color = [0.5, 0.5, 0.5, 0]
         self.brightness = 0.0  # EV
-        self.demosaic_method = DemosaicMethod.LANCZOS_7X7
+        self.demosaic_method = DemosaicMethod.DEFAULT
         self._size_qwn = DimensionsQwn(window_size.width(), window_size.height())
         self.display_projection = DisplayProjection.STEREOGRAPHIC
         self._zoom = 1.0  # windows per image

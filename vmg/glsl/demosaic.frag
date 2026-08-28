@@ -60,6 +60,23 @@ vec3 mask_for_cfa(int cfa) {
     else return vec3(0);
 }
 
+int rgb_for_cfa(int cfa) {
+    int result;
+    switch (cfa) {
+        case CFA_RED:
+            result = 0;
+            break;
+        case CFA_GREEN1:
+        case CFA_GREEN2:
+            result = 1;
+            break;
+        case CFA_BLUE:
+        default:
+            result = 2;
+    }
+    return result;
+}
+
 // RGGB aware manual clamp to edge
 // Find the closest in-bounds texel matching the parity of the logical texel
 ivec2 rggb_clamp_to_edge(ivec2 xy)
@@ -466,8 +483,7 @@ vec3 mhc_color(vec2 texel)
             result = vec3(0, 1, 1);  // MAGENTA should not happen
         }
     }
-    // debugging - fractional texel should be X.5
-    // result.r = 10 * abs(fract(texel.y) - 0.5);  // should be zero
+    result.rgb *= MHC_SCALE;
     return result;
 }
 
