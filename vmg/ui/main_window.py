@@ -16,6 +16,7 @@ import time
 import PIL
 from PIL import Image, ImageGrab
 from pillow_heif import register_heif_opener  # Support apple .HEIF images
+import pillow_minecraft_map
 from PySide6 import QtCore, QtGui, QtWidgets
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QUndoStack, QKeySequence

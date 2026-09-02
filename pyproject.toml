@@ -14,6 +14,7 @@ dependencies = [
     "pyinstaller",  # for building releases of vimage
     "pillow",  # for image loading and processing
     "pillow-heif",  # for loading iPhone camera images
+    "pillow-minecraft-map",  # for loading Minecraft map info .dat images
     "pyopengl",  # for low level graphics programming
     "pyopengl-accelerate",
     "pyside6",  # Qt 6 UI and so much more
